@@ -19,10 +19,14 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
+    "@fontsource/bebas-neue": "^5.0.18",
     "@mantine/core": "7.3.1",
     "@mantine/hooks": "7.3.1",
+    "@reduxjs/toolkit": "^2.0.1",
+    "@tabler/icons-react": "^2.43.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-redux": "^9.0.3",
     "react-router-dom": "^6.18.0"
   },
   "devDependencies": {
