@@ -1,10 +1,15 @@
-import { Group, Image, Text } from '@mantine/core';
-import logo from './logo.svg';
+import { Group, Image, MantineColor, Text } from '@mantine/core';
+import logoBlue from './logo-blue.svg';
+import logoRed from './logo-red.svg';
 
-export default function Logo() {
+interface Props {
+  color: MantineColor;
+}
+
+export default function Logo({ color }: Props) {
   return (
     <Group gap="xs" align="center">
-      <Image src={logo} h={36} />
+      <Image src={color === 'blue' ? logoBlue : logoRed} h={36} />
       <Text size="2.2rem" ff="Bebas Neue">
         Raw Football Potential
       </Text>

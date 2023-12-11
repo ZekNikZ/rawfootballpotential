@@ -1,10 +1,4 @@
-import {
-  ActionIcon,
-  Button,
-  Group,
-  useComputedColorScheme,
-  useMantineColorScheme,
-} from '@mantine/core';
+import { ActionIcon, useComputedColorScheme, useMantineColorScheme } from '@mantine/core';
 import { IconMoon, IconSun } from '@tabler/icons-react';
 
 export function ColorSchemeToggle() {
@@ -15,14 +9,13 @@ export function ColorSchemeToggle() {
     <ActionIcon
       variant="default"
       aria-label="Toggle color scheme"
-      onClick={() => setColorScheme(computedColorScheme == 'light' ? 'dark' : 'light')}
+      onClick={() => setColorScheme(computedColorScheme === 'light' ? 'dark' : 'light')}
       size="lg"
-      style={{ justifySelf: 'end' }}
     >
-      {computedColorScheme == 'light' && (
+      {computedColorScheme === 'light' && (
         <IconMoon style={{ width: '70%', height: '70%' }} stroke={1.5} />
       )}
-      {computedColorScheme == 'dark' && (
+      {computedColorScheme === 'dark' && (
         <IconSun style={{ width: '70%', height: '70%' }} stroke={1.5} />
       )}
     </ActionIcon>

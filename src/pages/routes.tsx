@@ -17,6 +17,8 @@ import {
 } from '@tabler/icons-react';
 import { HomePage } from './Home.page';
 import { BlogPage } from './Blog.page';
+import { StandingsPage } from './Standings.pages';
+import { LeagueDefinition } from '../leaguesData';
 
 export interface RouteData {
   path: string;
@@ -26,13 +28,12 @@ export interface RouteData {
     label?: string;
     icon: React.ReactNode;
     shouldHighlight?: (pathname: string) => boolean;
-    // TODO: use the correct type here
-    isAvailable?: (league: any) => boolean;
+    isAvailable?: (league: LeagueDefinition) => boolean;
   };
   children?: RouteData[];
 }
 
-function makeIcon(Icon: React.FC<TablerIconsProps>): React.ReactNode {
+export function makeIcon(Icon: React.FC<TablerIconsProps>): React.ReactNode {
   return <Icon size="1rem" stroke={1.5} />;
 }
 
@@ -56,7 +57,7 @@ const routes: RouteData[] = [
   {
     path: '/standings',
     title: 'Standings',
-    element: <HomePage />,
+    element: <StandingsPage />,
     navbarProperties: {
       icon: makeIcon(IconListNumbers),
     },
