@@ -16,6 +16,7 @@ import {
   TablerIconsProps,
 } from '@tabler/icons-react';
 import { HomePage } from './Home.page';
+import { BlogPage } from './Blog.page';
 
 export interface RouteData {
   path: string;
@@ -47,7 +48,7 @@ const routes: RouteData[] = [
   {
     path: '/blog',
     title: 'Blog',
-    element: <HomePage />,
+    element: <BlogPage />,
     navbarProperties: {
       icon: makeIcon(IconArticle),
     },
