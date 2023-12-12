@@ -19,6 +19,7 @@ import { HomePage } from './Home.page';
 import { BlogPage } from './Blog.page';
 import { StandingsPage } from './Standings.pages';
 import { LeagueDefinition } from '../leaguesData';
+import { MatchupsPage } from './Matchups.pages';
 
 export interface RouteData {
   path: string;
@@ -65,7 +66,7 @@ const routes: RouteData[] = [
   {
     path: '/matchups',
     title: 'Matchups',
-    element: <HomePage />,
+    element: <MatchupsPage />,
     navbarProperties: {
       icon: makeIcon(IconVs),
     },

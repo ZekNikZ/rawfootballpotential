@@ -29,7 +29,7 @@ export type Position =
   | 'SUPER_FLEX'
   | 'IDP_FLEX';
 
-export interface Season {
+export interface League {
   leagueId: LeagueId;
   name: string;
   previousLeagueId?: string | null;
@@ -38,25 +38,69 @@ export interface Season {
   teams: Record<RosterId, Team>;
   year: number;
   seasonType: string;
-  regularSeasonMatchups: Matchup[];
-  playoffMatchups: Matchup[];
+  matchups: Matchup[];
   playoffStructure: Bracket;
   toiletBowlStructure?: Bracket;
   transactions: Transaction[] | null;
   tradedPicks: TradedPick[] | null;
   divisions: string[] | null;
-  managers: Record<ManagerId, Manager>;
+  divisionAvatars: string[] | null;
+  currentManagers: Record<ManagerId, Manager>;
   status: 'in_season' | 'complete';
   waiverType: 'normal' | 'faab';
   waiverMaxBudget: number | null;
   rosterPositions: Position[];
   playoffSpots: number;
+  playoffWeekStart: number;
+  currentWeek: number;
+  allManagers: Record<ManagerId, Manager>;
+  previousSeasons: Record<number, PreviousSeason>;
+  previousDrafts: Record<DraftId, Draft>;
+  records: FantasyRecord[];
+  trophies: Record<ManagerId, Trophy[] | undefined>;
 }
 
-export interface League extends Season {
-  previousSeasons: Record<number, Season>;
-  records: FantasyRecord[];
-  drafts: Record<DraftId, Draft>;
+export interface PreviousSeason {
+  leagueId: LeagueId | null;
+  name: string;
+  previousLeagueId?: string | null;
+  sport: 'nfl';
+  teamCount: number;
+  teams: Record<RosterId, PreviousTeam>;
+  year: number;
+  matchups: Matchup[] | null;
+  playoffStructure: Bracket | null;
+  toiletBowlStructure?: Bracket | null;
+  divisions: string[] | null;
+  divisionAvatars: string[] | null;
+  currentManagers: Record<ManagerId, Manager>;
+  status: 'complete';
+  waiverType: 'normal' | 'faab' | null;
+  waiverMaxBudget: number | null;
+  rosterPositions: Position[] | null;
+  playoffSpots: number | null;
+  playoffWeekStart: number | null;
+}
+
+export interface PreviousTeam {
+  rosterId: RosterId;
+  leagueId: LeagueId;
+  managerId: ManagerId;
+  name: string;
+  avatarURL: string | null;
+  players: NFLPlayerId[] | null;
+  reserve: NFLPlayerId[] | null;
+  wins: number | null;
+  losses: number | null;
+  ties: number | null;
+  record: ('L' | 'W' | 'T')[] | null;
+  streak: string | null;
+  overallPointsFor: number | null;
+  overallPointsAgainst: number | null;
+  overallMaxPoints: number | null;
+  waiverBudgetUsed: number | null;
+  totalRosterMoves: number | null;
+  division: number | null;
 }
 
 export interface NFLData {
@@ -69,8 +113,8 @@ export interface Manager {
   username: string;
   displayName: string;
   currentTeamName: string;
+  currentTeamAvatarURL: string;
   avatarURL: string;
-  trophies: Trophy[];
 }
 
 export interface NFLTeam {
@@ -99,6 +143,7 @@ export interface Team {
   leagueId: LeagueId;
   managerId: ManagerId;
   name: string;
+  avatarURL: string;
   players: NFLPlayerId[];
   reserve: NFLPlayerId[];
   wins: number;
@@ -162,13 +207,13 @@ export interface Matchup {
   leagueId: LeagueId;
   week: number;
   team1: MatchupTeam;
-  team2: MatchupTeam;
+  team2: MatchupTeam | 'BYE' | 'TBD';
 }
 
 export interface MatchupTeam {
-  teamId: RosterId;
+  rosterId: RosterId;
   points: number;
-  player: NFLPlayerId[];
+  players: NFLPlayerId[];
   starters: NFLPlayerId[];
   playerPoints: Record<NFLPlayerId, number>;
 }

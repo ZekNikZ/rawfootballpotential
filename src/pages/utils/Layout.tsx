@@ -12,7 +12,7 @@ import {
   Text,
 } from '@mantine/core';
 import { useDisclosure, useDocumentTitle } from '@mantine/hooks';
-import { IconChevronDown, IconChevronRight, IconRefresh, IconReload } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronRight, IconRefresh } from '@tabler/icons-react';
 import { Fragment, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -29,7 +29,7 @@ import { setCurrentLeague } from '../../data/leagues/leagueSlice';
 export default function Layout() {
   useDocumentTitle('Raw Football Potential');
 
-  const [opened, { toggle }] = useDisclosure();
+  const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -169,7 +169,10 @@ export default function Layout() {
                     route.navbarProperties?.shouldHighlight?.(pathname) ||
                     (pathname === route.path && !route.children)
                   }
-                  onClick={() => navigate(route.path)}
+                  onClick={() => {
+                    navigate(route.path);
+                    if (!route.children) close();
+                  }}
                 />
                 {route.children && (
                   <Collapse key={`${route.path}-collapse`} in={pathname.startsWith(route.path)}>
@@ -198,7 +201,10 @@ export default function Layout() {
                             subroute.navbarProperties?.shouldHighlight?.(pathname) ||
                             pathname === subroute.path
                           }
-                          onClick={() => navigate(subroute.path)}
+                          onClick={() => {
+                            navigate(subroute.path);
+                            close();
+                          }}
                         />
                       ))}
                   </Collapse>

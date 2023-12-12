@@ -3,9 +3,9 @@ import { setLoading } from './loadingSlice';
 import { setNFLData } from './nfl/nflSlice';
 import { loadNFLData } from './nfl/nflLoader';
 import leagues from '../leaguesData';
-import { loadSeason } from './leagues/leagueLoader';
+import { loadLeague } from './leagues/leagueLoader';
 import { setLeagueData } from './leagues/leagueSlice';
-import { League, Season } from './types';
+import { League } from './types';
 
 export default async function loader(
   dispatch: Dispatch<UnknownAction>,
@@ -25,12 +25,9 @@ export default async function loader(
     dispatch(setLoading('league data'));
 
     // Load league data
-    const seasonsData: Season[] = await Promise.all(
-      leagues.map(async (league) => loadSeason(league.id))
+    const leaguesData: League[] = await Promise.all(
+      leagues.map(async (league) => loadLeague(league.id))
     );
-
-    // Compute records
-    const leaguesData = seasonsData as League[];
 
     dispatch(setLeagueData(leaguesData));
   }
