@@ -24,7 +24,7 @@ export function StandingsPage() {
     ].map(([i, team]) => [
       i + 1,
       <Group gap="xs" key={team.name}>
-        <Avatar src={team.avatarURL} />
+        <Avatar variant="filled" src={team.avatarURL} />
         <Stack gap={0}>
           <b>{team.name}</b>
           <em>{league.currentManagers[team.managerId].displayName}</em>
@@ -69,7 +69,7 @@ export function StandingsPage() {
     ].map(([i, team]) => [
       i + 1,
       <Group gap="xs" key={team.name}>
-        <Avatar src={team.avatarURL} />
+        <Avatar variant="filled" src={team.avatarURL} />
         <Stack gap={0}>
           <b>{team.name}</b>
           <em>{league.currentManagers[team.managerId].displayName}</em>
@@ -92,7 +92,7 @@ export function StandingsPage() {
 
   return (
     <Stack gap="md">
-      <Title>{league.year} Standings</Title>
+      <Title ta={{ base: 'center', sm: 'left' }}>{league.year} Standings</Title>
       <Table.ScrollContainer minWidth={800}>
         <Table striped highlightOnHover>
           <Table.Thead>

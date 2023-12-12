@@ -53,6 +53,7 @@ export interface League {
   playoffSpots: number;
   playoffWeekStart: number;
   currentWeek: number;
+  totalWeekCount: number;
   allManagers: Record<ManagerId, Manager>;
   previousSeasons: Record<number, PreviousSeason>;
   previousDrafts: Record<DraftId, Draft>;
@@ -80,6 +81,7 @@ export interface PreviousSeason {
   rosterPositions: Position[] | null;
   playoffSpots: number | null;
   playoffWeekStart: number | null;
+  totalWeekCount: number | null;
 }
 
 export interface PreviousTeam {
@@ -127,6 +129,7 @@ export interface NFLPlayer {
   playerId: NFLPlayerId;
   firstName: string;
   lastName: string;
+  fullName: string;
   positions: Position[];
   age: number | null;
   teamId: NFLTeamId | null;
@@ -190,17 +193,25 @@ export interface Transaction {
   transactionId: TransactionId;
   type: 'trade' | 'free_agent' | 'waiver';
   involvedTeams: RosterId[];
-  timestamp: Date;
-  adds: TradedPlayer[];
-  drops: TradedPlayer[];
-  draftPicks: TradedPick[];
-  waiverBudget: {}[];
+  week: number;
+  timestamp: number;
+  movements: TransactionItem[];
 }
 
-export interface TradedPlayer {
-  playerId: NFLPlayerId;
-  newTeam: RosterId;
-}
+export type TransactionItem =
+  | {
+      type: 'player';
+      playerId: NFLPlayerId;
+      fromTeam: RosterId | null;
+      toTeam: RosterId | null;
+    }
+  | { type: 'waiver_budget'; fromTeam: RosterId; toTeam: RosterId; amount: number }
+  | ({
+      type: 'pick';
+      pick: TradedPick;
+      fromTeam: RosterId;
+      toTeam: RosterId;
+    } & TradedPick);
 
 export interface Matchup {
   matchupId: MatchupId;
@@ -226,14 +237,17 @@ export interface BracketMatch {
   round: number;
   matchupId: MatchupId;
   team1:
-    | { source: 'determined'; teamId: RosterId }
-    | { source: 'previous-match'; matchId: MatchupId };
+    | { source: 'determined'; rosterId: RosterId }
+    | { source: 'previous-match'; matchId: MatchupId; result: 'loser' | 'winner' }
+    | { source: 'TBD' };
   team2:
-    | { source: 'determined'; teamId: RosterId }
-    | { source: 'previous-match'; matchId: MatchupId };
+    | { source: 'determined'; rosterId: RosterId }
+    | { source: 'previous-match'; matchId: MatchupId; result: 'loser' | 'winner' }
+    | { source: 'TBD' }
+    | { source: 'BYE' };
   winner: RosterId | null;
   loser: RosterId | null;
-  matchup: Matchup | null;
+  determinesPlacement: number | null;
 }
 
 export type FantasyRecord = {

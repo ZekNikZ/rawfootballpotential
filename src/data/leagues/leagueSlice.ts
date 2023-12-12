@@ -15,6 +15,7 @@ export const leagueSlice = createSlice({
         leagues: Object.fromEntries(action.payload.map((l) => [l.leagueId, l])),
         currentLeague: state.data?.currentLeague ?? leagues[0].id,
       };
+      state.lastUpdate = Date.now();
     },
     setCurrentLeague: (state, action: PayloadAction<LeagueId>) => {
       if (state.data) state.data!.currentLeague = action.payload;

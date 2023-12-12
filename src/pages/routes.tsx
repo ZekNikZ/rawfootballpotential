@@ -30,6 +30,7 @@ export interface RouteData {
     icon: React.ReactNode;
     shouldHighlight?: (pathname: string) => boolean;
     isAvailable?: (league: LeagueDefinition) => boolean;
+    isDisabled?: (league: LeagueDefinition) => boolean;
   };
   children?: RouteData[];
 }
@@ -53,6 +54,7 @@ const routes: RouteData[] = [
     element: <BlogPage />,
     navbarProperties: {
       icon: makeIcon(IconArticle),
+      isDisabled: () => true,
     },
   },
   {

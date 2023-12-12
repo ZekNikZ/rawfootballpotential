@@ -173,6 +173,9 @@ export default function Layout() {
                     navigate(route.path);
                     if (!route.children) close();
                   }}
+                  disabled={route.navbarProperties?.isDisabled?.(
+                    leagues.filter((l) => l.id === currentLeague)[0]
+                  )}
                 />
                 {route.children && (
                   <Collapse key={`${route.path}-collapse`} in={pathname.startsWith(route.path)}>
@@ -205,6 +208,9 @@ export default function Layout() {
                             navigate(subroute.path);
                             close();
                           }}
+                          disabled={route.navbarProperties?.isDisabled?.(
+                            leagues.filter((l) => l.id === currentLeague)[0]
+                          )}
                         />
                       ))}
                   </Collapse>

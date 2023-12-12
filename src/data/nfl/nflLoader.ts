@@ -24,6 +24,7 @@ export async function loadNFLData(): Promise<NFLData> {
           playerId,
           firstName: data.first_name,
           lastName: data.last_name,
+          fullName: data.full_name,
           positions: data.fantasy_positions,
           age: data.age ?? null,
           teamId: data.team,

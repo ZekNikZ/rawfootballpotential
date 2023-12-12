@@ -1,6 +1,19 @@
 import _ from 'lodash';
 import { sleeperApi } from '../api';
-import { League, LeagueId, Manager, ManagerId, Matchup, Team } from '../types';
+import {
+  Bracket,
+  BracketMatch,
+  League,
+  LeagueId,
+  Manager,
+  ManagerId,
+  Matchup,
+  NFLPlayerId,
+  RosterId,
+  Team,
+  Transaction,
+  TransactionItem,
+} from '../types';
 
 export async function loadLeague(leagueId: LeagueId): Promise<League> {
   // League data
@@ -81,11 +94,172 @@ export async function loadLeague(leagueId: LeagueId): Promise<League> {
                   starters: correspondingMatchups[1].starters,
                   playerPoints: correspondingMatchups[1].players_points,
                 }
-              : ('TBD' as const),
+              : ('BYE' as const),
         }));
       })
     )
   );
+
+  // Winners bracket
+  const playoffStructure: Bracket = {
+    matches: ((await sleeperApi.get(`/league/${leagueId}/winners_bracket`)).data as any[]).map(
+      (match) => ({
+        round: match.r,
+        matchupId: match.m,
+        team1: match.t1
+          ? { source: 'determined', rosterId: match.t1 }
+          : match.t1_from
+          ? {
+              source: 'previous-match',
+              matchId: Object.values(match.t1_from)[0] as any,
+              result: Object.keys(match.t1_from)[0] === 'l' ? 'loser' : 'winner',
+            }
+          : { source: 'TBD' },
+        team2: match.t2
+          ? { source: 'determined', rosterId: match.t2 }
+          : match.t2_from
+          ? {
+              source: 'previous-match',
+              matchId: Object.values(match.t2_from)[0] as any,
+              result: Object.keys(match.t2_from)[0] === 'l' ? 'loser' : 'winner',
+            }
+          : { source: 'TBD' },
+        winner: match.w ?? null,
+        loser: match.l ?? null,
+        determinesPlacement: match.p ?? null,
+      })
+    ),
+  };
+  [...playoffStructure.matches]
+    .filter(
+      (match) =>
+        match.team1.source === 'determined' &&
+        (match.team2.source === 'TBD' || match.team2.source === 'previous-match')
+    )
+    .forEach((match) => {
+      playoffStructure.matches.push({
+        round: match.round - 1,
+        matchupId: -1,
+        team1: match.team1,
+        team2: { source: 'BYE' },
+        winner: (match.team1 as Extract<BracketMatch['team1'], { source: 'determined' }>).rosterId,
+        loser: null,
+        determinesPlacement: null,
+      });
+      console.log(playoffStructure);
+    });
+
+  // Losers bracket
+  const toiletBowlStructure: Bracket = {
+    matches: ((await sleeperApi.get(`/league/${leagueId}/losers_bracket`)).data as any[]).map(
+      (match) => ({
+        round: match.r,
+        matchupId: match.m,
+        team1: match.t1
+          ? { source: 'determined', rosterId: match.t1 }
+          : match.t1_from
+          ? {
+              source: 'previous-match',
+              matchId: Object.values(match.t1_from)[0] as any,
+              result: Object.keys(match.t1_from)[0] === 'l' ? 'loser' : 'winner',
+            }
+          : { source: 'TBD' },
+        team2: match.t2
+          ? { source: 'determined', rosterId: match.t2 }
+          : match.t2_from
+          ? {
+              source: 'previous-match',
+              matchId: Object.values(match.t2_from)[0] as any,
+              result: Object.keys(match.t2_from)[0] === 'l' ? 'loser' : 'winner',
+            }
+          : { source: 'TBD' },
+        winner: match.w ?? null,
+        loser: match.l ?? null,
+        determinesPlacement: match.p ?? null,
+      })
+    ),
+  };
+  [...toiletBowlStructure.matches]
+    .filter(
+      (match) =>
+        match.team1.source === 'determined' &&
+        (match.team2.source === 'TBD' || match.team2.source === 'previous-match')
+    )
+    .forEach((match) =>
+      toiletBowlStructure.matches.push({
+        round: match.round - 1,
+        matchupId: -1,
+        team1: match.team1,
+        team2: { source: 'BYE' },
+        winner: (match.team1 as Extract<BracketMatch['team1'], { source: 'determined' }>).rosterId,
+        loser: null,
+        determinesPlacement: null,
+      })
+    );
+
+  // Transactions
+  const transactions: Transaction[] = _.flattenDeep(
+    await Promise.all(
+      weeks.map(async (week) =>
+        ((await sleeperApi.get(`/league/${leagueId}/transactions/${week}`)).data as any[])
+          .filter((transaction) => transaction.status === 'complete')
+          .map((transaction) => {
+            const movements: TransactionItem[] = [];
+
+            // Find player trades
+            const adds: Record<NFLPlayerId, RosterId> = transaction.adds ?? {};
+            const drops: Record<NFLPlayerId, RosterId> = transaction.drops ?? {};
+            const players = new Set([...Object.keys(adds), ...Object.keys(drops)]);
+            players.forEach((playerId) => {
+              const movement: TransactionItem = {
+                type: 'player',
+                playerId,
+                fromTeam: drops[playerId] ?? null,
+                toTeam: adds[playerId] ?? null,
+              };
+              movements.push(movement);
+            });
+
+            // Find budget trades
+            (transaction.waiver_budget as any[]).forEach(({ sender, reciever, amount }) =>
+              movements.push({
+                type: 'waiver_budget',
+                amount,
+                fromTeam: sender,
+                toTeam: reciever,
+              })
+            );
+
+            // Find pick trades
+            (transaction.draft_picks as any[]).forEach((pick) =>
+              movements.push({
+                type: 'pick',
+                ...pick,
+              })
+            );
+
+            return {
+              transactionId: transaction.transaction_id,
+              type: transaction.type,
+              involvedTeams: transaction.roster_ids,
+              week: transaction.leg,
+              timestamp: transaction.status_updated,
+              movements,
+            };
+          })
+      )
+    )
+  );
+
+  // Previous seasons
+  //   const previousSeasons: PreviousSeason[] = [];
+  //   let previousLeagueId: LeagueId | null | undefined = leagueId;
+  //   while (previousLeagueId) {
+  //     const previousSeason: PreviousSeason = loadPreviousSeason(previousLeagueId);
+  //     previousSeasons.push(previousSeason);
+  //     previousLeagueId = previousSeason.previousLeagueId;
+  //   }
+  // TODO: load JSON previous seasons
 
   return {
     leagueId,
@@ -97,9 +271,9 @@ export async function loadLeague(leagueId: LeagueId): Promise<League> {
     year: parseInt(league.season, 10),
     seasonType: league.season_type,
     matchups: allMatchups,
-    playoffStructure: 'TODO' as any, // TODO
-    toiletBowlStructure: 'TODO' as any, // TODO
-    transactions: 'TODO' as any, // TODO
+    playoffStructure,
+    toiletBowlStructure,
+    transactions,
     tradedPicks: 'TODO' as any, // TODO
     divisions:
       league.settings.divisions > 0
@@ -117,10 +291,11 @@ export async function loadLeague(leagueId: LeagueId): Promise<League> {
     status: league.status,
     waiverType: league.settings.waiver_type === 2 ? 'faab' : 'normal',
     waiverMaxBudget: league.settings.waiver_budget,
-    rosterPositions: 'TODO' as any, // TODO
+    rosterPositions: league.roster_positions,
     playoffSpots: league.settings.playoff_teams,
     playoffWeekStart: league.settings.playoff_week_start,
     currentWeek: league.settings.leg,
+    totalWeekCount: weeks.length,
     allManagers: 'TODO' as any, // TODO
     previousSeasons: 'TODO' as any, // TODO
     previousDrafts: 'TODO' as any, // TODO
