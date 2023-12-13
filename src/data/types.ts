@@ -39,8 +39,8 @@ export interface League {
   year: number;
   seasonType: string;
   matchups: Matchup[];
-  playoffStructure: Bracket;
-  toiletBowlStructure?: Bracket;
+  winnersBracket: Bracket | null;
+  losersBracket?: Bracket | null;
   transactions: Transaction[] | null;
   tradedPicks: TradedPick[] | null;
   divisions: string[] | null;
@@ -70,8 +70,8 @@ export interface PreviousSeason {
   teams: Record<RosterId, PreviousTeam>;
   year: number;
   matchups: Matchup[] | null;
-  playoffStructure: Bracket | null;
-  toiletBowlStructure?: Bracket | null;
+  winnersBracket: Bracket | null;
+  losersBracket?: Bracket | null;
   divisions: string[] | null;
   divisionAvatars: string[] | null;
   currentManagers: Record<ManagerId, Manager>;

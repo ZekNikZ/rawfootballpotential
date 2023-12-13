@@ -125,7 +125,7 @@ export function MatchupListing({ matchup, league }: Props) {
           {league.rosterPositions
             ?.filter((x) => x !== 'BN')
             ?.map((pos, i) => (
-              <Box pos="relative">
+              <Box key={`${pos}-${i}`} pos="relative">
                 <Grid>
                   <Grid.Col span={6} p={0} pr={0}>
                     <Flex align="center" gap="xs" p="sm" pr={25}>
@@ -185,7 +185,7 @@ export function MatchupListing({ matchup, league }: Props) {
                           </Text>
                           {matchup.team2.starters[i] !== '0' && (
                             <Text>
-                              {matchup.team2.playerPoints[matchup.team2.starters[i]].toFixed(2)}
+                              {matchup.team2.playerPoints[matchup.team2.starters[i]]?.toFixed(2)}
                             </Text>
                           )}
                         </>

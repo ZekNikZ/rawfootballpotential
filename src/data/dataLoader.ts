@@ -26,7 +26,7 @@ export default async function loader(
 
     // Load league data
     const leaguesData: League[] = await Promise.all(
-      leagues.map(async (league) => loadLeague(league.id))
+      leagues.map(async (league) => loadLeague(league.id, (status) => dispatch(setLoading(status))))
     );
 
     dispatch(setLeagueData(leaguesData));

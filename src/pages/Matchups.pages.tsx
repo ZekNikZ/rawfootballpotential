@@ -41,7 +41,10 @@ function MatchupList({
       )}
       {currentWeek > league.currentWeek && (
         <Text style={{ fontStyle: 'italic' }}>
-          This is a future week. {currentWeek > league.playoffWeekStart ? 'a' : 'b'}
+          This is a future week.{' '}
+          {currentWeek >= league.playoffWeekStart &&
+            currentWeek > league.currentWeek &&
+            'These specific matches still are yet to be determined.'}
         </Text>
       )}
     </>
@@ -208,23 +211,23 @@ export function MatchupsPage() {
         </Button.Group>
       </Flex>
       <MatchupList league={league} regularSeasonWeek={currentWeek} />
-      {timing === 'playoffs' && league.playoffStructure && (
+      {timing === 'playoffs' && league.winnersBracket && (
         <>
           <Space h="md" />
           <BracketDisplay
             title="🏆 Playoff Bracket 🏆"
             league={league}
-            bracket={league.playoffStructure}
+            bracket={league.winnersBracket}
           />
         </>
       )}
-      {timing === 'playoffs' && league.toiletBowlStructure && (
+      {timing === 'playoffs' && league.losersBracket && (
         <>
           <Space h="md" />
           <BracketDisplay
             title="💩 Toilet Bowl 💩"
             league={league}
-            bracket={league.toiletBowlStructure}
+            bracket={league.losersBracket}
             reversePlacements
           />
         </>

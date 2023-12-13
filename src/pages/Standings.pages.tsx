@@ -98,13 +98,14 @@ export function StandingsPage() {
           <Table.Thead>
             <Table.Tr>
               {data.head.map((th) => (
-                <Table.Th>{th}</Table.Th>
+                <Table.Th key={th}>{th}</Table.Th>
               ))}
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {[...data.body.entries()].map(([i, row]) => (
               <Table.Tr
+                key={i}
                 style={
                   i === league.playoffSpots - 1
                     ? {
@@ -113,8 +114,8 @@ export function StandingsPage() {
                     : undefined
                 }
               >
-                {row.slice(0, -1).map((td) => (
-                  <Table.Td>{td}</Table.Td>
+                {row.slice(0, -1).map((td, j) => (
+                  <Table.Td key={j}>{td}</Table.Td>
                 ))}
               </Table.Tr>
             ))}
@@ -125,7 +126,7 @@ export function StandingsPage() {
         <>
           <Title>{league.year} Standings By Division</Title>
           {[...league.divisions.entries()].map(([i, name]) => (
-            <Stack gap="sm">
+            <Stack key={i} gap="sm">
               <Group>
                 <Avatar src={league.divisionAvatars?.[i]} />
                 <Title order={2} ta="center">
@@ -137,7 +138,7 @@ export function StandingsPage() {
                   <Table.Thead>
                     <Table.Tr>
                       {data.divisionHead.map((th) => (
-                        <Table.Th>{th}</Table.Th>
+                        <Table.Th key={th}>{th}</Table.Th>
                       ))}
                     </Table.Tr>
                   </Table.Thead>
@@ -145,9 +146,9 @@ export function StandingsPage() {
                     {[
                       ...data.divisionBody.filter((row) => row[row.length - 1] === i + 1).entries(),
                     ].map(([j, row]) => (
-                      <Table.Tr>
-                        {[j + 1, ...row.slice(1, -1)].map((td) => (
-                          <Table.Td>{td}</Table.Td>
+                      <Table.Tr key={j}>
+                        {[j + 1, ...row.slice(1, -1)].map((td, k) => (
+                          <Table.Td key={k}>{td}</Table.Td>
                         ))}
                       </Table.Tr>
                     ))}
