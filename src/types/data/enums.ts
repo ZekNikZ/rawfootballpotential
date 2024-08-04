@@ -10,3 +10,8 @@ export enum Position {
   "SUPER_FLEX",
   "IDP_FLEX",
 }
+
+export enum LeagueSource {
+  "espn",
+  "sleeper",
+}

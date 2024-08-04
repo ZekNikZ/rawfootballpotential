@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useDocumentTitle } from "@mantine/hooks";
 import { IconChevronDown, IconChevronRight, IconRefresh } from "@tabler/icons-react";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import leagues from "../leaguesData";
 import routes from "../utils/routes";
@@ -21,6 +21,7 @@ import { ArrowClockwise, Icon } from "@phosphor-icons/react";
 import Logo from "./Logo/Logo";
 import { ColorSchemeToggle } from "./ColorSchemeToggle/ColorSchemeToggle";
 import { LeagueId } from "../types";
+import { getConfig } from "../utils/api";
 
 function makeIcon(Icon?: Icon) {
   return Icon ? <Icon size={20} /> : undefined;
@@ -34,6 +35,10 @@ export default function Layout() {
   const { pathname } = useLocation();
 
   const [currentLeague, setCurrentLeague] = useState(leagues[0].id);
+
+  useEffect(() => {
+    getConfig().then(console.log);
+  }, []);
 
   // const dispatch = useDispatch();
   // const { loading, loadingData, loadingNotificationId } = useAppSelector((state) => state.loading);

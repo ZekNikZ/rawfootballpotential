@@ -67,8 +67,6 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: Rows,
-          shouldHighlight: (pathname) =>
-            pathname.startsWith("/teams/") && !pathname.endsWith("/compare"),
         },
       },
       {
