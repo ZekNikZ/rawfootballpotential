@@ -1,16 +1,4 @@
-import { LeagueSource } from "../data";
+import { Config } from "../data";
+import { ApiResponse } from "./response";
 
-export interface GetConfigResponse {
-  metadata: {
-    name: string;
-  };
-  leagues: {
-    name: string;
-    color: string;
-    years: {
-      source: LeagueSource;
-      year: number;
-      id: string;
-    }[];
-  }[];
-}
+export type GetConfigResponse = ApiResponse<Config>;

@@ -1,5 +1,5 @@
 import { Draft } from "./drafts";
-import { Position } from "./enums";
+import { LeagueSource, Position } from "./enums";
 import { LeagueId, ManagerId } from "./ids";
 import { Bracket, Matchup } from "./matchups";
 import { Team } from "./teams";
@@ -41,7 +41,7 @@ export interface League {
   year: number;
   leagueType: "redraft" | "dynasty";
   status: "in_season" | "complete";
-  source: "espn" | "sleeper";
+  source: LeagueSource;
   sleeperLeagueId?: string;
   teamData: TeamData;
   matchupData: MatchupData;

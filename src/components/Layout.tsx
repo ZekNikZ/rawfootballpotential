@@ -6,39 +6,40 @@ import {
   Collapse,
   Group,
   LoadingOverlay,
+  NativeSelect,
   NavLink,
   ScrollArea,
   SegmentedControl,
   Text,
 } from "@mantine/core";
-import { useDisclosure, useDocumentTitle } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { IconChevronDown, IconChevronRight, IconRefresh } from "@tabler/icons-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import leagues from "../leaguesData";
 import routes from "../utils/routes";
 import { ArrowClockwise, Icon } from "@phosphor-icons/react";
 import Logo from "./Logo/Logo";
 import { ColorSchemeToggle } from "./ColorSchemeToggle/ColorSchemeToggle";
 import { LeagueId } from "../types";
-import { getConfig } from "../utils/api";
+import { useGlobalData } from "../providers";
 
 function makeIcon(Icon?: Icon) {
   return Icon ? <Icon size={20} /> : undefined;
 }
 
 export default function Layout() {
-  useDocumentTitle("Raw Football Potential");
+  const { config, currentLeague, setCurrentLeague } = useGlobalData();
+
+  const currentLeagueData = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+    return config!.leagues.find((league) =>
+      league.years.find((year) => year.leagueId === currentLeague)
+    )!;
+  }, [currentLeague, config]);
 
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-
-  const [currentLeague, setCurrentLeague] = useState(leagues[0].id);
-
-  useEffect(() => {
-    getConfig().then(console.log);
-  }, []);
 
   // const dispatch = useDispatch();
   // const { loading, loadingData, loadingNotificationId } = useAppSelector((state) => state.loading);
@@ -106,14 +107,9 @@ export default function Layout() {
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
           <Box onClick={() => navigate("/")}>
             <Group gap={0} style={{ cursor: "pointer" }}>
-              <Logo color={leagues.filter((e) => e.id === currentLeague)[0].color} />
-              <Text
-                size="2.2rem"
-                ff="Bebas Neue"
-                c={leagues.filter((e) => e.id === currentLeague)[0].color}
-                visibleFrom="sm"
-              >
-                &nbsp;{leagues.filter((e) => e.id === currentLeague)[0].label}
+              <Logo color={currentLeagueData.color} />
+              <Text size="2.2rem" ff="Bebas Neue" c={currentLeagueData.color} visibleFrom="sm">
+                &nbsp;{currentLeagueData.name}
               </Text>
             </Group>
           </Box>
@@ -139,20 +135,38 @@ export default function Layout() {
         <ScrollArea type="never">
           <SegmentedControl
             fullWidth
+            value={currentLeagueData.name}
+            data={config!.leagues.map(({ name }) => ({
+              value: name,
+              label: name,
+            }))}
+            onChange={(value) => {
+              const league = config!.leagues.find((league) => league.name == value)!;
+              changeLeague(
+                league.years.reduce((prev, current) =>
+                  prev && prev.year > current.year ? prev : current
+                ).leagueId as LeagueId
+              );
+            }}
+            color={currentLeagueData.color}
+          />
+          <NativeSelect
             value={currentLeague}
-            data={leagues.map(({ id, label }) => ({ value: id, label }))}
-            onChange={(l) => changeLeague(l as LeagueId)}
-            color={leagues.filter((e) => e.id === currentLeague)[0].color}
+            onChange={(event) => {
+              setCurrentLeague(event.target.value as LeagueId);
+            }}
+            data={currentLeagueData.years.map((year) => ({
+              value: year.leagueId,
+              label: `${year.year} - ${year.year + 1}`,
+            }))}
+            mt="xs"
           />
           <Box mt="xs" />
           {routes
             .filter(
               (route) =>
                 route.navbarProperties &&
-                (route.navbarProperties?.isAvailable?.(
-                  leagues.find((l) => l.id === currentLeague)!.type
-                ) ??
-                  true)
+                (route.navbarProperties?.isAvailable?.(currentLeagueData) ?? true)
             )
             .map((route) => (
               <Fragment key={route.path}>
@@ -183,9 +197,7 @@ export default function Layout() {
                     navigate(route.path);
                     if (!route.children) close();
                   }}
-                  disabled={route.navbarProperties?.isDisabled?.(
-                    leagues.find((l) => l.id === currentLeague)!.type
-                  )}
+                  disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
                 />
                 {route.children && (
                   <Collapse key={`${route.path}-collapse`} in={pathname.startsWith(route.path)}>
@@ -193,10 +205,7 @@ export default function Layout() {
                       .filter(
                         (subroute) =>
                           subroute.navbarProperties &&
-                          (subroute.navbarProperties?.isAvailable?.(
-                            leagues.find((l) => l.id === currentLeague)!.type
-                          ) ??
-                            true)
+                          (subroute.navbarProperties?.isAvailable?.(currentLeagueData) ?? true)
                       )
                       .map((subroute) => (
                         <NavLink
@@ -218,9 +227,7 @@ export default function Layout() {
                             navigate(subroute.path);
                             close();
                           }}
-                          disabled={route.navbarProperties?.isDisabled?.(
-                            leagues.find((l) => l.id === currentLeague)!.type
-                          )}
+                          disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
                         />
                       ))}
                   </Collapse>

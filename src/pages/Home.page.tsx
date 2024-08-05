@@ -2,7 +2,6 @@ import { Title, Text, Anchor } from "@mantine/core";
 import classes from "./Home.page.module.css";
 
 export function HomePage() {
-  console.log(classes);
   return (
     <>
       <Title className={classes.title} ta="center" mt={100}>

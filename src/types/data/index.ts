@@ -1,3 +1,4 @@
+export * from "./config";
 export * from "./drafts";
 export * from "./enums";
 export * from "./ids";

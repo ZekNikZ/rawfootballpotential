@@ -1,25 +1,38 @@
 import { LoadingOverlay, MantineProvider } from "@mantine/core";
-import React, { useEffect, useState } from "react";
+import { useEffect } from "react";
 import theme from "./utils/theme";
 import { Router } from "./components/Router";
 import { Notifications } from "@mantine/notifications";
-import { GetConfigResponse } from "./types/api/config";
-import { getConfig } from "./utils/api";
+import { useGlobalData } from "./providers";
+import { Api } from "./utils";
 
 function App() {
-  const [config, setConfig] = useState<GetConfigResponse>();
+  const { config, setConfig, setCurrentLeague } = useGlobalData();
 
   useEffect(() => {
-    getConfig().then(setConfig);
-  }, []);
+    async function fetcher() {
+      const response = await Api.getConfig();
+      if (response.success) {
+        setConfig(response.data);
+        setCurrentLeague(
+          response.data.leagues[0].years.reduce((prev, current) =>
+            prev && prev.year > current.year ? prev : current
+          ).leagueId
+        );
+      } else {
+        // TODO: error handling
+        console.error(response.error);
+      }
+    }
+
+    fetcher();
+  }, [setConfig, setCurrentLeague]);
 
   return (
-    <React.StrictMode>
-      <MantineProvider theme={theme} defaultColorScheme="auto">
-        <Notifications zIndex={2000} />
-        {!config ? <LoadingOverlay visible /> : <Router />}
-      </MantineProvider>
-    </React.StrictMode>
+    <MantineProvider theme={theme} defaultColorScheme="auto">
+      <Notifications zIndex={2000} />
+      {!config ? <LoadingOverlay visible /> : <Router />}
+    </MantineProvider>
   );
 }
 

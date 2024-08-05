@@ -1,8 +1,8 @@
-export type LeagueId = `L${number}`;
-export type ManagerId = `P${number}`;
-export type TeamId = `R${number}`;
-export type TransactionId = `T${number}`;
-export type DraftId = `D${number}`;
-export type NFLTeamId = `NT${number}`;
-export type NFLPlayerId = `NP${number}`;
-export type MatchupId = `M${number}`;
+export type LeagueId = `L${string}`;
+export type ManagerId = `P${string}`;
+export type TeamId = `R${string}`;
+export type TransactionId = `T${string}`;
+export type DraftId = `D${string}`;
+export type NFLTeamId = `NT${string}`;
+export type NFLPlayerId = `NP${string}`;
+export type MatchupId = `M${string}`;

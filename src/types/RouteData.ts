@@ -1,5 +1,5 @@
 import { Icon } from "@phosphor-icons/react";
-import { League } from "./data/leagues";
+import { LeagueDefinition } from "./data";
 
 export interface RouteData {
   path: string;
@@ -9,8 +9,8 @@ export interface RouteData {
     label?: string;
     icon: Icon;
     shouldHighlight?: (pathname: string) => boolean;
-    isAvailable?: (leagueType: League["leagueType"]) => boolean;
-    isDisabled?: (leagueType: League["leagueType"]) => boolean;
+    isAvailable?: (leagueType: LeagueDefinition) => boolean;
+    isDisabled?: (leagueType: LeagueDefinition) => boolean;
   };
   children?: RouteData[];
 }
