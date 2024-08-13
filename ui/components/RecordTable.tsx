@@ -1,4 +1,4 @@
-import { Group, SegmentedControl, Stack, Table } from "@mantine/core";
+import { Group, SegmentedControl, Stack, Table, Text } from "@mantine/core";
 import { BaseRecordEntry, LeagueId, Record, RecordColumn } from "../../types";
 import formatter from "format-number";
 import { useMemo, useState } from "react";
@@ -70,40 +70,46 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
   return (
     <Stack gap={10}>
       {(leagues.length >= 2 || scopes.length >= 2) && (
-        <Group gap={10}>
+        <Group gap={20}>
           {leagues.length >= 2 && (
-            <SegmentedControl
-              data={[
-                {
-                  label: "All",
-                  value: "all",
-                },
-              ].concat(
-                leagues.map((league) => ({
-                  label: `${league.year}`,
-                  value: league.leagueId,
-                }))
-              )}
-              value={league}
-              onChange={(value) => setLeague(value as never)}
-            />
+            <Stack gap={0}>
+              <Text>Season</Text>
+              <SegmentedControl
+                data={[
+                  {
+                    label: "All",
+                    value: "all",
+                  },
+                ].concat(
+                  leagues.map((league) => ({
+                    label: `${league.year}`,
+                    value: league.leagueId,
+                  }))
+                )}
+                value={league}
+                onChange={(value) => setLeague(value as never)}
+              />
+            </Stack>
           )}
           {scopes.length >= 2 && (
-            <SegmentedControl
-              data={[
-                {
-                  label: "Both",
-                  value: "all",
-                },
-              ].concat(
-                scopes.map((league) => ({
-                  label: league === "in-season" ? "In-Season" : "Playoffs",
-                  value: league,
-                }))
-              )}
-              value={scope}
-              onChange={(value) => setScope(value as never)}
-            />
+            <Stack gap={0}>
+              <Text>Time</Text>
+              <SegmentedControl
+                data={[
+                  {
+                    label: "Both",
+                    value: "all",
+                  },
+                ].concat(
+                  scopes.map((league) => ({
+                    label: league === "in-season" ? "Regular Season" : "Playoffs",
+                    value: league,
+                  }))
+                )}
+                value={scope}
+                onChange={(value) => setScope(value as never)}
+              />
+            </Stack>
           )}
         </Group>
       )}

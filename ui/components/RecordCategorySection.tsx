@@ -19,7 +19,7 @@ function RecordCategorySection(props: Props) {
 
   return (
     <Stack gap={10}>
-      <Title order={2}>{record.name}</Title>
+      <Title order={2}>{category.name}</Title>
       <NativeSelect
         value={value}
         onChange={(event) => {

@@ -21,7 +21,7 @@ type MatchupTeam = {
       bench: NFLPlayerId[];
       injuryReserve: NFLPlayerId[];
       playerPoints: Record<NFLPlayerId, number>;
-      playerProjectedPoints?: Record<NFLPlayerId, number>;
+      playerProjectedPoints: Record<NFLPlayerId, number>;
     }
 );
 

@@ -9,6 +9,7 @@ import {
   ManagerId,
   Matchup,
   MatchupId,
+  NFLPlayerId,
   Position,
   Team,
   TeamId,
@@ -59,6 +60,11 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
             (i) => leagueJson.metadata[`division_${i}_avatar`]
           )
         : undefined;
+
+    // Compute weeks
+    const numRegularSeasonWeeks = leagueJson.settings.playoff_week_start - 1;
+    const numPlayoffWeeks = Math.ceil(Math.log2(leagueJson.settings.playoff_teams));
+    const weeks = _.range(1, numRegularSeasonWeeks + numPlayoffWeeks + 1);
 
     // TODO: Fetch manager data
     const managerResponse = await fetch(
@@ -115,12 +121,43 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
       })
     );
 
+    // Fetch projections
+    const projections = typedFromEntries(
+      await Promise.all(
+        weeks.map(async (week) => {
+          const projectionsResponse = await fetch(
+            `https://api.sleeper.app/projections/nfl/${year.year}/${week}?season_type=regular&position%5B%5D=DB&position%5B%5D=DEF&position%5B%5D=DL&position%5B%5D=FLEX&position%5B%5D=IDP_FLEX&position%5B%5D=K&position%5B%5D=LB&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=REC_FLEX&position%5B%5D=SUPER_FLEX&position%5B%5D=TE&position%5B%5D=WR&position%5B%5D=WRRB_FLEX&order_by=ppr`
+          );
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const projectionsJson: any[] = await projectionsResponse.json();
+
+          const weekProjections = projectionsJson.reduce<Record<NFLPlayerId, number>>(
+            (res, proj) => {
+              const stats = proj.stats;
+              let total = 0;
+
+              if (stats) {
+                Object.entries(stats).forEach(([stat, pts]) => {
+                  total += (pts as number) * (leagueJson.scoring_settings[stat] ?? 0);
+                });
+              }
+
+              return {
+                ...res,
+                [proj.player_id as NFLPlayerId]: total,
+              };
+            },
+            {}
+          );
+
+          return [`${week}`, weekProjections] as [string, Record<NFLPlayerId, number>];
+        })
+      )
+    );
+
     // Fetch matchup data
-    const numRegularSeasonWeeks = leagueJson.settings.playoff_week_start - 1;
-    const numPlayoffWeeks = Math.ceil(Math.log2(leagueJson.settings.playoff_teams));
-    const weeks = _.range(1, numRegularSeasonWeeks + numPlayoffWeeks + 1);
     const matchups = _.flattenDeep(
-      await Promise.all<Matchup[]>(
+      await Promise.all(
         weeks.map(async (week) => {
           const matchupsResponse = await fetch(
             `https://api.sleeper.app/v1/league/${year.internalId}/matchups/${week}`
@@ -143,6 +180,9 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
               ), // .players - .starters
               injuryReserve: correspondingMatchups[0].reserve ?? [], // .reserve
               playerPoints: correspondingMatchups[0].players_points,
+              playerProjectedPoints: (correspondingMatchups[0].players as NFLPlayerId[]).reduce<
+                Record<NFLPlayerId, number>
+              >((res, playerId) => ({ ...res, [playerId]: projections[`${week}`][playerId] }), {}),
             },
             team2:
               correspondingMatchups.length === 2
@@ -160,9 +200,15 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
                     ), // .players - .starters
                     injuryReserve: correspondingMatchups[1].reserve ?? [], // .reserve
                     playerPoints: correspondingMatchups[1].players_points,
+                    playerProjectedPoints: (
+                      correspondingMatchups[1].players as NFLPlayerId[]
+                    ).reduce<Record<NFLPlayerId, number>>(
+                      (res, playerId) => ({ ...res, [playerId]: projections[`${week}`][playerId] }),
+                      {}
+                    ),
                   }
                 : ("BYE" as const),
-          }));
+          })) as Matchup[];
         })
       )
     );
