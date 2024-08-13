@@ -9,7 +9,7 @@ export interface Matchup {
 }
 
 type MatchupTeam = {
-  rosterId: TeamId;
+  teamId: TeamId;
   points: number;
 } & (
   | {
@@ -17,7 +17,7 @@ type MatchupTeam = {
     }
   | {
       hasPlayerData: true;
-      players: NFLPlayerId[];
+      players: (NFLPlayerId | null)[];
       bench: NFLPlayerId[];
       injuryReserve: NFLPlayerId[];
       playerPoints: Record<NFLPlayerId, number>;

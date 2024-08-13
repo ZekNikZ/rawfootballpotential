@@ -18,10 +18,11 @@ import {
 } from "@phosphor-icons/react";
 import { RouteData } from "../types";
 import { HomePage } from "./pages/Home.page";
+import OverallRecordsPage from "./pages/OverallRecords.page";
 
 const routes: RouteData[] = [
   {
-    path: "/",
+    path: "/:leagueId",
     title: "Home",
     element: <HomePage />,
     navbarProperties: {
@@ -29,7 +30,7 @@ const routes: RouteData[] = [
     },
   },
   {
-    path: "/blog",
+    path: "/:leagueId/blog",
     title: "Blog",
     element: <HomePage />,
     navbarProperties: {
@@ -38,7 +39,7 @@ const routes: RouteData[] = [
     },
   },
   {
-    path: "/standings",
+    path: "/:leagueId/standings",
     title: "Standings",
     element: <HomePage />,
     navbarProperties: {
@@ -46,7 +47,7 @@ const routes: RouteData[] = [
     },
   },
   {
-    path: "/matchups",
+    path: "/:leagueId/matchups",
     title: "Matchups",
     element: <HomePage />,
     navbarProperties: {
@@ -54,15 +55,14 @@ const routes: RouteData[] = [
     },
   },
   {
-    path: "/teams",
+    path: "/:leagueId/teams",
     title: "Teams",
-    element: <HomePage />,
     navbarProperties: {
       icon: UsersThree,
     },
     children: [
       {
-        path: "/teams",
+        path: "/:leagueId/teams",
         title: "Divisions",
         element: <HomePage />,
         navbarProperties: {
@@ -70,7 +70,7 @@ const routes: RouteData[] = [
         },
       },
       {
-        path: "/teams/rosters",
+        path: "/:leagueId/teams/rosters",
         title: "Rosters",
         element: <HomePage />,
         navbarProperties: {
@@ -80,15 +80,14 @@ const routes: RouteData[] = [
     ],
   },
   {
-    path: "/transactions",
+    path: "/:leagueId/transactions",
     title: "Transactions",
-    element: <HomePage />,
     navbarProperties: {
       icon: ArrowsLeftRight,
     },
     children: [
       {
-        path: "/transactions",
+        path: "/:leagueId/transactions",
         title: "Trades & Waivers",
         element: <HomePage />,
         navbarProperties: {
@@ -96,7 +95,7 @@ const routes: RouteData[] = [
         },
       },
       {
-        path: "/transactions/picks",
+        path: "/:leagueId/transactions/picks",
         title: "Future Picks",
         element: <HomePage />,
         navbarProperties: {
@@ -107,7 +106,7 @@ const routes: RouteData[] = [
     ],
   },
   {
-    path: "/draft",
+    path: "/:leagueId/draft",
     title: "Draft",
     element: <HomePage />,
     navbarProperties: {
@@ -115,15 +114,14 @@ const routes: RouteData[] = [
     },
   },
   {
-    path: "/records",
+    path: "/:leagueId/records",
     title: "Records",
-    element: <HomePage />,
     navbarProperties: {
       icon: Ranking,
     },
     children: [
       {
-        path: "/records",
+        path: "/:leagueId/records",
         title: "Trophies",
         element: <HomePage />,
         navbarProperties: {
@@ -131,15 +129,15 @@ const routes: RouteData[] = [
         },
       },
       {
-        path: "/records/overall",
+        path: "/:leagueId/records/overall",
         title: "Overall",
-        element: <HomePage />,
+        element: <OverallRecordsPage />,
         navbarProperties: {
           icon: CalendarDots,
         },
       },
       {
-        path: "/records/single",
+        path: "/:leagueId/records/single",
         title: "Single Season",
         element: <HomePage />,
         navbarProperties: {
@@ -147,7 +145,7 @@ const routes: RouteData[] = [
         },
       },
       {
-        path: "/records/managers",
+        path: "/:leagueId/records/managers",
         title: "Managers",
         element: <HomePage />,
         navbarProperties: {

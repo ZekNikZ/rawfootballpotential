@@ -11,6 +11,7 @@ import {
   MatchupId,
   Position,
   Team,
+  TeamId,
 } from "../../types";
 import { configService } from "../services";
 import _ from "lodash";
@@ -94,7 +95,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
         return [
           managerId,
           {
-            teamId: `R${team.league_id}${team.roster_id}`,
+            teamId: `R-${team.league_id}-${team.roster_id}`,
             leagueId,
             managerId,
             division: divisionNames ? divisionNames[(team.settings.division ?? 0) - 1] : undefined,
@@ -122,19 +123,19 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
       await Promise.all<Matchup[]>(
         weeks.map(async (week) => {
           const matchupsResponse = await fetch(
-            `https://api.sleeper.app/v1/league/${leagueId}/matchups/${week}`
+            `https://api.sleeper.app/v1/league/${year.internalId}/matchups/${week}`
           );
           const matchupsJson = await matchupsResponse.json();
           const groupedMatchups = _.groupBy(matchupsJson, (matchup) => matchup.matchup_id);
           return Object.entries(groupedMatchups).map(([matchupId, correspondingMatchups]) => ({
             week,
-            matchupId: `M${week}-${matchupId}` as MatchupId,
+            matchupId: `M-${week}-${matchupId}` as MatchupId,
             leagueId,
             team1: {
-              rosterId: correspondingMatchups[0].roster_id,
+              teamId: `R-${year.internalId}-${correspondingMatchups[0].roster_id}` as TeamId,
               hasPlayerData: true,
               points: correspondingMatchups[0].points,
-              players: correspondingMatchups[0].starters, // .starters
+              players: correspondingMatchups[0].starters.map((x: string) => (x === "0" ? null : x)), // .starters
               bench: correspondingMatchups[0].players.filter(
                 (p: string) =>
                   !correspondingMatchups[0].starters.includes(p) &&
@@ -146,10 +147,12 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
             team2:
               correspondingMatchups.length === 2
                 ? {
-                    rosterId: correspondingMatchups[1].roster_id,
+                    teamId: `R-${year.internalId}-${correspondingMatchups[1].roster_id}` as TeamId,
                     hasPlayerData: true,
                     points: correspondingMatchups[1].points,
-                    players: correspondingMatchups[1].starters, // .starters
+                    players: correspondingMatchups[1].starters.map((x: string) =>
+                      x === "0" ? null : x
+                    ), // .starters
                     bench: correspondingMatchups[1].players.filter(
                       (p: string) =>
                         !correspondingMatchups[1].starters.includes(p) &&

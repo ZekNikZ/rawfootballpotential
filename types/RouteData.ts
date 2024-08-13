@@ -4,7 +4,7 @@ import { LeagueDefinition } from "./data";
 export interface RouteData {
   path: string;
   title: string;
-  element: React.ReactNode;
+  element?: React.ReactNode;
   navbarProperties?: {
     label?: string;
     icon: Icon;

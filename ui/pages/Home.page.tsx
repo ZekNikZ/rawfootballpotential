@@ -1,7 +1,10 @@
 import { Title, Text, Anchor } from "@mantine/core";
 import classes from "./Home.page.module.css";
+import { useLocation } from "react-router-dom";
 
 export function HomePage() {
+  const { pathname } = useLocation();
+
   return (
     <>
       <Title className={classes.title} ta="center" mt={100}>
@@ -16,7 +19,7 @@ export function HomePage() {
         <Anchor href="https://mantine.dev/guides/vite/" size="lg">
           this guide
         </Anchor>
-        . To get started edit pages/Home.page.tsx file.
+        . To get started edit pages/Home.page.tsx file. {pathname}
       </Text>
     </>
   );

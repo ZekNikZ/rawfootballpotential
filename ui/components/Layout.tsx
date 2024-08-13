@@ -15,27 +15,27 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { IconChevronDown, IconChevronRight, IconRefresh } from "@tabler/icons-react";
 import { Fragment, useMemo } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { generatePath, matchPath, Outlet, useLocation, useNavigate } from "react-router-dom";
 import routes from "../routes";
 import { ArrowClockwise, Icon } from "@phosphor-icons/react";
 import Logo from "./Logo/Logo";
 import { ColorSchemeToggle } from "./ColorSchemeToggle/ColorSchemeToggle";
 import { LeagueId } from "../../types";
-import { useGlobalData } from "../providers";
+import { useCurrentLeague, useGlobalData } from "../providers";
 
 function makeIcon(Icon?: Icon) {
   return Icon ? <Icon size={20} /> : undefined;
 }
 
 export default function Layout() {
-  const { config, currentLeague, setCurrentLeague } = useGlobalData();
+  const { config } = useGlobalData();
+  const { leagueId, setLeagueId } = useCurrentLeague();
 
   const currentLeagueData = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
     return config!.leagues.find((league) =>
-      league.years.find((year) => year.leagueId === currentLeague)
+      league.years.find((year) => year.leagueId === leagueId)
     )!;
-  }, [currentLeague, config]);
+  }, [leagueId, config]);
 
   const [opened, { toggle, close }] = useDisclosure();
   const navigate = useNavigate();
@@ -75,14 +75,11 @@ export default function Layout() {
   // );
 
   const changeLeague = (newLeague: LeagueId) => {
-    // FIXME: fix this
-    setCurrentLeague(newLeague);
-    navigate("/");
+    setLeagueId(newLeague);
   };
 
   const onRefreshData = () => {
     // FIXME: fix this
-    // loader(dispatch);
   };
 
   // const lastNFLUpdate = useAppSelector((state) => state.nfl.lastUpdate);
@@ -122,6 +119,7 @@ export default function Layout() {
               style={{ justifySelf: "end" }}
               // FIXME: fix this
               // disabled={loading}
+              disabled
               visibleFrom="sm"
             >
               <IconRefresh style={{ width: "70%", height: "70%" }} stroke={1.5} />
@@ -151,9 +149,9 @@ export default function Layout() {
             color={currentLeagueData.color}
           />
           <NativeSelect
-            value={currentLeague}
+            value={leagueId}
             onChange={(event) => {
-              setCurrentLeague(event.target.value as LeagueId);
+              setLeagueId(event.target.value as LeagueId);
             }}
             data={currentLeagueData.years.map((year) => ({
               value: year.leagueId,
@@ -168,78 +166,86 @@ export default function Layout() {
                 route.navbarProperties &&
                 (route.navbarProperties?.isAvailable?.(currentLeagueData) ?? true)
             )
-            .map((route) => (
-              <Fragment key={route.path}>
-                <NavLink
-                  key={route.path}
-                  label={route.navbarProperties?.label ?? route.title}
-                  leftSection={makeIcon(route.navbarProperties?.icon)}
-                  rightSection={
-                    route.children?.filter((subroute) => subroute.navbarProperties) ? (
-                      pathname.startsWith(route.path) ? (
-                        <IconChevronDown size="0.8rem" stroke={1.5} />
-                      ) : (
-                        <IconChevronRight size="0.8rem" stroke={1.5} />
-                      )
-                    ) : null
-                  }
-                  variant={
-                    route.navbarProperties?.shouldHighlight?.(pathname) ||
-                    (pathname === route.path && !route.children)
-                      ? "light"
-                      : "default"
-                  }
-                  active={
-                    route.navbarProperties?.shouldHighlight?.(pathname) ||
-                    (pathname === route.path && !route.children)
-                  }
-                  onClick={() => {
-                    navigate(route.path);
-                    if (!route.children) close();
-                  }}
-                  disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
-                />
-                {route.children && (
-                  <Collapse key={`${route.path}-collapse`} in={pathname.startsWith(route.path)}>
-                    {route.children
-                      .filter(
-                        (subroute) =>
-                          subroute.navbarProperties &&
-                          (subroute.navbarProperties?.isAvailable?.(currentLeagueData) ?? true)
-                      )
-                      .map((subroute) => (
-                        <NavLink
-                          key={subroute.path}
-                          pl="lg"
-                          label={subroute.navbarProperties?.label ?? subroute.title}
-                          leftSection={makeIcon(subroute.navbarProperties?.icon)}
-                          variant={
-                            subroute.navbarProperties?.shouldHighlight?.(pathname) ||
-                            pathname === subroute.path
-                              ? "light"
-                              : "default"
-                          }
-                          active={
-                            subroute.navbarProperties?.shouldHighlight?.(pathname) ||
-                            pathname === subroute.path
-                          }
-                          onClick={() => {
-                            navigate(subroute.path);
-                            close();
-                          }}
-                          disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
-                        />
-                      ))}
-                  </Collapse>
-                )}
-              </Fragment>
-            ))}
+            .map((route) => {
+              const routeSelected = !!matchPath(route.path, pathname);
+              const routeOrSubrouteSelected = !!matchPath(route.path + "/*", pathname);
+              return (
+                <Fragment key={route.path}>
+                  <NavLink
+                    key={route.path}
+                    label={route.navbarProperties?.label ?? route.title}
+                    leftSection={makeIcon(route.navbarProperties?.icon)}
+                    rightSection={
+                      route.children?.filter((subroute) => subroute.navbarProperties) ? (
+                        pathname.startsWith(route.path) ? (
+                          <IconChevronDown size="0.8rem" stroke={1.5} />
+                        ) : (
+                          <IconChevronRight size="0.8rem" stroke={1.5} />
+                        )
+                      ) : null
+                    }
+                    variant={
+                      route.navbarProperties?.shouldHighlight?.(pathname) ||
+                      (routeSelected && !route.children)
+                        ? "light"
+                        : "default"
+                    }
+                    active={
+                      route.navbarProperties?.shouldHighlight?.(pathname) ||
+                      (routeSelected && !route.children)
+                    }
+                    onClick={() => {
+                      navigate(generatePath(route.path, { leagueId }));
+                      if (!route.children) close();
+                    }}
+                    disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
+                  />
+                  {route.children && (
+                    <Collapse key={`${route.path}-collapse`} in={routeOrSubrouteSelected}>
+                      {route.children
+                        .filter(
+                          (subroute) =>
+                            subroute.navbarProperties &&
+                            (subroute.navbarProperties?.isAvailable?.(currentLeagueData) ?? true)
+                        )
+                        .map((subroute) => {
+                          const subrouteSelected = !!matchPath(subroute.path, pathname);
+                          return (
+                            <NavLink
+                              key={subroute.path}
+                              pl="lg"
+                              label={subroute.navbarProperties?.label ?? subroute.title}
+                              leftSection={makeIcon(subroute.navbarProperties?.icon)}
+                              variant={
+                                subroute.navbarProperties?.shouldHighlight?.(pathname) ||
+                                subrouteSelected
+                                  ? "light"
+                                  : "default"
+                              }
+                              active={
+                                subroute.navbarProperties?.shouldHighlight?.(pathname) ||
+                                subrouteSelected
+                              }
+                              onClick={() => {
+                                navigate(generatePath(subroute.path, { leagueId }));
+                                close();
+                              }}
+                              disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
+                            />
+                          );
+                        })}
+                    </Collapse>
+                  )}
+                </Fragment>
+              );
+            })}
           <NavLink
             label="Reload all data"
             leftSection={makeIcon(ArrowClockwise)}
             variant="light"
             // FIXME: fix this
             // disabled={loading}
+            disabled
             onClick={onRefreshData}
           />
         </ScrollArea>

@@ -8,3 +8,4 @@ export * from "./matchups";
 export * from "./nfl";
 export * from "./teams";
 export * from "./transactions";
+export * from "./record";
