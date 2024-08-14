@@ -16,6 +16,7 @@ export interface LeagueDefinition {
 
 export interface ManagerDefinition {
   id: string;
+  name: string;
   sleeperIds: string[];
 }
 

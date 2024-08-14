@@ -28,7 +28,7 @@ function makeIcon(Icon?: Icon) {
 }
 
 export default function Layout() {
-  const { config } = useGlobalData();
+  const { config, loadingData, loadData } = useGlobalData();
   const { leagueId, setLeagueId } = useCurrentLeague();
 
   const currentLeagueData = useMemo(() => {
@@ -41,53 +41,13 @@ export default function Layout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // const dispatch = useDispatch();
-  // const { loading, loadingData, loadingNotificationId } = useAppSelector((state) => state.loading);
-  // useEffect(() => {
-  //   if (!loading) {
-  //     notifications.clean();
-  //     dispatch(setLoadingNotificationId(null));
-  //   } else if (!loadingNotificationId) {
-  //     dispatch(
-  //       setLoadingNotificationId(
-  //         notifications.show({
-  //           title: "Loading league data",
-  //           message: `Loading ${loadingData}...`,
-  //           loading: true,
-  //           autoClose: false,
-  //           withCloseButton: false,
-  //         })
-  //       )
-  //     );
-  //   } else {
-  //     notifications.update({
-  //       id: loadingNotificationId,
-  //       title: "Loading league data",
-  //       message: `Loading ${loadingData}...`,
-  //       loading: true,
-  //       autoClose: false,
-  //       withCloseButton: false,
-  //     });
-  //   }
-  // }, [loading, loadingData]);
-  // const currentLeague = useAppSelector(
-  //   (state) => state.league.data?.currentLeague ?? leagues[0].id
-  // );
-
   const changeLeague = (newLeague: LeagueId) => {
     setLeagueId(newLeague);
   };
 
   const onRefreshData = () => {
-    // FIXME: fix this
+    loadData();
   };
-
-  // const lastNFLUpdate = useAppSelector((state) => state.nfl.lastUpdate);
-  // const lastLeagueUpdate = useAppSelector((state) => state.league.lastUpdate);
-
-  // useEffect(() => {
-  //   loader(dispatch, lastNFLUpdate, lastLeagueUpdate);
-  // }, []);
 
   return (
     <AppShell
@@ -117,9 +77,7 @@ export default function Layout() {
               onClick={onRefreshData}
               size="lg"
               style={{ justifySelf: "end" }}
-              // FIXME: fix this
-              // disabled={loading}
-              disabled
+              disabled={loadingData}
               visibleFrom="sm"
             >
               <IconRefresh style={{ width: "70%", height: "70%" }} stroke={1.5} />
@@ -243,9 +201,7 @@ export default function Layout() {
             label="Reload all data"
             leftSection={makeIcon(ArrowClockwise)}
             variant="light"
-            // FIXME: fix this
-            // disabled={loading}
-            disabled
+            disabled={loadingData}
             onClick={onRefreshData}
           />
         </ScrollArea>
@@ -253,8 +209,7 @@ export default function Layout() {
 
       <AppShell.Main pos="relative">
         <LoadingOverlay
-          // FIXME: fix this
-          // visible={loading}
+          visible={loadingData}
           zIndex={1000}
           pos="absolute"
           style={{

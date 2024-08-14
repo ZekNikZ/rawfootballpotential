@@ -1,12 +1,20 @@
-import { Group, SegmentedControl, Stack, Table, Text } from "@mantine/core";
-import { BaseRecordEntry, LeagueId, Record, RecordColumn } from "../../types";
+import {
+  Group,
+  NativeSelect,
+  Pagination,
+  SegmentedControl,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
+import { BaseRecordEntry, LeagueId, FantasyRecord, RecordColumn } from "../../types";
 import formatter from "format-number";
 import { useMemo, useState } from "react";
 import _ from "lodash";
 import { useGlobalData } from "../providers";
 
 interface Props<T extends BaseRecordEntry> {
-  record: Record<T>;
+  record: FantasyRecord<T>;
 }
 
 function makeCell<T>(column: RecordColumn<T>, value: unknown): React.ReactNode {
@@ -53,6 +61,9 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
   }, [record.entries]);
   const [scope, setScope] = useState<Exclude<BaseRecordEntry["scope"], null> | "all">("all");
 
+  const [numEntries, setMaxEntries] = useState(10);
+  const [page, setPage] = useState(1);
+
   const entries = useMemo(() => {
     let res = record.entries;
     if (league !== "all") {
@@ -61,11 +72,21 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
     if (scope !== "all") {
       res = res.filter((entry) => entry.scope === scope);
     }
-    if (record.maxEntries) {
-      res = _.take(res, record.maxEntries);
+    return res;
+  }, [record.entries, league, scope]);
+
+  const maxPages = useMemo(
+    () => Math.ceil(entries.length / (numEntries ?? 1)),
+    [numEntries, entries.length]
+  );
+  const entriesOnPage = useMemo(() => {
+    let res = entries;
+    if (!record.displayAll) {
+      res = _.drop(res, (page - 1) * numEntries);
+      res = _.take(res, numEntries);
     }
     return res;
-  }, [record.entries, record.maxEntries, league, scope]);
+  }, [entries, record.displayAll, page, numEntries]);
 
   return (
     <Stack gap={10}>
@@ -87,7 +108,10 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
                   }))
                 )}
                 value={league}
-                onChange={(value) => setLeague(value as never)}
+                onChange={(value) => {
+                  setLeague(value as never);
+                  setPage(1);
+                }}
               />
             </Stack>
           )}
@@ -107,24 +131,46 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
                   }))
                 )}
                 value={scope}
-                onChange={(value) => setScope(value as never)}
+                onChange={(value) => {
+                  setScope(value as never);
+                  setPage(1);
+                }}
               />
             </Stack>
           )}
         </Group>
       )}
       <Table striped highlightOnHover withTableBorder>
-        <Table.Caption>Data available from {record.dataAvailableFromYear}</Table.Caption>
+        <Table.Caption>
+          <Group>
+            {!record.displayAll && (
+              <>
+                <Pagination total={maxPages} value={page} onChange={setPage} />
+                <NativeSelect
+                  data={[5, 10, 20, 50, 100].map((num) => ({
+                    label: `${num}`,
+                    value: `${num}`,
+                  }))}
+                  value={`${numEntries}`}
+                  onChange={(event) => setMaxEntries(parseInt(event.target.value))}
+                />
+              </>
+            )}
+            Data available from {record.dataAvailableFromYear}
+          </Group>
+        </Table.Caption>
         <Table.Thead>
           <Table.Tr>
+            <Table.Th>Pos</Table.Th>
             {record.columns.map((col) => (
               <Table.Th key={col.key as string}>{col.title}</Table.Th>
             ))}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {entries.map((entry) => (
+          {entriesOnPage.map((entry, i) => (
             <Table.Tr key={entry[record.keyField] as string}>
+              <Table.Td>{i + 1 + (page - 1) * numEntries}</Table.Td>
               {record.columns.map((col) => (
                 <Table.Td key={col.key as string}>{makeCell(col, entry[col.key])}</Table.Td>
               ))}

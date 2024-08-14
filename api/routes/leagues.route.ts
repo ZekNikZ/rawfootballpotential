@@ -76,7 +76,21 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
         .json(makeError("Could not find manager data", "Could not load data from Sleeper."));
     }
     const managerJson = await managerResponse.json();
-    const managers = "NOT IMPLEMENTED" as unknown as Record<ManagerId, Manager>;
+    const managers: Record<ManagerId, Manager> = typedFromEntries(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (managerJson as any[]).map((manager) => {
+        const configManager = config.managers.find((m) => m.sleeperIds.includes(manager.user_id));
+        const managerId = configManager?.id ?? `M-ERROR-${manager.user_id}`;
+        return [
+          managerId,
+          {
+            managerId,
+            avatar: manager.metadata?.avatar,
+            name: configManager?.name ?? manager.display_name,
+          },
+        ] as [ManagerId, Manager];
+      })
+    );
 
     // Fetch team data
     const teamResponse = await fetch(
@@ -88,7 +102,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
         .json(makeError("Could not find team data", "Could not load data from Sleeper."));
     }
     const teamJson = await teamResponse.json();
-    const teams: Record<ManagerId, Team> = typedFromEntries(
+    const teams: Record<TeamId, Team> = typedFromEntries(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (teamJson as any[]).map((team) => {
         const managerId =
@@ -99,7 +113,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
           (manager) => manager.user_id === team.owner_id
         );
         return [
-          managerId,
+          `R-${team.league_id}-${team.roster_id}`,
           {
             teamId: `R-${team.league_id}-${team.roster_id}`,
             leagueId,
@@ -117,8 +131,11 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
             injuryReserve: team.reserve ?? [], // .reserve
             sleeperRosterId: team.roster_id,
           },
-        ] as [ManagerId, Team];
+        ] as [TeamId, Team];
       })
+    );
+    const teamAssignments: Record<ManagerId, TeamId> = typedFromEntries(
+      Object.entries(teams).map(([teamId, team]) => [team.managerId, teamId] as [ManagerId, TeamId])
     );
 
     // Fetch projections
@@ -235,6 +252,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
         sleeperLeagueId: year.internalId,
         mangerData: {
           managers,
+          teamAssignments,
         },
         teamData: {
           teams,

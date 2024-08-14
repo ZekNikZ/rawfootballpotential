@@ -1,19 +1,153 @@
-import { createContext, PropsWithChildren, useContext, useState } from "react";
-import { Config, IGlobalDataContext, LeagueId } from "../../types";
+import {
+  createContext,
+  PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  Config,
+  FantasyRecord,
+  IGlobalDataContext,
+  League,
+  LeagueId,
+  RecordCategory,
+} from "../../types";
+import { Api, RECORD_DEFINITIONS } from "../../utils";
+import { notifications } from "@mantine/notifications";
 
 const GlobalDataContext = createContext<IGlobalDataContext | undefined>(undefined);
 
 export function GlobalDataProvider(props: PropsWithChildren) {
+  // Global state
+  const [loadingData, setLoadingData] = useState(true);
   const [config, setConfig] = useState<Config>();
-  const [currentLeague, setCurrentLeague] = useState<LeagueId>();
+
+  const [leagues, setLeagues] = useState<Record<LeagueId, League>>({});
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [records, setRecords] = useState<Record<LeagueId, (RecordCategory | FantasyRecord<any>)[]>>(
+    {}
+  );
+
+  // Loading notifications
+  const [loadingString, setLoadingString] = useState<string>();
+  const loadingNotificationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loadingString) {
+      if (loadingNotificationIdRef.current) {
+        notifications.hide(loadingNotificationIdRef.current);
+      }
+      loadingNotificationIdRef.current = null;
+    } else if (!loadingNotificationIdRef.current) {
+      loadingNotificationIdRef.current = notifications.show({
+        title: "Loading league data & records",
+        message: `Loading ${loadingString}...`,
+        loading: true,
+        autoClose: false,
+        withCloseButton: false,
+      });
+    } else {
+      notifications.update({
+        id: loadingNotificationIdRef.current,
+        title: "Loading league data & records",
+        message: `Loading ${loadingString}...`,
+        loading: true,
+        autoClose: false,
+        withCloseButton: false,
+      });
+    }
+  }, [loadingString]);
+
+  // Helper functions
+  const loadData = useCallback(async () => {
+    notifications.clean();
+
+    setLoadingData(true);
+    let config;
+    try {
+      // Config
+      setLoadingString("config");
+      const configResponse = await Api.getConfig();
+      if (configResponse.success) {
+        setConfig(configResponse.data);
+        config = configResponse.data;
+      } else {
+        throw new Error(configResponse.error);
+      }
+
+      // Leagues
+      for (const year of config.leagues.flatMap((league) =>
+        league.years.map((year) => ({ ...year, type: league.name }))
+      )) {
+        // Config
+        setLoadingString(`league (${year.type} ${year.year})`);
+        const leagueResponse = await Api.getLeague(year.leagueId);
+        if (leagueResponse.success) {
+          setLeagues((leagues) => ({
+            ...leagues,
+            [year.leagueId]: leagueResponse.data,
+          }));
+        } else {
+          throw new Error(leagueResponse.error);
+        }
+      }
+    } catch (err) {
+      // TODO: error handling
+      console.error(err);
+      notifications.show({
+        title: "Error loading league data",
+        message: "Try refreshing the page or try again later.",
+        color: "red",
+        autoClose: false,
+        withCloseButton: false,
+      });
+      return;
+    } finally {
+      setLoadingString(undefined);
+      setLoadingData(false);
+    }
+
+    // Compute records
+    setLeagues((leagues) => {
+      for (const league of config.leagues) {
+        setLoadingString(`records (${league.name})`);
+        setRecords((records) => ({
+          ...records,
+          [league.name]: RECORD_DEFINITIONS.map((def) => {
+            if (def.type === "category") {
+              return {
+                type: "category",
+                name: def.name,
+                category: def.category,
+                children: def.children.map((subdef) =>
+                  subdef.generateRecord(subdef, league, leagues)
+                ),
+              };
+            } else {
+              return def.generateRecord(def, league, leagues);
+            }
+          }),
+        }));
+      }
+
+      setLoadingString(undefined);
+
+      return leagues;
+    });
+  }, []);
 
   return (
     <GlobalDataContext.Provider
       value={{
+        loadingData,
+        setLoadingData,
+        loadData,
         config,
         setConfig,
-        currentLeague,
-        setCurrentLeague,
+        leagues,
+        records,
       }}
     >
       {props.children}

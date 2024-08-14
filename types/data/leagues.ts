@@ -1,6 +1,6 @@
 import { Draft } from "./drafts";
 import { LeagueSource, Position } from "./enums";
-import { LeagueId, ManagerId } from "./ids";
+import { LeagueId, ManagerId, TeamId } from "./ids";
 import { Manager } from "./managers";
 import { Bracket, Matchup } from "./matchups";
 import { Team } from "./teams";
@@ -8,10 +8,11 @@ import { TradedPick, Transaction } from "./transactions";
 
 interface ManagerData {
   managers: Record<ManagerId, Manager>;
+  teamAssignments: Record<ManagerId, TeamId>;
 }
 
 interface TeamData {
-  teams: Record<ManagerId, Team>;
+  teams: Record<TeamId, Team>;
   teamCount: number;
   divisionNames?: string[];
   divisionAvatars?: string[];

@@ -1,11 +1,31 @@
-import { ApiResponse, GetConfigResponse } from "../types";
+import stringHash from "string-hash";
+import { ApiResponse, GetConfigResponse, GetLeagueResponse, LeagueId } from "../types";
 
 export class Api {
+  private static getFromCache(key: number): object | undefined {
+    const cacheValue = localStorage.getItem(`api-${key}`);
+    if (cacheValue) {
+      return JSON.parse(cacheValue);
+    } else {
+      return undefined;
+    }
+  }
+
+  private static putInCache(key: number, value: object) {
+    localStorage.setItem(`api-${key}`, JSON.stringify(value));
+  }
+
   private static async request<T extends ApiResponse<unknown>>(
     method: "GET" | "POST",
     path: string,
     body?: unknown
   ): Promise<T> {
+    const cacheKey = stringHash(`${method} ${path} ${JSON.stringify(body)}`);
+    const cachedValue = this.getFromCache(cacheKey);
+    if (cachedValue) {
+      return cachedValue as T;
+    }
+
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}${path}`, {
         method,
@@ -20,7 +40,9 @@ export class Api {
           error: `${res.status}: ${res.statusText}`,
         } as T;
       }
-      return await res.json();
+      const json = await res.json();
+      this.putInCache(cacheKey, json);
+      return json;
     } catch (err) {
       return {
         success: false,
@@ -29,7 +51,15 @@ export class Api {
     }
   }
 
+  public static async clearCache() {
+    // FIXME: make this work
+  }
+
   public static async getConfig() {
     return await this.request<GetConfigResponse>("GET", "/config");
+  }
+
+  public static async getLeague(leagueId: LeagueId) {
+    return await this.request<GetLeagueResponse>("GET", `/leagues/${leagueId}`);
   }
 }
