@@ -19,6 +19,7 @@ import {
 import { RouteData } from "../types";
 import { HomePage } from "./pages/Home.page";
 import OverallRecordsPage from "./pages/OverallRecords.page";
+import ManagerRecordsPage from "./pages/ManagerRecords.page";
 
 const routes: RouteData[] = [
   {
@@ -154,10 +155,9 @@ const routes: RouteData[] = [
       {
         path: "/:leagueId/records/managers",
         title: "Managers",
-        element: <HomePage />,
+        element: <ManagerRecordsPage />,
         navbarProperties: {
           icon: UsersFour,
-          isDisabled: () => true,
         },
       },
     ],

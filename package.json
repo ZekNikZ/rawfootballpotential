@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev:ui": "vite",
     "dev:server": "tsx watch --tsconfig ./tsconfig.server.json ./api/server.ts",
-    "dev:server2": "nodemon --exec tsx --tsconfig tsconfig.server.json ./api/server.ts -w ./api",
-    "build": "tsc -b && vite build",
+    "build:ui": "tsc -b && vite build",
+    "serve:ui": "serve dist",
+    "serve:server": "tsx --tsconfig ./tsconfig.server.json ./api/server.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -60,6 +61,7 @@
     "postcss-preset-mantine": "^1.17.0",
     "postcss-simple-vars": "^7.0.1",
     "prettier": "^3.3.3",
+    "serve": "^14.2.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.16.5",
     "typescript": "^5.2.2",

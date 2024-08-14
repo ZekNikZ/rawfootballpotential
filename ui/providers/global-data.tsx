@@ -13,6 +13,7 @@ import {
   IGlobalDataContext,
   League,
   LeagueId,
+  NFLData,
   RecordCategory,
 } from "../../types";
 import { Api, RECORD_DEFINITIONS } from "../../utils";
@@ -30,6 +31,8 @@ export function GlobalDataProvider(props: PropsWithChildren) {
   const [records, setRecords] = useState<Record<LeagueId, (RecordCategory | FantasyRecord<any>)[]>>(
     {}
   );
+
+  const [nflData, setNflData] = useState<NFLData>({ teams: {}, players: {} });
 
   // Loading notifications
   const [loadingString, setLoadingString] = useState<string>();
@@ -93,6 +96,15 @@ export function GlobalDataProvider(props: PropsWithChildren) {
           throw new Error(leagueResponse.error);
         }
       }
+
+      // NFL Data
+      setLoadingString("NFL teams & players");
+      const nflResponse = await Api.getNFLData();
+      if (nflResponse.success) {
+        setNflData(nflResponse.data);
+      } else {
+        throw new Error(nflResponse.error);
+      }
     } catch (err) {
       // TODO: error handling
       console.error(err);
@@ -148,6 +160,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
         setConfig,
         leagues,
         records,
+        nflData,
       }}
     >
       {props.children}

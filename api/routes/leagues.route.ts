@@ -182,7 +182,8 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
             team1: {
               teamId: `R-${year.internalId}-${correspondingMatchups[0].roster_id}` as TeamId,
               hasPlayerData: true,
-              points: correspondingMatchups[0].points,
+              points: correspondingMatchups[0].custom_points ?? correspondingMatchups[0].points,
+              werePointsOverrided: !!correspondingMatchups[0].custom_points,
               players: correspondingMatchups[0].starters.map((x: string) => (x === "0" ? null : x)), // .starters
               bench: correspondingMatchups[0].players.filter(
                 (p: string) =>
@@ -200,7 +201,9 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
                 ? {
                     teamId: `R-${year.internalId}-${correspondingMatchups[1].roster_id}` as TeamId,
                     hasPlayerData: true,
-                    points: correspondingMatchups[1].points,
+                    points:
+                      correspondingMatchups[1].custom_points ?? correspondingMatchups[1].points,
+                    werePointsOverrided: !!correspondingMatchups[1].custom_points,
                     players: correspondingMatchups[1].starters.map((x: string) =>
                       x === "0" ? null : x
                     ), // .starters

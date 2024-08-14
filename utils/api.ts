@@ -1,5 +1,11 @@
 import stringHash from "string-hash";
-import { ApiResponse, GetConfigResponse, GetLeagueResponse, LeagueId } from "../types";
+import {
+  ApiResponse,
+  GetConfigResponse,
+  GetLeagueResponse,
+  GetNFLResponse,
+  LeagueId,
+} from "../types";
 
 export class Api {
   private static getFromCache(key: number): object | undefined {
@@ -65,6 +71,12 @@ export class Api {
   }
 
   public static async getLeague(leagueId: LeagueId) {
-    return await this.request<GetLeagueResponse>("GET", `/leagues/${leagueId}`);
+    return await this.request<GetLeagueResponse>("GET", `/leagues/${leagueId}`, undefined, {
+      cache: true,
+    });
+  }
+
+  public static async getNFLData() {
+    return await this.request<GetNFLResponse>("GET", "/nfl", undefined, { cache: true });
   }
 }

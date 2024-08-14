@@ -11,6 +11,7 @@ export interface Matchup {
 export type MatchupTeam = {
   teamId: TeamId;
   points: number;
+  werePointsOverrided: boolean;
 } & (
   | {
       hasPlayerData: false;

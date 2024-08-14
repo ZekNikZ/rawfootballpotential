@@ -18,27 +18,41 @@ interface Props<T extends BaseRecordEntry> {
   record: FantasyRecord<T>;
 }
 
-function makeCell<T>(column: RecordColumn<T>, value: unknown): React.ReactNode {
+function makeCell<T>(column: RecordColumn<T>, entry: T): React.ReactNode {
+  const value = entry[column.key];
+
+  let data: string;
+
   switch (column.type) {
     case "string":
-      return `${value}`;
+      data = `${value}`;
+      break;
     case "number":
-      return formatter({ round: column.decimalPrecision, padRight: column.decimalPrecision })(
+      data = formatter({ round: column.decimalPrecision, padRight: column.decimalPrecision })(
         value as never,
         {}
       );
+      break;
     case "currency":
-      return formatter({
+      data = formatter({
         prefix: "$",
         round: column.decimalPrecision,
         padRight: column.decimalPrecision,
       })(value as never, {});
+      break;
     case "percentage":
-      return formatter({
+      data = formatter({
         suffix: "%",
         round: column.decimalPrecision,
         padRight: column.decimalPrecision,
       })((value as number) * 100, {});
+      break;
+  }
+
+  if (column.hintKey) {
+    return `${data} (${entry[column.hintKey]})`;
+  } else {
+    return data;
   }
 }
 
@@ -184,7 +198,7 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
             <Table.Tr key={entry[record.keyField] as string}>
               <Table.Td>{i + 1 + (page - 1) * numEntries}</Table.Td>
               {record.columns.map((col) => (
-                <Table.Td key={col.key as string}>{makeCell(col, entry[col.key])}</Table.Td>
+                <Table.Td key={col.key as string}>{makeCell(col, entry)}</Table.Td>
               ))}
             </Table.Tr>
           ))}

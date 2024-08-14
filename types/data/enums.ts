@@ -5,9 +5,12 @@ export type Position =
   | "TE"
   | "FLEX"
   | "K"
-  | "D/ST"
+  | "DEF"
   | "REC_FLEX"
   | "SUPER_FLEX"
-  | "IDP_FLEX";
+  | "IDP_FLEX"
+  | "LB"
+  | "DL"
+  | "DB";
 
 export type LeagueSource = "db" | "sleeper";

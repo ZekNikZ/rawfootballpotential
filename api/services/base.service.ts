@@ -6,7 +6,7 @@ export class BaseService<T> {
   collection: Collection;
 
   constructor(collectionName: string) {
-    this.db = client.db();
+    this.db = client.db(process.env.MONGO_DATABASE);
     this.collection = this.db.collection(collectionName);
   }
 

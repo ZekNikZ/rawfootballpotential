@@ -1,6 +1,11 @@
 import { Position } from "./enums";
 import { NFLPlayerId, NFLTeamId } from "./ids";
 
+export interface NFLData {
+  players: Record<NFLPlayerId, NFLPlayer>;
+  teams: Record<NFLTeamId, NFLTeam>;
+}
+
 export interface NFLTeam {
   nflTeamId: NFLTeamId;
   name: string;

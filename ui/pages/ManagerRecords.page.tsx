@@ -4,7 +4,7 @@ import { useCurrentLeague, useGlobalData } from "../providers";
 import { Stack } from "@mantine/core";
 import RecordTable from "../components/RecordTable";
 
-function OverallRecordsPage() {
+function ManagerRecordsPage() {
   const { config, records } = useGlobalData();
   const { leagueId } = useCurrentLeague();
 
@@ -13,7 +13,7 @@ function OverallRecordsPage() {
       (league) => !!league.years.find((year) => year.leagueId === leagueId)
     )!;
 
-    return (records[league.name] ?? []).filter((record) => record.category === "overall");
+    return (records[league.name] ?? []).filter((record) => record.category === "manager");
   }, [config, leagueId, records]);
 
   return (
@@ -29,4 +29,4 @@ function OverallRecordsPage() {
   );
 }
 
-export default OverallRecordsPage;
+export default ManagerRecordsPage;
