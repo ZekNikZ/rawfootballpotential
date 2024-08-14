@@ -34,11 +34,16 @@ export interface RecordColumn<T> {
   decimalPrecision?: number;
 }
 
+export interface RecordFilter<T> {
+  key: keyof T;
+  label: string;
+}
+
 export type RecordScope = "in-season" | "playoffs";
 
 export interface BaseRecordEntry {
-  league: LeagueId | null;
-  scope: RecordScope | null;
+  league?: LeagueId;
+  scope?: RecordScope;
 }
 
 export interface FantasyRecord<T extends BaseRecordEntry> {
@@ -48,6 +53,7 @@ export interface FantasyRecord<T extends BaseRecordEntry> {
   displayAll?: boolean;
   dataAvailableFromYear: number;
   columns: RecordColumn<T>[];
+  filters?: RecordFilter<T>[];
   keyField: keyof T;
   entries: T[];
 }

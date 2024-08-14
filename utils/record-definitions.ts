@@ -55,13 +55,25 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
         type: "record",
         category: "overall",
         name: "Single week highest teamwide score",
-        generateRecord: weeklyTeamwideScoreRecord("highest"),
+        generateRecord: weeklyTeamwideScoreRecord("total", "highest"),
       },
       {
         type: "record",
         category: "overall",
         name: "Single week lowest teamwide score",
-        generateRecord: weeklyTeamwideScoreRecord("lowest"),
+        generateRecord: weeklyTeamwideScoreRecord("total", "lowest"),
+      },
+      {
+        type: "record",
+        category: "overall",
+        name: "Single week highest bench score",
+        generateRecord: weeklyTeamwideScoreRecord("bench", "highest"),
+      },
+      {
+        type: "record",
+        category: "overall",
+        name: "Single week lowest bench score",
+        generateRecord: weeklyTeamwideScoreRecord("bench", "lowest"),
       },
     ],
   },
@@ -179,13 +191,15 @@ function weeklyScoreRecord(sortBy: "score" | "differential", sortOrder: "highest
   };
 }
 
-function weeklyTeamwideScoreRecord(sortOrder: "highest" | "lowest") {
+function weeklyTeamwideScoreRecord(scoreType: "total" | "bench", sortOrder: "highest" | "lowest") {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
     team: string;
     week: string;
     againstTeam: string;
     score: number;
+    actualScore: number;
+    benchScore: number;
   }
 
   return function (
@@ -215,12 +229,16 @@ function weeklyTeamwideScoreRecord(sortOrder: "highest" | "lowest") {
                 dataAvailableFromYear = league.year;
               }
 
+              const team2Score = _.sum(Object.values(matchup.team2.playerPoints));
+
               res.push({
                 key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team2.teamId}`,
                 week: `${league.year} WK ${matchup.week}`,
                 team: `${team2.name} (${manager2.name})`,
                 againstTeam: `${team1.name} (${manager1.name})`,
-                score: _.sum(Object.values(matchup.team2.playerPoints)),
+                score: team2Score,
+                actualScore: matchup.team2.points,
+                benchScore: team2Score - matchup.team2.points,
                 league: league.leagueId,
                 scope: (matchup.week < league.matchupData.playoffWeekStart
                   ? "in-season"
@@ -236,12 +254,16 @@ function weeklyTeamwideScoreRecord(sortOrder: "highest" | "lowest") {
               dataAvailableFromYear = league.year;
             }
 
+            const team1Score = _.sum(Object.values(matchup.team1.playerPoints));
+
             res.push({
               key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team1.teamId}`,
               week: `${league.year} WK ${matchup.week}`,
               team: `${team1.name} (${manager1.name})`,
               againstTeam: team2Name,
-              score: _.sum(Object.values(matchup.team1.playerPoints)),
+              score: team1Score,
+              actualScore: matchup.team1.points,
+              benchScore: team1Score - matchup.team1.points,
               league: league.leagueId,
               scope: (matchup.week < league.matchupData.playoffWeekStart
                 ? "in-season"
@@ -254,7 +276,9 @@ function weeklyTeamwideScoreRecord(sortOrder: "highest" | "lowest") {
       )
       .filter((entry) => !!entry)
       .sort((a, b) => {
-        return (a.score - b.score) * (sortOrder === "lowest" ? 1 : -1);
+        const aVal = scoreType === "total" ? a.score : a.benchScore;
+        const bVal = scoreType === "total" ? b.score : b.benchScore;
+        return (aVal - bVal) * (sortOrder === "lowest" ? 1 : -1);
       });
 
     return {
@@ -282,6 +306,18 @@ function weeklyTeamwideScoreRecord(sortOrder: "highest" | "lowest") {
         {
           key: "score",
           title: "Teamwide Score",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "actualScore",
+          title: "Actual Score",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "benchScore",
+          title: "Bench Score",
           type: "number",
           decimalPrecision: 2,
         },

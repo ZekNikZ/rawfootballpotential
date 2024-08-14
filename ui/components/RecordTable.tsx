@@ -1,5 +1,6 @@
 import {
   Group,
+  MultiSelect,
   NativeSelect,
   Pagination,
   SegmentedControl,
@@ -90,56 +91,67 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
 
   return (
     <Stack gap={10}>
-      {(leagues.length >= 2 || scopes.length >= 2) && (
-        <Group gap={20}>
-          {leagues.length >= 2 && (
+      <Group gap={20} style={{ rowGap: 5 }}>
+        {leagues.length >= 2 && (
+          <Stack gap={0}>
+            <Text>Season</Text>
+            <SegmentedControl
+              data={[
+                {
+                  label: "All",
+                  value: "all",
+                },
+              ].concat(
+                leagues.map((league) => ({
+                  label: `${league.year}`,
+                  value: league.leagueId,
+                }))
+              )}
+              value={league}
+              onChange={(value) => {
+                setLeague(value as never);
+                setPage(1);
+              }}
+            />
+          </Stack>
+        )}
+        {scopes.length >= 2 && (
+          <Stack gap={0}>
+            <Text>Time</Text>
+            <SegmentedControl
+              data={[
+                {
+                  label: "Both",
+                  value: "all",
+                },
+              ].concat(
+                scopes.map((league) => ({
+                  label: league === "in-season" ? "Regular Season" : "Playoffs",
+                  value: league,
+                }))
+              )}
+              value={scope}
+              onChange={(value) => {
+                setScope(value as never);
+                setPage(1);
+              }}
+            />
+          </Stack>
+        )}
+        {record.filters?.map((filter) => (
+          <>
             <Stack gap={0}>
-              <Text>Season</Text>
-              <SegmentedControl
-                data={[
-                  {
-                    label: "All",
-                    value: "all",
-                  },
-                ].concat(
-                  leagues.map((league) => ({
-                    label: `${league.year}`,
-                    value: league.leagueId,
-                  }))
-                )}
-                value={league}
-                onChange={(value) => {
-                  setLeague(value as never);
-                  setPage(1);
-                }}
+              <Text>{filter.label}</Text>
+              <MultiSelect
+                data={_.uniq(entries.map((entry) => `${entry[filter.key]}`))}
+                searchable
+                nothingFoundMessage="Nothing found..."
+                checkIconPosition="right"
               />
             </Stack>
-          )}
-          {scopes.length >= 2 && (
-            <Stack gap={0}>
-              <Text>Time</Text>
-              <SegmentedControl
-                data={[
-                  {
-                    label: "Both",
-                    value: "all",
-                  },
-                ].concat(
-                  scopes.map((league) => ({
-                    label: league === "in-season" ? "Regular Season" : "Playoffs",
-                    value: league,
-                  }))
-                )}
-                value={scope}
-                onChange={(value) => {
-                  setScope(value as never);
-                  setPage(1);
-                }}
-              />
-            </Stack>
-          )}
-        </Group>
-      )}
+          </>
+        ))}
+      </Group>
       <Table striped highlightOnHover withTableBorder>
         <Table.Caption>
           <Group>
