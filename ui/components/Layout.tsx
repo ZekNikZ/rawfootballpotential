@@ -188,7 +188,7 @@ export default function Layout() {
                                 navigate(generatePath(subroute.path, { leagueId }));
                                 close();
                               }}
-                              disabled={route.navbarProperties?.isDisabled?.(currentLeagueData)}
+                              disabled={subroute.navbarProperties?.isDisabled?.(currentLeagueData)}
                             />
                           );
                         })}

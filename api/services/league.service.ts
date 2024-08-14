@@ -1,6 +1,7 @@
+import { League } from "../../types";
 import { BaseService } from "./base.service";
 
-export class LeagueService extends BaseService<LeagueService> {
+export class LeagueService extends BaseService<League> {
   constructor() {
     super("leagues");
   }

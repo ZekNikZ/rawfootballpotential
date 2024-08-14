@@ -44,6 +44,7 @@ const routes: RouteData[] = [
     element: <HomePage />,
     navbarProperties: {
       icon: ListNumbers,
+      isDisabled: () => true,
     },
   },
   {
@@ -52,6 +53,7 @@ const routes: RouteData[] = [
     element: <HomePage />,
     navbarProperties: {
       icon: FootballHelmet,
+      isDisabled: () => true,
     },
   },
   {
@@ -59,6 +61,7 @@ const routes: RouteData[] = [
     title: "Teams",
     navbarProperties: {
       icon: UsersThree,
+      isDisabled: () => true,
     },
     children: [
       {
@@ -84,6 +87,7 @@ const routes: RouteData[] = [
     title: "Transactions",
     navbarProperties: {
       icon: ArrowsLeftRight,
+      isDisabled: () => true,
     },
     children: [
       {
@@ -111,6 +115,7 @@ const routes: RouteData[] = [
     element: <HomePage />,
     navbarProperties: {
       icon: GridNine,
+      isDisabled: () => true,
     },
   },
   {
@@ -126,6 +131,7 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: Trophy,
+          isDisabled: () => true,
         },
       },
       {
@@ -142,6 +148,7 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: CalendarDot,
+          isDisabled: () => true,
         },
       },
       {
@@ -150,6 +157,7 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: UsersFour,
+          isDisabled: () => true,
         },
       },
     ],

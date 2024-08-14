@@ -39,7 +39,8 @@
     "react-router-dom": "^6.26.0",
     "recharts": "2",
     "string-hash": "^1.1.3",
-    "vite-express": "^0.17.0"
+    "vite-express": "^0.17.0",
+    "winston": "^3.14.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

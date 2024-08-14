@@ -1,25 +1,28 @@
-import { Title, Text, Anchor } from "@mantine/core";
+import { Title, Text } from "@mantine/core";
 import classes from "./Home.page.module.css";
-import { useLocation } from "react-router-dom";
+import { useCurrentLeague, useGlobalData } from "../providers";
+import { useMemo } from "react";
 
 export function HomePage() {
-  const { pathname } = useLocation();
+  const { config } = useGlobalData();
+  const { leagueId } = useCurrentLeague();
+  const currentLeagueData = useMemo(() => {
+    return config!.leagues.find((league) =>
+      league.years.find((year) => year.leagueId === leagueId)
+    )!;
+  }, [leagueId, config]);
 
   return (
     <>
       <Title className={classes.title} ta="center" mt={100}>
-        Welcome to{" "}
-        <Text inherit variant="gradient" component="span" gradient={{ from: "pink", to: "yellow" }}>
-          Mantine
-        </Text>
+        🚧{" "}
+        <Text inherit c={currentLeagueData.color} component="span">
+          We're still working on this page.
+        </Text>{" "}
+        🚧
       </Title>
       <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl">
-        This starter Vite project includes a minimal setup, if you want to learn more on Mantine +
-        Vite integration follow{" "}
-        <Anchor href="https://mantine.dev/guides/vite/" size="lg">
-          this guide
-        </Anchor>
-        . To get started edit pages/Home.page.tsx file. {pathname}
+        Check back soon to see exciting new features right here!
       </Text>
     </>
   );

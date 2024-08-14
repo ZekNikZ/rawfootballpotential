@@ -17,6 +17,8 @@ import {
 import { configService } from "../services";
 import _ from "lodash";
 import { makeError, typedFromEntries } from "../../utils";
+import { projectionsService } from "../services/projections.service";
+import { logger } from "../logger";
 
 export const leaguesRouter = Router();
 
@@ -25,6 +27,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
   const leagueId = lid as LeagueId;
 
   // Figure out where the data for this league is
+  logger.info("Fetching config...");
   const config = await configService.findOne();
   if (!config) {
     return res.status(500).json(makeError("Could not find configuration"));
@@ -38,9 +41,13 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
     return res.status(404).json(makeError("Could not find league source"));
   }
 
+  logger.info("Fetching league metadata...");
   const source = year.source;
   if (source === "sleeper") {
+    logger.info("League is from SLEEPER");
+
     // Fetch league data
+    logger.info(`Fetching sleeper league ${year.internalId}...`);
     const leagueResponse = await fetch(`https://api.sleeper.app/v1/league/${year.internalId}`);
     if (!leagueResponse.ok) {
       return res
@@ -66,7 +73,8 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
     const numPlayoffWeeks = Math.ceil(Math.log2(leagueJson.settings.playoff_teams));
     const weeks = _.range(1, numRegularSeasonWeeks + numPlayoffWeeks + 1);
 
-    // TODO: Fetch manager data
+    // Fetch manager data
+    logger.info(`Fetching managers...`);
     const managerResponse = await fetch(
       `https://api.sleeper.app/v1/league/${year.internalId}/users`
     );
@@ -93,6 +101,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
     );
 
     // Fetch team data
+    logger.info(`Fetching rosters...`);
     const teamResponse = await fetch(
       `https://api.sleeper.app/v1/league/${year.internalId}/rosters`
     );
@@ -139,43 +148,28 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
     );
 
     // Fetch projections
+    logger.info(`Fetching projections...`);
     const projections = typedFromEntries(
       await Promise.all(
         weeks.map(async (week) => {
-          const projectionsResponse = await fetch(
-            `https://api.sleeper.app/projections/nfl/${year.year}/${week}?season_type=regular&position%5B%5D=DB&position%5B%5D=DEF&position%5B%5D=DL&position%5B%5D=FLEX&position%5B%5D=IDP_FLEX&position%5B%5D=K&position%5B%5D=LB&position%5B%5D=QB&position%5B%5D=RB&position%5B%5D=REC_FLEX&position%5B%5D=SUPER_FLEX&position%5B%5D=TE&position%5B%5D=WR&position%5B%5D=WRRB_FLEX&order_by=ppr`
-          );
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const projectionsJson: any[] = await projectionsResponse.json();
-
-          const weekProjections = projectionsJson.reduce<Record<NFLPlayerId, number>>(
-            (res, proj) => {
-              const stats = proj.stats;
-              let total = 0;
-
-              if (stats) {
-                Object.entries(stats).forEach(([stat, pts]) => {
-                  total += (pts as number) * (leagueJson.scoring_settings[stat] ?? 0);
-                });
-              }
-
-              return {
-                ...res,
-                [proj.player_id as NFLPlayerId]: total,
-              };
-            },
-            {}
+          const weekProjections = await projectionsService.getProjectionsForWeek(
+            year.year,
+            week,
+            leagueId,
+            leagueJson.scoring_settings
           );
 
-          return [`${week}`, weekProjections] as [string, Record<NFLPlayerId, number>];
+          return [`${week}`, weekProjections.projections] as [string, Record<NFLPlayerId, number>];
         })
       )
     );
 
     // Fetch matchup data
+    logger.info(`Fetching matchups...`);
     const matchups = _.flattenDeep(
       await Promise.all(
         weeks.map(async (week) => {
+          logger.info(`Fetching week ${week} matchups...`);
           const matchupsResponse = await fetch(
             `https://api.sleeper.app/v1/league/${year.internalId}/matchups/${week}`
           );
@@ -241,6 +235,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
     // TODO: Fetch draft
     const draft = "NOT IMPLEMENTED" as unknown as Draft;
 
+    logger.info("Complete!");
     return res.json({
       success: true,
       data: {

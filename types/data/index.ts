@@ -6,6 +6,7 @@ export * from "./leagues";
 export * from "./managers";
 export * from "./matchups";
 export * from "./nfl";
+export * from "./projections";
 export * from "./teams";
 export * from "./transactions";
 export * from "./record";

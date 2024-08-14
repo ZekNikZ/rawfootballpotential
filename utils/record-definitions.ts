@@ -23,13 +23,13 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
       {
         type: "record",
         category: "overall",
-        name: "Single week highest score",
+        name: "Highest score",
         generateRecord: weeklyScoreRecord("score", "highest"),
       },
       {
         type: "record",
         category: "overall",
-        name: "Single week lowest score",
+        name: "Lowest score",
         generateRecord: weeklyScoreRecord("score", "lowest"),
       },
       {
@@ -44,6 +44,18 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
         name: "Narrowest win",
         generateRecord: weeklyScoreRecord("differential", "lowest"),
       },
+      {
+        type: "record",
+        category: "overall",
+        name: "Highest scoring loss",
+        generateRecord: weeklyScoreRecord("loserScore", "highest"),
+      },
+      {
+        type: "record",
+        category: "overall",
+        name: "Lowest scoring win",
+        generateRecord: weeklyScoreRecord("winnerScore", "lowest"),
+      },
     ],
   },
   {
@@ -54,32 +66,35 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
       {
         type: "record",
         category: "overall",
-        name: "Single week highest teamwide score",
+        name: "Highest teamwide score",
         generateRecord: weeklyTeamwideScoreRecord("total", "highest"),
       },
       {
         type: "record",
         category: "overall",
-        name: "Single week lowest teamwide score",
+        name: "Lowest teamwide score",
         generateRecord: weeklyTeamwideScoreRecord("total", "lowest"),
       },
       {
         type: "record",
         category: "overall",
-        name: "Single week highest bench score",
+        name: "Highest bench score",
         generateRecord: weeklyTeamwideScoreRecord("bench", "highest"),
       },
       {
         type: "record",
         category: "overall",
-        name: "Single week lowest bench score",
+        name: "Lowest bench score",
         generateRecord: weeklyTeamwideScoreRecord("bench", "lowest"),
       },
     ],
   },
 ];
 
-function weeklyScoreRecord(sortBy: "score" | "differential", sortOrder: "highest" | "lowest") {
+function weeklyScoreRecord(
+  sortBy: "score" | "differential" | "loserScore" | "winnerScore",
+  sortOrder: "highest" | "lowest"
+) {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
     team: string;
@@ -117,7 +132,7 @@ function weeklyScoreRecord(sortBy: "score" | "differential", sortOrder: "highest
           const scoreDelta = matchup.team1.points - matchup.team2.points;
 
           return [
-            sortBy !== "differential" || scoreDelta > 0
+            sortBy === "score" || scoreDelta > 0 != (sortBy === "loserScore") // team1 wins
               ? {
                   key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team1.teamId}`,
                   week: `${league.year} WK ${matchup.week}`,
@@ -132,7 +147,7 @@ function weeklyScoreRecord(sortBy: "score" | "differential", sortOrder: "highest
                     : "playoffs") as RecordScope,
                 }
               : undefined,
-            sortBy !== "differential" || scoreDelta < 0
+            sortBy === "score" || scoreDelta < 0 != (sortBy === "loserScore") // team2 wins
               ? {
                   key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team2.teamId}`,
                   week: `${league.year} WK ${matchup.week}`,
@@ -152,8 +167,8 @@ function weeklyScoreRecord(sortBy: "score" | "differential", sortOrder: "highest
       )
       .filter((entry) => !!entry)
       .sort((a, b) => {
-        const aVal = sortBy === "score" ? a.score : a.scoreDelta;
-        const bVal = sortBy === "score" ? b.score : b.scoreDelta;
+        const aVal = sortBy === "differential" ? a.scoreDelta : a.score;
+        const bVal = sortBy === "differential" ? b.scoreDelta : b.score;
         return (aVal - bVal) * (sortOrder === "lowest" ? 1 : -1);
       });
 

@@ -18,11 +18,14 @@ export class Api {
   private static async request<T extends ApiResponse<unknown>>(
     method: "GET" | "POST",
     path: string,
-    body?: unknown
+    body?: unknown,
+    options?: {
+      cache?: boolean;
+    }
   ): Promise<T> {
     const cacheKey = stringHash(`${method} ${path} ${JSON.stringify(body)}`);
     const cachedValue = this.getFromCache(cacheKey);
-    if (cachedValue) {
+    if (options?.cache && cachedValue) {
       return cachedValue as T;
     }
 
@@ -41,7 +44,9 @@ export class Api {
         } as T;
       }
       const json = await res.json();
-      this.putInCache(cacheKey, json);
+      if (options?.cache) {
+        this.putInCache(cacheKey, json);
+      }
       return json;
     } catch (err) {
       return {
@@ -56,7 +61,7 @@ export class Api {
   }
 
   public static async getConfig() {
-    return await this.request<GetConfigResponse>("GET", "/config");
+    return await this.request<GetConfigResponse>("GET", "/config", undefined, { cache: true });
   }
 
   public static async getLeague(leagueId: LeagueId) {
