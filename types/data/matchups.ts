@@ -8,7 +8,7 @@ export interface Matchup {
   team2: MatchupTeam | "BYE" | "TBD";
 }
 
-type MatchupTeam = {
+export type MatchupTeam = {
   teamId: TeamId;
   points: number;
 } & (

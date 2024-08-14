@@ -17,7 +17,7 @@ function OverallRecordsPage() {
   }, [config, leagueId, records]);
 
   return (
-    <Stack gap={20}>
+    <Stack gap={40}>
       {filteredRecords.map((record) =>
         record.type === "category" ? (
           <RecordCategorySection key={record.name} category={record} />

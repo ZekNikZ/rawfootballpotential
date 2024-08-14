@@ -61,7 +61,7 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
   }, [record.entries]);
   const [scope, setScope] = useState<Exclude<BaseRecordEntry["scope"], null> | "all">("all");
 
-  const [numEntries, setMaxEntries] = useState(10);
+  const [numEntries, setMaxEntries] = useState(5);
   const [page, setPage] = useState(1);
 
   const entries = useMemo(() => {

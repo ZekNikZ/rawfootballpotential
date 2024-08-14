@@ -8,7 +8,9 @@ import {
   RecordCategoryDefinition,
   RecordDefinition,
   RecordScope,
+  Team,
 } from "../types";
+import _ from "lodash";
 
 const twoDecimalFormat = formatter({ round: 2, padRight: 2 });
 
@@ -41,6 +43,25 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
         category: "overall",
         name: "Narrowest win",
         generateRecord: weeklyScoreRecord("differential", "lowest"),
+      },
+    ],
+  },
+  {
+    type: "category",
+    category: "overall",
+    name: "Single Week Teamwide Scores",
+    children: [
+      {
+        type: "record",
+        category: "overall",
+        name: "Single week highest teamwide score",
+        generateRecord: weeklyTeamwideScoreRecord("highest"),
+      },
+      {
+        type: "record",
+        category: "overall",
+        name: "Single week lowest teamwide score",
+        generateRecord: weeklyTeamwideScoreRecord("lowest"),
       },
     ],
   },
@@ -150,6 +171,119 @@ function weeklyScoreRecord(sortBy: "score" | "differential", sortOrder: "highest
           key: "scores",
           title: "Score",
           type: "string",
+        },
+      ],
+      keyField: "key",
+      entries: entries,
+    };
+  };
+}
+
+function weeklyTeamwideScoreRecord(sortOrder: "highest" | "lowest") {
+  interface RecordEntry extends BaseRecordEntry {
+    key: string;
+    team: string;
+    week: string;
+    againstTeam: string;
+    score: number;
+  }
+
+  return function (
+    rd: RecordDefinition,
+    ld: LeagueDefinition,
+    leagues: Record<LeagueId, League>
+  ): FantasyRecord<RecordEntry> {
+    let dataAvailableFromYear = 9999;
+
+    const entries = ld.years
+      .map((yr) => leagues[yr.leagueId])
+      .flatMap((league) =>
+        league.matchupData.matchups.flatMap((matchup) => {
+          const res: RecordEntry[] = [];
+
+          const team1 = league.teamData.teams[matchup.team1.teamId];
+          const manager1 = league.mangerData.managers[team1.managerId];
+
+          let team2Name: string;
+          if (matchup.team2 !== "BYE" && matchup.team2 !== "TBD") {
+            const team2 = league.teamData.teams[matchup.team2.teamId];
+            const manager2 = league.mangerData.managers[(team2 as Team).managerId];
+            team2Name = `${team2.name} (${manager2.name})`;
+
+            if (matchup.team2.hasPlayerData) {
+              if (league.year < dataAvailableFromYear) {
+                dataAvailableFromYear = league.year;
+              }
+
+              res.push({
+                key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team2.teamId}`,
+                week: `${league.year} WK ${matchup.week}`,
+                team: `${team2.name} (${manager2.name})`,
+                againstTeam: `${team1.name} (${manager1.name})`,
+                score: _.sum(Object.values(matchup.team2.playerPoints)),
+                league: league.leagueId,
+                scope: (matchup.week < league.matchupData.playoffWeekStart
+                  ? "in-season"
+                  : "playoffs") as RecordScope,
+              });
+            }
+          } else {
+            team2Name = matchup.team2;
+          }
+
+          if (matchup.team1.hasPlayerData) {
+            if (league.year < dataAvailableFromYear) {
+              dataAvailableFromYear = league.year;
+            }
+
+            res.push({
+              key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team1.teamId}`,
+              week: `${league.year} WK ${matchup.week}`,
+              team: `${team1.name} (${manager1.name})`,
+              againstTeam: team2Name,
+              score: _.sum(Object.values(matchup.team1.playerPoints)),
+              league: league.leagueId,
+              scope: (matchup.week < league.matchupData.playoffWeekStart
+                ? "in-season"
+                : "playoffs") as RecordScope,
+            });
+          }
+
+          return res;
+        })
+      )
+      .filter((entry) => !!entry)
+      .sort((a, b) => {
+        return (a.score - b.score) * (sortOrder === "lowest" ? 1 : -1);
+      });
+
+    return {
+      type: "record",
+      category: rd.category,
+      name: rd.name,
+      displayAll: rd.displayAll,
+      dataAvailableFromYear,
+      columns: [
+        {
+          key: "team",
+          title: "Team / Manager",
+          type: "string",
+        },
+        {
+          key: "week",
+          title: "Week",
+          type: "string",
+        },
+        {
+          key: "againstTeam",
+          title: "Opponent",
+          type: "string",
+        },
+        {
+          key: "score",
+          title: "Teamwide Score",
+          type: "number",
+          decimalPrecision: 2,
         },
       ],
       keyField: "key",
