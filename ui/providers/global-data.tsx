@@ -69,6 +69,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
 
     setLoadingData(true);
     let config;
+    let nflData;
     try {
       // Config
       setLoadingString("config");
@@ -102,6 +103,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
       const nflResponse = await Api.getNFLData();
       if (nflResponse.success) {
         setNflData(nflResponse.data);
+        nflData = nflResponse.data;
       } else {
         throw new Error(nflResponse.error);
       }
@@ -134,11 +136,11 @@ export function GlobalDataProvider(props: PropsWithChildren) {
                 name: def.name,
                 category: def.category,
                 children: def.children.map((subdef) =>
-                  subdef.generateRecord(subdef, league, leagues)
+                  subdef.generateRecord(subdef, league, leagues, nflData)
                 ),
               };
             } else {
-              return def.generateRecord(def, league, leagues);
+              return def.generateRecord(def, league, leagues, nflData);
             }
           }),
         }));

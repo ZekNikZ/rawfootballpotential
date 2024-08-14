@@ -50,7 +50,14 @@ function makeCell<T>(column: RecordColumn<T>, entry: T): React.ReactNode {
   }
 
   if (column.hintKey) {
-    return `${data} (${entry[column.hintKey]})`;
+    return (
+      <Group gap={4}>
+        {data}{" "}
+        <Text fz={14} c="grey">
+          ({`${entry[column.hintKey]}`})
+        </Text>
+      </Group>
+    );
   } else {
     return data;
   }

@@ -77,6 +77,6 @@ export class Api {
   }
 
   public static async getNFLData() {
-    return await this.request<GetNFLResponse>("GET", "/nfl", undefined, { cache: true });
+    return await this.request<GetNFLResponse>("GET", "/nfl", undefined);
   }
 }

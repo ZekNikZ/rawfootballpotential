@@ -1,6 +1,7 @@
 import { LeagueDefinition } from "./config";
 import { LeagueId } from "./ids";
 import { League } from "./leagues";
+import { NFLData } from "./nfl";
 
 type RecordType = "overall" | "single-season" | "manager";
 
@@ -20,7 +21,8 @@ export interface RecordDefinition {
   generateRecord: (
     definition: RecordDefinition,
     league: LeagueDefinition,
-    leagues: Record<LeagueId, League>
+    leagues: Record<LeagueId, League>,
+    nflData: NFLData
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => FantasyRecord<any>;
 }

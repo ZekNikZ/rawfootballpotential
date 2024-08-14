@@ -6,12 +6,14 @@ import {
   LeagueDefinition,
   LeagueId,
   ManagerId,
+  NFLData,
   RecordCategoryDefinition,
   RecordDefinition,
   RecordScope,
   Team,
 } from "../types";
 import _ from "lodash";
+import { optimizeScore } from "./positions";
 
 const twoDecimalFormat = formatter({ round: 2, padRight: 2 });
 
@@ -466,7 +468,8 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
   return function (
     rd: RecordDefinition,
     ld: LeagueDefinition,
-    leagues: Record<LeagueId, League>
+    leagues: Record<LeagueId, League>,
+    nflData: NFLData
   ): FantasyRecord<RecordEntry> {
     let dataAvailableFromYear = 9999;
 
@@ -490,7 +493,16 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
                 dataAvailableFromYear = league.year;
               }
 
-              const team2Score = _.sum(Object.values(matchup.team2.playerPoints));
+              const team2Score = optimizeScore(
+                matchup.team2.players
+                  .filter((p) => !!p)
+                  .concat(matchup.team2.bench)
+                  .concat(matchup.team2.injuryReserve),
+                nflData.players,
+                matchup.team2.playerPoints,
+                league.teamData.rosterPositions,
+                matchup.team2.points > 140.55 && matchup.team2.points < 140.57
+              );
 
               res.push({
                 key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team2.teamId}`,
@@ -515,7 +527,16 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
               dataAvailableFromYear = league.year;
             }
 
-            const team1Score = _.sum(Object.values(matchup.team1.playerPoints));
+            const team1Score = optimizeScore(
+              matchup.team1.players
+                .filter((p) => !!p)
+                .concat(matchup.team1.bench)
+                .concat(matchup.team1.injuryReserve),
+              nflData.players,
+              matchup.team1.playerPoints,
+              league.teamData.rosterPositions,
+              matchup.team1.points > 140.55 && matchup.team1.points < 140.57
+            );
 
             res.push({
               key: `${matchup.matchupId}-${matchup.leagueId}-${matchup.week}-${matchup.team1.teamId}`,

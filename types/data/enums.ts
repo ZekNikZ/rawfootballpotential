@@ -11,6 +11,8 @@ export type Position =
   | "IDP_FLEX"
   | "LB"
   | "DL"
-  | "DB";
+  | "DB"
+  | "DE"
+  | "CB";
 
 export type LeagueSource = "db" | "sleeper";
