@@ -49,7 +49,7 @@ function makeCell<T>(column: RecordColumn<T>, entry: T): React.ReactNode {
       break;
   }
 
-  if (column.hintKey) {
+  if (column.hintKey && entry[column.hintKey]) {
     return (
       <Group gap={4}>
         {data}{" "}
@@ -74,6 +74,10 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
       .filter((y) => usedLeagues.includes(y.leagueId))
       .sort((a, b) => a.year - b.year);
   }, [record.entries, config]);
+  const hasNullLeague = useMemo(
+    () => record.entries.some((entry) => !entry.league),
+    [record.entries]
+  );
   const [league, setLeague] = useState<LeagueId | "all">("all");
 
   const scopes = useMemo(() => {
@@ -81,6 +85,10 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
       .filter((s) => !!s)
       .sort((a, b) => a.localeCompare(b));
   }, [record.entries]);
+  const hasNullScope = useMemo(
+    () => record.entries.some((entry) => !entry.scope),
+    [record.entries]
+  );
   const [scope, setScope] = useState<Exclude<BaseRecordEntry["scope"], null> | "all">("all");
 
   const [numEntries, setMaxEntries] = useState(5);
@@ -90,12 +98,16 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
     let res = record.entries;
     if (league !== "all") {
       res = res.filter((entry) => entry.league === league);
+    } else if (hasNullLeague) {
+      res = res.filter((entry) => !entry.league);
     }
     if (scope !== "all") {
       res = res.filter((entry) => entry.scope === scope);
+    } else if (hasNullScope) {
+      res = res.filter((entry) => !entry.scope);
     }
     return res;
-  }, [record.entries, league, scope]);
+  }, [record.entries, league, hasNullLeague, scope, hasNullScope]);
 
   const maxPages = useMemo(
     () => Math.ceil(entries.length / (numEntries ?? 1)),
@@ -147,7 +159,7 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
                 },
               ].concat(
                 scopes.map((league) => ({
-                  label: league === "in-season" ? "Regular Season" : "Playoffs",
+                  label: league === "in-season" ? "Regular Season" : "Postseason",
                   value: league,
                 }))
               )}
