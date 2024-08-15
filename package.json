@@ -7,7 +7,7 @@
     "dev:ui": "vite",
     "dev:server": "tsx watch --tsconfig ./tsconfig.server.json ./api/server.ts",
     "build:ui": "tsc -b && vite build",
-    "serve:ui": "serve dist",
+    "serve:ui": "serve -s dist",
     "serve:server": "tsx --tsconfig ./tsconfig.server.json ./api/server.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
