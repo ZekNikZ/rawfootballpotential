@@ -3,7 +3,11 @@ import cors from "cors";
 import { configRouter, leaguesRouter, nflRouter } from "./routes";
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: ["https://rawfootballpotential.com", "http://localhost:5173", "http://localhost:3000"],
+  })
+);
 
 app.use(configRouter);
 app.use(leaguesRouter);
