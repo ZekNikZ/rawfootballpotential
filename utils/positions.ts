@@ -22,8 +22,7 @@ export function optimizeScore(
   teamPlayers: NFLPlayerId[],
   allPlayers: Record<NFLPlayerId, NFLPlayer>,
   playerPoints: Record<NFLPlayerId, number>,
-  rosterPositions: Position[],
-  log?: boolean
+  rosterPositions: Position[]
 ): number {
   const players = teamPlayers
     .map((playerId) => ({
@@ -38,12 +37,6 @@ export function optimizeScore(
     .map((pos) => POSITION_MAP[pos])
     .sort((a, b) => a.length - b.length);
 
-  if (log) {
-    console.log(rosterPositions);
-    console.log(players);
-    console.log(positionEntries);
-  }
-
   let totalScore = 0;
   for (let i = 0; i < positionEntries.length; i++) {
     const possiblePositions = positionEntries[i];
@@ -51,16 +44,7 @@ export function optimizeScore(
       (player) => !player.used && possiblePositions.includes(player.position)
     );
     if (player) {
-      if (log) {
-        console.log(
-          `Picked ${player.playerId} (${player.position}) for ${possiblePositions} with ${player.score}`
-        );
-      }
       player.used = true;
-    } else {
-      if (log) {
-        console.log(`No valid pick for ${possiblePositions}`);
-      }
     }
     const score = player?.score ?? 0;
     totalScore += score;
