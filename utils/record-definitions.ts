@@ -465,8 +465,7 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
                   .concat(matchup.team2.injuryReserve),
                 nflData.players,
                 matchup.team2.playerPoints,
-                league.teamData.rosterPositions,
-                matchup.team2.points > 140.55 && matchup.team2.points < 140.57
+                league.teamData.rosterPositions
               );
 
               res.push({
@@ -499,8 +498,7 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
                 .concat(matchup.team1.injuryReserve),
               nflData.players,
               matchup.team1.playerPoints,
-              league.teamData.rosterPositions,
-              matchup.team1.points > 140.55 && matchup.team1.points < 140.57
+              league.teamData.rosterPositions
             );
 
             res.push({
