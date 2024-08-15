@@ -71,9 +71,7 @@ export class Api {
   }
 
   public static async getLeague(leagueId: LeagueId) {
-    return await this.request<GetLeagueResponse>("GET", `/leagues/${leagueId}`, undefined, {
-      cache: true,
-    });
+    return await this.request<GetLeagueResponse>("GET", `/leagues/${leagueId}`, undefined);
   }
 
   public static async getNFLData() {
