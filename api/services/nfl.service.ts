@@ -1,7 +1,7 @@
 import { NFLData, NFLPlayerId } from "../../types";
 import { BaseService } from "./base.service";
 
-export class NFLService extends BaseService<unknown> {
+export class NFLService extends BaseService<NFLData> {
   constructor() {
     super("nfl");
   }
