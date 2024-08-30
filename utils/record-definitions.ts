@@ -831,6 +831,7 @@ function managerCareerStandingsRecord(
 
           // Playoff
           if (
+            currentPlayoffStreaks[manager] &&
             currentPlayoffStreaks[manager].type === "W" &&
             currentPlayoffStreaks[manager].streak > (longestPlayoffWinStreaks[manager]?.streak ?? 0)
           ) {
@@ -840,6 +841,7 @@ function managerCareerStandingsRecord(
             };
           }
           if (
+            currentPlayoffStreaks[manager] &&
             currentPlayoffStreaks[manager].type === "L" &&
             currentPlayoffStreaks[manager].streak >
               (longestPlayoffLossStreaks[manager]?.streak ?? 0)

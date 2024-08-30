@@ -67,7 +67,7 @@ export class Api {
   }
 
   public static async getConfig() {
-    return await this.request<GetConfigResponse>("GET", "/config", undefined, { cache: true });
+    return await this.request<GetConfigResponse>("GET", "/config", undefined);
   }
 
   public static async getLeague(leagueId: LeagueId) {

@@ -19,6 +19,7 @@ import _ from "lodash";
 import { makeError, typedFromEntries } from "../../utils";
 import { projectionsService } from "../services/projections.service";
 import { logger } from "../logger";
+import { leagueService } from "../services/league.service";
 
 export const leaguesRouter = Router();
 
@@ -276,6 +277,16 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
       },
     });
   } else {
-    return res.status(501).json(makeError("Not implemented"));
+    const league = await leagueService.findById(leagueId);
+    if (!league) {
+      return res
+        .status(404)
+        .json(makeError("Could not find league data", "Could not load ESPN data from cache."));
+    }
+
+    return res.json({
+      success: true,
+      data: league,
+    });
   }
 });
