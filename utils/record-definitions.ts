@@ -130,35 +130,35 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
     children: [
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Most wins",
         displayAll: true,
         generateRecord: managerCareerStandingsRecord("win"),
       },
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Most losses",
         displayAll: true,
         generateRecord: managerCareerStandingsRecord("loss"),
       },
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Highest win percentage",
         displayAll: true,
         generateRecord: managerCareerStandingsRecord("win%"),
       },
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Highest win streak",
         displayAll: true,
         generateRecord: managerCareerStandingsRecord("win-streak"),
       },
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Highest loss streak",
         displayAll: true,
         generateRecord: managerCareerStandingsRecord("loss-streak"),
@@ -172,24 +172,59 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
     children: [
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Most perfect lineups",
         displayAll: true,
         generateRecord: managerCareerLineupRecord("perfect-lineups"),
       },
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Fewest total missed points",
         displayAll: true,
         generateRecord: managerCareerLineupRecord("missed-points"),
       },
       {
         type: "record",
-        category: "overall",
+        category: "manager",
         name: "Highest lineup IQ",
         displayAll: true,
         generateRecord: managerCareerLineupRecord("lineup-iq"),
+      },
+    ],
+  },
+  {
+    type: "category",
+    category: "manager",
+    name: "Career Scores",
+    children: [
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest highest score",
+        displayAll: true,
+        generateRecord: managerCareerScoringRecord("high-score"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Lowest lowest score",
+        displayAll: true,
+        generateRecord: managerCareerScoringRecord("low-score"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest points forward (PF)",
+        displayAll: true,
+        generateRecord: managerCareerScoringRecord("points-forward"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest points against (PA)",
+        displayAll: true,
+        generateRecord: managerCareerScoringRecord("points-against"),
       },
     ],
   },
@@ -1204,6 +1239,260 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
           key: "lineupIQ",
           title: "Lineup IQ",
           type: "percentage",
+          decimalPrecision: 2,
+        },
+      ],
+      keyField: "key",
+      entries,
+    };
+  };
+}
+
+function managerCareerScoringRecord(
+  sortBy: "high-score" | "low-score" | "points-forward" | "points-against"
+) {
+  interface RecordEntry extends BaseRecordEntry {
+    key: string;
+    manager: string;
+    highestScore: number;
+    highestScoreWeek: string;
+    lowestScore: number;
+    lowestScoreWeek: string;
+    pointsForward: number;
+    pointsAgainst: number;
+  }
+
+  return function (
+    rd: RecordDefinition,
+    ld: LeagueDefinition,
+    leagues: Record<LeagueId, League>
+  ): FantasyRecord<RecordEntry> {
+    let dataAvailableFromYear = 9999;
+
+    const highestScoreRegular: Record<ManagerId, number> = {};
+    const highestScorePlayoff: Record<ManagerId, number> = {};
+    const lowestScoreRegular: Record<ManagerId, number> = {};
+    const lowestScorePlayoff: Record<ManagerId, number> = {};
+
+    const highestScoreRegularWeek: Record<ManagerId, string> = {};
+    const highestScorePlayoffWeek: Record<ManagerId, string> = {};
+    const lowestScoreRegularWeek: Record<ManagerId, string> = {};
+    const lowestScorePlayoffWeek: Record<ManagerId, string> = {};
+
+    const pointsForwardRegular: Record<ManagerId, number> = {};
+    const pointsForwardPlayoff: Record<ManagerId, number> = {};
+    const pointsAgainstRegular: Record<ManagerId, number> = {};
+    const pointsAgainstPlayoff: Record<ManagerId, number> = {};
+
+    ld.years
+      .map((league) => leagues[league.leagueId])
+      .forEach((league) => {
+        for (const matchup of league.matchupData.matchups.sort((a, b) => a.week - b.week)) {
+          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
+            continue;
+          }
+
+          if (league.year < dataAvailableFromYear) {
+            dataAvailableFromYear = league.year;
+          }
+
+          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
+
+          const team1Id = matchup.team1.teamId;
+          const manager1Id = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team1Id
+          ) as ManagerId;
+
+          const team2Id = matchup.team2.teamId;
+          const manager2Id = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team2Id
+          ) as ManagerId;
+
+          if (!isPlayoff) {
+            if (matchup.team1.points > (highestScoreRegular[manager1Id] ?? 0)) {
+              highestScoreRegular[manager1Id] = matchup.team1.points;
+              highestScoreRegularWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points > (highestScoreRegular[manager2Id] ?? 0)) {
+              highestScoreRegular[manager2Id] = matchup.team2.points;
+              highestScoreRegularWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
+            }
+
+            if (matchup.team1.points < (lowestScoreRegular[manager1Id] ?? 999)) {
+              lowestScoreRegular[manager1Id] = matchup.team1.points;
+              lowestScoreRegularWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points < (lowestScoreRegular[manager2Id] ?? 999)) {
+              lowestScoreRegular[manager2Id] = matchup.team2.points;
+              lowestScoreRegularWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
+            }
+
+            pointsForwardRegular[manager1Id] =
+              (pointsForwardRegular[manager1Id] ?? 0) + matchup.team1.points;
+            pointsForwardRegular[manager2Id] =
+              (pointsForwardRegular[manager2Id] ?? 0) + matchup.team2.points;
+
+            pointsAgainstRegular[manager1Id] =
+              (pointsAgainstRegular[manager1Id] ?? 0) + matchup.team2.points;
+            pointsAgainstRegular[manager2Id] =
+              (pointsAgainstRegular[manager2Id] ?? 0) + matchup.team1.points;
+          } else {
+            if (matchup.team1.points > (highestScorePlayoff[manager1Id] ?? 0)) {
+              highestScorePlayoff[manager1Id] = matchup.team1.points;
+              highestScorePlayoffWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points > (highestScorePlayoff[manager2Id] ?? 0)) {
+              highestScorePlayoff[manager2Id] = matchup.team2.points;
+              highestScorePlayoffWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
+            }
+
+            if (matchup.team1.points < (lowestScorePlayoff[manager1Id] ?? 999)) {
+              lowestScorePlayoff[manager1Id] = matchup.team1.points;
+              lowestScorePlayoffWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points < (lowestScorePlayoff[manager2Id] ?? 999)) {
+              lowestScorePlayoff[manager2Id] = matchup.team2.points;
+              lowestScorePlayoffWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
+            }
+
+            pointsForwardPlayoff[manager1Id] =
+              (pointsForwardPlayoff[manager1Id] ?? 0) + matchup.team1.points;
+            pointsForwardPlayoff[manager2Id] =
+              (pointsForwardPlayoff[manager2Id] ?? 0) + matchup.team2.points;
+
+            pointsAgainstPlayoff[manager1Id] =
+              (pointsAgainstPlayoff[manager1Id] ?? 0) + matchup.team2.points;
+            pointsAgainstPlayoff[manager2Id] =
+              (pointsAgainstPlayoff[manager2Id] ?? 0) + matchup.team1.points;
+          }
+        }
+      });
+
+    const managers = _.uniqBy(
+      ld.years
+        .map((league) => leagues[league.leagueId])
+        .flatMap((league) => Object.values(league.mangerData.managers)),
+      (el) => el.managerId
+    );
+
+    const entries = managers
+      .flatMap<RecordEntry>((manager) => {
+        const highestScoreRegulars = highestScoreRegular[manager.managerId];
+        const highestScoreRegularsWeek = highestScoreRegularWeek[manager.managerId];
+        const highestScorePlayoffs = highestScorePlayoff[manager.managerId];
+        const highestScorePlayoffsWeek = highestScorePlayoffWeek[manager.managerId];
+        const lowestScoreRegulars = lowestScoreRegular[manager.managerId];
+        const lowestScoreRegularsWeek = lowestScoreRegularWeek[manager.managerId];
+        const lowestScorePlayoffs = lowestScorePlayoff[manager.managerId];
+        const lowestScorePlayoffsWeek = lowestScorePlayoffWeek[manager.managerId];
+        const pointsForwardRegulars = pointsForwardRegular[manager.managerId] ?? 0;
+        const pointsForwardPlayoffs = pointsForwardPlayoff[manager.managerId] ?? 0;
+        const pointsAgainstRegulars = pointsAgainstRegular[manager.managerId] ?? 0;
+        const pointsAgainstPlayoffs = pointsAgainstPlayoff[manager.managerId] ?? 0;
+
+        return [
+          {
+            key: manager.managerId,
+            manager: manager.name,
+            highestScore:
+              highestScoreRegulars > (highestScorePlayoffs ?? 0)
+                ? highestScoreRegulars
+                : highestScorePlayoffs,
+            highestScoreWeek:
+              highestScoreRegulars > (highestScorePlayoffs ?? 0)
+                ? highestScoreRegularsWeek
+                : highestScorePlayoffsWeek,
+            lowestScore:
+              lowestScoreRegulars < (lowestScorePlayoffs ?? 999)
+                ? lowestScoreRegulars
+                : lowestScorePlayoffs,
+            lowestScoreWeek:
+              lowestScoreRegulars < (lowestScorePlayoffs ?? 999)
+                ? lowestScoreRegularsWeek
+                : lowestScorePlayoffsWeek,
+            pointsForward: pointsForwardRegulars + pointsForwardPlayoffs,
+            pointsAgainst: pointsAgainstRegulars + pointsAgainstPlayoffs,
+          },
+          {
+            key: manager.managerId,
+            manager: manager.name,
+            highestScore: highestScoreRegulars,
+            highestScoreWeek: highestScoreRegularsWeek,
+            lowestScore: lowestScoreRegulars,
+            lowestScoreWeek: lowestScoreRegularsWeek,
+            pointsForward: pointsForwardRegulars,
+            pointsAgainst: pointsAgainstRegulars,
+            scope: "in-season",
+          },
+          {
+            key: manager.managerId,
+            manager: manager.name,
+            highestScore: highestScorePlayoffs,
+            highestScoreWeek: highestScorePlayoffsWeek,
+            lowestScore: lowestScorePlayoffs,
+            lowestScoreWeek: lowestScorePlayoffsWeek,
+            pointsForward: pointsForwardPlayoffs,
+            pointsAgainst: pointsAgainstPlayoffs,
+            scope: "playoffs",
+          },
+        ];
+      })
+      .sort((a, b) => {
+        const aVal =
+          sortBy === "high-score"
+            ? a.highestScore
+            : sortBy === "low-score"
+              ? -a.lowestScore
+              : sortBy === "points-forward"
+                ? a.pointsForward
+                : a.pointsAgainst;
+        const bVal =
+          sortBy === "high-score"
+            ? b.highestScore
+            : sortBy === "low-score"
+              ? -b.lowestScore
+              : sortBy === "points-forward"
+                ? b.pointsForward
+                : b.pointsAgainst;
+        return bVal - aVal;
+      });
+
+    return {
+      type: "record",
+      category: rd.category,
+      name: rd.name,
+      displayAll: rd.displayAll,
+      dataAvailableFromYear,
+      columns: [
+        {
+          key: "manager",
+          title: "Manager",
+          type: "string",
+        },
+        {
+          key: "highestScore",
+          hintKey: "highestScoreWeek",
+          title: "Highest Score",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "lowestScore",
+          hintKey: "lowestScoreWeek",
+          title: "Lowest Score",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "pointsForward",
+          title: "PF",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "pointsAgainst",
+          title: "PA",
+          type: "number",
           decimalPrecision: 2,
         },
       ],
