@@ -145,6 +145,13 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
       {
         type: "record",
         category: "manager",
+        name: "Most years in league (YiL)",
+        displayAll: true,
+        generateRecord: managerCareerStandingsRecord("years"),
+      },
+      {
+        type: "record",
+        category: "manager",
         name: "Highest win percentage",
         displayAll: true,
         generateRecord: managerCareerStandingsRecord("win%"),
@@ -215,16 +222,30 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
       {
         type: "record",
         category: "manager",
-        name: "Highest points forward (PF)",
+        name: "Highest total points forward (PF)",
         displayAll: true,
         generateRecord: managerCareerScoringRecord("points-forward"),
       },
       {
         type: "record",
         category: "manager",
-        name: "Highest points against (PA)",
+        name: "Highest total points against (PA)",
         displayAll: true,
         generateRecord: managerCareerScoringRecord("points-against"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest average points forward per game (PFPG)",
+        displayAll: true,
+        generateRecord: managerCareerScoringRecord("points-forward-per-game"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest average points against per game (PAPG)",
+        displayAll: true,
+        generateRecord: managerCareerScoringRecord("points-against-per-game"),
       },
     ],
   },
@@ -637,13 +658,14 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
 }
 
 function managerCareerStandingsRecord(
-  sortBy: "win" | "loss" | "win%" | "win-streak" | "loss-streak"
+  sortBy: "win" | "loss" | "win%" | "win-streak" | "loss-streak" | "years"
 ) {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
     manager: string;
     wins: number;
     losses: number;
+    yearsInLeague: number;
     winPercentage: number;
     longestWinStreak: number;
     longestWinStreakYear: number;
@@ -669,6 +691,7 @@ function managerCareerStandingsRecord(
     const totalSeasonLosses: Record<ManagerId, number> = {};
     const totalPlayoffWins: Record<ManagerId, number> = {};
     const totalPlayoffLosses: Record<ManagerId, number> = {};
+    const yearsInLeague: Record<ManagerId, number[]> = {};
     const longestSeasonWinStreaks: Record<ManagerId, { streak: number; year: number }> = {};
     const longestSeasonLossStreaks: Record<ManagerId, { streak: number; year: number }> = {};
     const longestPlayoffWinStreaks: Record<ManagerId, { streak: number; year: number }> = {};
@@ -735,6 +758,12 @@ function managerCareerStandingsRecord(
             }
             totalPlayoffLosses[loser] += 1;
           }
+
+          // Count years in league
+          const winnerYears = yearsInLeague[winner] ?? [];
+          const loserYears = yearsInLeague[loser] ?? [];
+          yearsInLeague[winner] = _.uniq([...winnerYears, league.year]);
+          yearsInLeague[loser] = _.uniq([...loserYears, league.year]);
 
           // Streaks
           if (!currentTotalStreaks[winner]) {
@@ -923,6 +952,7 @@ function managerCareerStandingsRecord(
         const playoffWins = totalPlayoffWins[manager.managerId] ?? 0;
         const seasonLosses = totalSeasonLosses[manager.managerId] ?? 0;
         const playoffLosses = totalPlayoffLosses[manager.managerId] ?? 0;
+        const yearsInLeagueForManager = (yearsInLeague[manager.managerId] ?? []).length;
 
         return [
           {
@@ -930,6 +960,7 @@ function managerCareerStandingsRecord(
             manager: manager.name,
             wins: seasonWins + playoffWins,
             losses: seasonLosses + playoffLosses,
+            yearsInLeague: yearsInLeagueForManager,
             winPercentage:
               (seasonWins + playoffWins) /
               (seasonWins + playoffWins + seasonLosses + playoffLosses),
@@ -943,6 +974,7 @@ function managerCareerStandingsRecord(
             manager: manager.name,
             wins: seasonWins,
             losses: seasonLosses,
+            yearsInLeague: yearsInLeagueForManager,
             winPercentage: seasonWins / (seasonWins + seasonLosses),
             longestWinStreak: longestSeasonWinStreaks[manager.managerId]?.streak,
             longestWinStreakYear: longestSeasonWinStreaks[manager.managerId]?.year,
@@ -955,6 +987,7 @@ function managerCareerStandingsRecord(
             manager: manager.name,
             wins: playoffWins,
             losses: playoffLosses,
+            yearsInLeague: yearsInLeagueForManager,
             winPercentage: playoffWins / (playoffWins + playoffLosses),
             longestWinStreak: longestPlayoffWinStreaks[manager.managerId]?.streak,
             longestWinStreakYear: longestPlayoffWinStreaks[manager.managerId]?.year,
@@ -970,21 +1003,25 @@ function managerCareerStandingsRecord(
             ? a.wins
             : sortBy === "loss"
               ? a.losses
-              : sortBy === "win-streak"
-                ? (a.longestWinStreak ?? -1)
-                : sortBy === "loss-streak"
-                  ? (a.longestLossStreak ?? -1)
-                  : a.winPercentage;
+              : sortBy === "years"
+                ? a.yearsInLeague
+                : sortBy === "win-streak"
+                  ? (a.longestWinStreak ?? -1)
+                  : sortBy === "loss-streak"
+                    ? (a.longestLossStreak ?? -1)
+                    : a.winPercentage;
         const bVal =
           sortBy === "win"
             ? b.wins
             : sortBy === "loss"
               ? b.losses
-              : sortBy === "win-streak"
-                ? (b.longestWinStreak ?? -1)
-                : sortBy === "loss-streak"
-                  ? (b.longestLossStreak ?? -1)
-                  : b.winPercentage;
+              : sortBy === "years"
+                ? b.yearsInLeague
+                : sortBy === "win-streak"
+                  ? (b.longestWinStreak ?? -1)
+                  : sortBy === "loss-streak"
+                    ? (b.longestLossStreak ?? -1)
+                    : b.winPercentage;
         return bVal - aVal;
       });
 
@@ -1008,6 +1045,11 @@ function managerCareerStandingsRecord(
         {
           key: "losses",
           title: "Losses",
+          type: "number",
+        },
+        {
+          key: "yearsInLeague",
+          title: "YiL",
           type: "number",
         },
         {
@@ -1249,7 +1291,13 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
 }
 
 function managerCareerScoringRecord(
-  sortBy: "high-score" | "low-score" | "points-forward" | "points-against"
+  sortBy:
+    | "high-score"
+    | "low-score"
+    | "points-forward"
+    | "points-against"
+    | "points-forward-per-game"
+    | "points-against-per-game"
 ) {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
@@ -1260,6 +1308,9 @@ function managerCareerScoringRecord(
     lowestScoreWeek: string;
     pointsForward: number;
     pointsAgainst: number;
+    numGames: number;
+    pointsForwardPerGame: number;
+    pointsAgainstPerGame: number;
   }
 
   return function (
@@ -1283,6 +1334,9 @@ function managerCareerScoringRecord(
     const pointsForwardPlayoff: Record<ManagerId, number> = {};
     const pointsAgainstRegular: Record<ManagerId, number> = {};
     const pointsAgainstPlayoff: Record<ManagerId, number> = {};
+
+    const numGamesRegular: Record<ManagerId, number> = {};
+    const numGamesPlayoff: Record<ManagerId, number> = {};
 
     ld.years
       .map((league) => leagues[league.leagueId])
@@ -1336,6 +1390,9 @@ function managerCareerScoringRecord(
               (pointsAgainstRegular[manager1Id] ?? 0) + matchup.team2.points;
             pointsAgainstRegular[manager2Id] =
               (pointsAgainstRegular[manager2Id] ?? 0) + matchup.team1.points;
+
+            numGamesRegular[manager1Id] = (numGamesRegular[manager1Id] ?? 0) + 1;
+            numGamesRegular[manager2Id] = (numGamesRegular[manager2Id] ?? 0) + 1;
           } else {
             if (matchup.team1.points > (highestScorePlayoff[manager1Id] ?? 0)) {
               highestScorePlayoff[manager1Id] = matchup.team1.points;
@@ -1364,6 +1421,9 @@ function managerCareerScoringRecord(
               (pointsAgainstPlayoff[manager1Id] ?? 0) + matchup.team2.points;
             pointsAgainstPlayoff[manager2Id] =
               (pointsAgainstPlayoff[manager2Id] ?? 0) + matchup.team1.points;
+
+            numGamesPlayoff[manager1Id] = (numGamesPlayoff[manager1Id] ?? 0) + 1;
+            numGamesPlayoff[manager2Id] = (numGamesPlayoff[manager2Id] ?? 0) + 1;
           }
         }
       });
@@ -1389,6 +1449,8 @@ function managerCareerScoringRecord(
         const pointsForwardPlayoffs = pointsForwardPlayoff[manager.managerId] ?? 0;
         const pointsAgainstRegulars = pointsAgainstRegular[manager.managerId] ?? 0;
         const pointsAgainstPlayoffs = pointsAgainstPlayoff[manager.managerId] ?? 0;
+        const numGamesRegulars = numGamesRegular[manager.managerId] ?? 0;
+        const numGamesPlayoffs = numGamesPlayoff[manager.managerId] ?? 0;
 
         return [
           {
@@ -1412,6 +1474,13 @@ function managerCareerScoringRecord(
                 : lowestScorePlayoffsWeek,
             pointsForward: pointsForwardRegulars + pointsForwardPlayoffs,
             pointsAgainst: pointsAgainstRegulars + pointsAgainstPlayoffs,
+            numGames: numGamesRegulars + numGamesPlayoffs,
+            pointsForwardPerGame:
+              (pointsForwardRegulars + pointsForwardPlayoffs) /
+              (numGamesRegulars + numGamesPlayoffs),
+            pointsAgainstPerGame:
+              (pointsAgainstRegulars + pointsAgainstPlayoffs) /
+              (numGamesRegulars + numGamesPlayoffs),
           },
           {
             key: manager.managerId,
@@ -1422,6 +1491,9 @@ function managerCareerScoringRecord(
             lowestScoreWeek: lowestScoreRegularsWeek,
             pointsForward: pointsForwardRegulars,
             pointsAgainst: pointsAgainstRegulars,
+            numGames: numGamesRegulars,
+            pointsForwardPerGame: pointsForwardRegulars / numGamesRegulars,
+            pointsAgainstPerGame: pointsAgainstRegulars / numGamesRegulars,
             scope: "in-season",
           },
           {
@@ -1433,6 +1505,9 @@ function managerCareerScoringRecord(
             lowestScoreWeek: lowestScorePlayoffsWeek,
             pointsForward: pointsForwardPlayoffs,
             pointsAgainst: pointsAgainstPlayoffs,
+            numGames: numGamesPlayoffs,
+            pointsForwardPerGame: pointsForwardPlayoffs / numGamesPlayoffs,
+            pointsAgainstPerGame: pointsAgainstPlayoffs / numGamesPlayoffs,
             scope: "playoffs",
           },
         ];
@@ -1445,7 +1520,11 @@ function managerCareerScoringRecord(
               ? -a.lowestScore
               : sortBy === "points-forward"
                 ? a.pointsForward
-                : a.pointsAgainst;
+                : sortBy === "points-forward-per-game"
+                  ? a.pointsForwardPerGame
+                  : sortBy === "points-against-per-game"
+                    ? a.pointsAgainstPerGame
+                    : a.pointsAgainst;
         const bVal =
           sortBy === "high-score"
             ? b.highestScore
@@ -1453,7 +1532,11 @@ function managerCareerScoringRecord(
               ? -b.lowestScore
               : sortBy === "points-forward"
                 ? b.pointsForward
-                : b.pointsAgainst;
+                : sortBy === "points-forward-per-game"
+                  ? b.pointsForwardPerGame
+                  : sortBy === "points-against-per-game"
+                    ? b.pointsAgainstPerGame
+                    : b.pointsAgainst;
         return bVal - aVal;
       });
 
@@ -1492,6 +1575,23 @@ function managerCareerScoringRecord(
         {
           key: "pointsAgainst",
           title: "PA",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "numGames",
+          title: "G",
+          type: "number",
+        },
+        {
+          key: "pointsForwardPerGame",
+          title: "PFPG",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "pointsAgainstPerGame",
+          title: "PAPG",
           type: "number",
           decimalPrecision: 2,
         },
