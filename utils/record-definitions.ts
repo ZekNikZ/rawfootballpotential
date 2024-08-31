@@ -1038,6 +1038,11 @@ function managerCareerStandingsRecord(
           type: "string",
         },
         {
+          key: "yearsInLeague",
+          title: "YiL",
+          type: "number",
+        },
+        {
           key: "wins",
           title: "Wins",
           type: "number",
@@ -1045,11 +1050,6 @@ function managerCareerStandingsRecord(
         {
           key: "losses",
           title: "Losses",
-          type: "number",
-        },
-        {
-          key: "yearsInLeague",
-          title: "YiL",
           type: "number",
         },
         {
@@ -1104,7 +1104,7 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
     ld.years
       .map((league) => leagues[league.leagueId])
       .forEach((league) => {
-        for (const matchup of league.matchupData.matchups.sort((a, b) => a.week - b.week)) {
+        for (const matchup of league.matchupData.matchups) {
           const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
 
           if (matchup.team1.hasPlayerData) {
@@ -1341,7 +1341,7 @@ function managerCareerScoringRecord(
     ld.years
       .map((league) => leagues[league.leagueId])
       .forEach((league) => {
-        for (const matchup of league.matchupData.matchups.sort((a, b) => a.week - b.week)) {
+        for (const matchup of league.matchupData.matchups) {
           if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
             continue;
           }
