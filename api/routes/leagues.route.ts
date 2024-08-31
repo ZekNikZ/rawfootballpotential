@@ -140,6 +140,10 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
             ), // .players - .starters
             injuryReserve: team.reserve ?? [], // .reserve
             sleeperRosterId: team.roster_id,
+            playoffSortOrder:
+              team.settings.wins * 100000000 +
+              team.settings.fpts * 10000 +
+              team.settings.fpts_against,
           },
         ] as [TeamId, Team];
       })
@@ -147,6 +151,10 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
     const teamAssignments: Record<ManagerId, TeamId> = typedFromEntries(
       Object.entries(teams).map(([teamId, team]) => [team.managerId, teamId] as [ManagerId, TeamId])
     );
+    const playoffQualifiedTeams = _.take(
+      Object.values(teams).sort((a, b) => b.playoffSortOrder! - a.playoffSortOrder!),
+      leagueJson.settings.playoff_teams
+    ).map((team) => team.teamId);
 
     // Fetch projections
     logger.info(`Fetching projections...`);
@@ -263,6 +271,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
           ) as Position[],
           benchSize: (leagueJson.roster_positions as string[]).filter((pos) => pos === "BN").length,
           injuryReserveSize: leagueJson.settings.reserve_slots ?? 0,
+          playoffQualifiedTeams,
         },
         matchupData: {
           matchups,

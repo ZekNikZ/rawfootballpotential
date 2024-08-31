@@ -19,6 +19,7 @@ interface TeamData {
   rosterPositions: Position[];
   benchSize: number;
   injuryReserveSize: number;
+  playoffQualifiedTeams: TeamId[];
 }
 
 interface MatchupData {

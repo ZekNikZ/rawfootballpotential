@@ -11,4 +11,5 @@ export interface Team {
   bench: NFLPlayerId[];
   injuryReserve: NFLPlayerId[];
   sleeperRosterId?: number;
+  playoffSortOrder?: number;
 }

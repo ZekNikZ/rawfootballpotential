@@ -41,7 +41,7 @@ export interface RecordFilter<T> {
   label: string;
 }
 
-export type RecordScope = "in-season" | "playoffs";
+export type RecordScope = "in-season" | "playoffs" | "toilet-bowl" | "postseason";
 
 export interface BaseRecordEntry {
   league?: LeagueId;

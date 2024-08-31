@@ -89,7 +89,13 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
     () => record.entries.some((entry) => !entry.scope),
     [record.entries]
   );
-  const [scope, setScope] = useState<Exclude<BaseRecordEntry["scope"], null> | "all">("all");
+  const hasPostseasonScope = useMemo(
+    () => record.entries.some((entry) => entry.scope === "postseason"),
+    [record.entries]
+  );
+  const [scope, setScope] = useState<
+    Exclude<BaseRecordEntry["scope"], null> | "all" | "postseason"
+  >("all");
 
   const [numEntries, setMaxEntries] = useState(5);
   const [page, setPage] = useState(1);
@@ -101,13 +107,19 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
     } else if (hasNullLeague) {
       res = res.filter((entry) => !entry.league);
     }
-    if (scope !== "all") {
+    if (scope === "postseason") {
+      if (hasPostseasonScope) {
+        res = res.filter((entry) => entry.scope === "postseason");
+      } else {
+        res = res.filter((entry) => entry.scope === "playoffs" || entry.scope === "toilet-bowl");
+      }
+    } else if (scope !== "all") {
       res = res.filter((entry) => entry.scope === scope);
     } else if (hasNullScope) {
       res = res.filter((entry) => !entry.scope);
     }
     return res;
-  }, [record.entries, league, hasNullLeague, scope, hasNullScope]);
+  }, [record.entries, league, hasNullLeague, scope, hasNullScope, hasPostseasonScope]);
 
   const maxPages = useMemo(
     () => Math.ceil(entries.length / (numEntries ?? 1)),
@@ -151,24 +163,43 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
         {scopes.length >= 2 && (
           <Stack gap={0}>
             <Text>Time</Text>
-            <SegmentedControl
-              data={[
-                {
-                  label: "Both",
-                  value: "all",
-                },
-              ].concat(
-                scopes.map((league) => ({
-                  label: league === "in-season" ? "Regular Season" : "Postseason",
-                  value: league,
-                }))
-              )}
-              value={scope}
-              onChange={(value) => {
-                setScope(value as never);
-                setPage(1);
-              }}
-            />
+            <Group gap={4}>
+              <SegmentedControl
+                data={[
+                  {
+                    label: "🏈 All",
+                    value: "all",
+                  },
+                  {
+                    label: "🏅 Postseason Only",
+                    value: "postseason",
+                  },
+                ]}
+                value={scope}
+                onChange={(value) => {
+                  setScope(value as never);
+                  setPage(1);
+                }}
+              />
+              <SegmentedControl
+                data={scopes
+                  .filter((scope) => scope !== "postseason")
+                  .map((scope) => ({
+                    label:
+                      scope === "in-season"
+                        ? "📅 Regular Season"
+                        : scope === "playoffs"
+                          ? "🏆 Playoffs"
+                          : "💩 Toilet Bowl",
+                    value: scope,
+                  }))}
+                value={scope}
+                onChange={(value) => {
+                  setScope(value as never);
+                  setPage(1);
+                }}
+              />
+            </Group>
           </Stack>
         )}
         {record.filters?.map((filter) => (

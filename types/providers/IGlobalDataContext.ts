@@ -5,7 +5,7 @@ export interface IGlobalDataContext {
   loadingData: boolean;
   setLoadingData: React.Dispatch<React.SetStateAction<boolean>>;
 
-  loadData: () => Promise<void>;
+  loadData: (openChangelogModal?: () => void) => Promise<void>;
 
   config?: Config;
   setConfig: React.Dispatch<React.SetStateAction<Config | undefined>>;

@@ -280,6 +280,13 @@ function weeklyScoreRecord(
             return;
           }
 
+          const scope: RecordScope =
+            matchup.week < league.matchupData.playoffWeekStart
+              ? "in-season"
+              : league.teamData.playoffQualifiedTeams.includes(matchup.team1.teamId)
+                ? "playoffs"
+                : "toilet-bowl";
+
           if (league.year < dataAvailableFromYear) {
             dataAvailableFromYear = league.year;
           }
@@ -302,9 +309,7 @@ function weeklyScoreRecord(
                   score: matchup.team1.points,
                   scoreDelta: Math.abs(scoreDelta),
                   league: league.leagueId,
-                  scope: (matchup.week < league.matchupData.playoffWeekStart
-                    ? "in-season"
-                    : "playoffs") as RecordScope,
+                  scope,
                 }
               : undefined,
             sortBy === "score" || scoreDelta < 0 != (sortBy === "loserScore") // team2 wins
@@ -317,9 +322,7 @@ function weeklyScoreRecord(
                   score: matchup.team2.points,
                   scoreDelta: Math.abs(scoreDelta),
                   league: league.leagueId,
-                  scope: (matchup.week < league.matchupData.playoffWeekStart
-                    ? "in-season"
-                    : "playoffs") as RecordScope,
+                  scope,
                 }
               : undefined,
           ];
@@ -390,6 +393,13 @@ function weeklyTeamwideScoreRecord(scoreType: "total" | "bench", sortOrder: "hig
         league.matchupData.matchups.flatMap((matchup) => {
           const res: RecordEntry[] = [];
 
+          const scope: RecordScope =
+            matchup.week < league.matchupData.playoffWeekStart
+              ? "in-season"
+              : league.teamData.playoffQualifiedTeams.includes(matchup.team1.teamId)
+                ? "playoffs"
+                : "toilet-bowl";
+
           const team1 = league.teamData.teams[matchup.team1.teamId];
           const manager1 = league.mangerData.managers[team1.managerId];
 
@@ -415,9 +425,7 @@ function weeklyTeamwideScoreRecord(scoreType: "total" | "bench", sortOrder: "hig
                 actualScore: matchup.team2.points,
                 benchScore: team2Score - matchup.team2.points,
                 league: league.leagueId,
-                scope: (matchup.week < league.matchupData.playoffWeekStart
-                  ? "in-season"
-                  : "playoffs") as RecordScope,
+                scope,
               });
             }
           } else {
@@ -440,9 +448,7 @@ function weeklyTeamwideScoreRecord(scoreType: "total" | "bench", sortOrder: "hig
               actualScore: matchup.team1.points,
               benchScore: team1Score - matchup.team1.points,
               league: league.leagueId,
-              scope: (matchup.week < league.matchupData.playoffWeekStart
-                ? "in-season"
-                : "playoffs") as RecordScope,
+              scope,
             });
           }
 
@@ -528,6 +534,13 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
         league.matchupData.matchups.flatMap((matchup) => {
           const res: RecordEntry[] = [];
 
+          const scope: RecordScope =
+            matchup.week < league.matchupData.playoffWeekStart
+              ? "in-season"
+              : league.teamData.playoffQualifiedTeams.includes(matchup.team1.teamId)
+                ? "playoffs"
+                : "toilet-bowl";
+
           const team1 = league.teamData.teams[matchup.team1.teamId];
           const manager1 = league.mangerData.managers[team1.managerId];
 
@@ -561,9 +574,7 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
                 actualScore: matchup.team2.points,
                 realizedScoreRatio: matchup.team2.points / team2Score,
                 league: league.leagueId,
-                scope: (matchup.week < league.matchupData.playoffWeekStart
-                  ? "in-season"
-                  : "playoffs") as RecordScope,
+                scope,
               });
             }
           } else {
@@ -594,9 +605,7 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
               actualScore: matchup.team1.points,
               realizedScoreRatio: matchup.team1.points / team1Score,
               league: league.leagueId,
-              scope: (matchup.week < league.matchupData.playoffWeekStart
-                ? "in-season"
-                : "playoffs") as RecordScope,
+              scope,
             });
           }
 
@@ -993,7 +1002,7 @@ function managerCareerStandingsRecord(
             longestWinStreakYear: longestPlayoffWinStreaks[manager.managerId]?.year,
             longestLossStreak: longestPlayoffLossStreaks[manager.managerId]?.streak,
             longestLossStreakYear: longestPlayoffLossStreaks[manager.managerId]?.year,
-            scope: "playoffs",
+            scope: "postseason",
           },
         ];
       })
@@ -1234,7 +1243,7 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
             perfectLineups: playoffPerfectLineups,
             missedPoints: playoffPotentialPoints - playoffActualPoints,
             lineupIQ: playoffActualPoints / playoffPotentialPoints,
-            scope: "playoffs",
+            scope: "postseason",
           },
         ];
       })
@@ -1508,7 +1517,7 @@ function managerCareerScoringRecord(
             numGames: numGamesPlayoffs,
             pointsForwardPerGame: pointsForwardPlayoffs / numGamesPlayoffs,
             pointsAgainstPerGame: pointsAgainstPlayoffs / numGamesPlayoffs,
-            scope: "playoffs",
+            scope: "postseason",
           },
         ];
       })

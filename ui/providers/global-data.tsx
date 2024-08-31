@@ -64,7 +64,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
   }, [loadingString]);
 
   // Helper functions
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (openChangelogModal?: () => void) => {
     notifications.clean();
 
     setLoadingData(true);
@@ -150,6 +150,11 @@ export function GlobalDataProvider(props: PropsWithChildren) {
 
       return leagues;
     });
+
+    // Open changelog
+    setTimeout(() => {
+      openChangelogModal?.();
+    }, 1000);
   }, []);
 
   return (
