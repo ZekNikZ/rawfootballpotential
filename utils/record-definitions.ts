@@ -666,531 +666,6 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
   };
 }
 
-function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" | "lineup-iq") {
-  interface RecordEntry extends BaseRecordEntry {
-    key: string;
-    manager: string;
-    perfectLineups: number;
-    missedPoints: number;
-    lineupIQ: number;
-  }
-
-  return function (
-    rd: RecordDefinition,
-    ld: LeagueDefinition,
-    leagues: Record<LeagueId, League>,
-    nflData: NFLData
-  ): FantasyRecord<RecordEntry> {
-    let dataAvailableFromYear = 9999;
-
-    const perfectLineupsRegular: Record<ManagerId, number> = {};
-    const perfectLineupsPlayoff: Record<ManagerId, number> = {};
-    const potentialPointsRegular: Record<ManagerId, number> = {};
-    const potentialPointsPlayoff: Record<ManagerId, number> = {};
-    const realizedPointsRegular: Record<ManagerId, number> = {};
-    const realizedPointsPlayoff: Record<ManagerId, number> = {};
-
-    ld.years
-      .map((league) => leagues[league.leagueId])
-      .forEach((league) => {
-        for (const matchup of league.matchupData.matchups) {
-          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
-
-          if (matchup.team1.hasPlayerData) {
-            if (league.year < dataAvailableFromYear) {
-              dataAvailableFromYear = league.year;
-            }
-
-            const potentialScore = optimizeScore(
-              matchup.team1.players
-                .filter((p) => !!p)
-                .concat(matchup.team1.bench)
-                .concat(matchup.team1.injuryReserve),
-              nflData.players,
-              matchup.team1.playerPoints,
-              league.teamData.rosterPositions
-            );
-            const actualScore = matchup.team1.points;
-
-            const teamId = matchup.team1.teamId;
-            const managerId = Object.keys(league.mangerData.teamAssignments).find(
-              (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === teamId
-            ) as ManagerId;
-
-            if (!isPlayoff) {
-              realizedPointsRegular[managerId] =
-                (realizedPointsRegular[managerId] ?? 0) + actualScore;
-              potentialPointsRegular[managerId] =
-                (potentialPointsRegular[managerId] ?? 0) + potentialScore;
-              if (actualScore / potentialScore > 0.999) {
-                perfectLineupsRegular[managerId] = (perfectLineupsRegular[managerId] ?? 0) + 1;
-              }
-            } else {
-              realizedPointsPlayoff[managerId] =
-                (realizedPointsPlayoff[managerId] ?? 0) + actualScore;
-              potentialPointsPlayoff[managerId] =
-                (potentialPointsPlayoff[managerId] ?? 0) + potentialScore;
-              if (actualScore / potentialScore > 0.999) {
-                perfectLineupsPlayoff[managerId] = (perfectLineupsPlayoff[managerId] ?? 0) + 1;
-              }
-            }
-          }
-
-          if (matchup.team2 !== "BYE" && matchup.team2 !== "TBD" && matchup.team2.hasPlayerData) {
-            if (league.year < dataAvailableFromYear) {
-              dataAvailableFromYear = league.year;
-            }
-
-            const potentialScore = optimizeScore(
-              matchup.team2.players
-                .filter((p) => !!p)
-                .concat(matchup.team2.bench)
-                .concat(matchup.team2.injuryReserve),
-              nflData.players,
-              matchup.team2.playerPoints,
-              league.teamData.rosterPositions
-            );
-            const actualScore = matchup.team2.points;
-
-            const teamId = matchup.team2.teamId;
-            const managerId = Object.keys(league.mangerData.teamAssignments).find(
-              (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === teamId
-            ) as ManagerId;
-
-            if (!isPlayoff) {
-              realizedPointsRegular[managerId] =
-                (realizedPointsRegular[managerId] ?? 0) + actualScore;
-              potentialPointsRegular[managerId] =
-                (potentialPointsRegular[managerId] ?? 0) + potentialScore;
-              if (actualScore / potentialScore > 0.999) {
-                perfectLineupsRegular[managerId] = (perfectLineupsRegular[managerId] ?? 0) + 1;
-              }
-            } else {
-              realizedPointsPlayoff[managerId] =
-                (realizedPointsPlayoff[managerId] ?? 0) + actualScore;
-              potentialPointsPlayoff[managerId] =
-                (potentialPointsPlayoff[managerId] ?? 0) + potentialScore;
-              if (actualScore / potentialScore > 0.999) {
-                perfectLineupsPlayoff[managerId] = (perfectLineupsPlayoff[managerId] ?? 0) + 1;
-              }
-            }
-          }
-        }
-      });
-
-    const managers = _.uniqBy(
-      ld.years
-        .map((league) => leagues[league.leagueId])
-        .flatMap((league) => Object.values(league.mangerData.managers)),
-      (el) => el.managerId
-    );
-
-    const entries = (Object.keys(realizedPointsPlayoff) as ManagerId[])
-      .flatMap<RecordEntry>((managerId) => {
-        const manager = managers.find((m) => m.managerId == managerId)!;
-
-        const seasonPerfectLineups = perfectLineupsRegular[managerId] ?? 0;
-        const playoffPerfectLineups = perfectLineupsPlayoff[managerId] ?? 0;
-        const seasonActualPoints = realizedPointsRegular[managerId] ?? 0;
-        const playoffActualPoints = realizedPointsPlayoff[managerId] ?? 0;
-        const seasonPotentialPoints = potentialPointsRegular[managerId] ?? 0;
-        const playoffPotentialPoints = potentialPointsPlayoff[managerId] ?? 0;
-
-        return [
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            perfectLineups: seasonPerfectLineups + playoffPerfectLineups,
-            missedPoints:
-              seasonPotentialPoints +
-              playoffPotentialPoints -
-              (seasonActualPoints + playoffActualPoints),
-            lineupIQ:
-              (seasonActualPoints + playoffActualPoints) /
-              (seasonPotentialPoints + playoffPotentialPoints),
-          },
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            perfectLineups: seasonPerfectLineups,
-            missedPoints: seasonPotentialPoints - seasonActualPoints,
-            lineupIQ: seasonActualPoints / seasonPotentialPoints,
-            scope: "in-season",
-          },
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            perfectLineups: playoffPerfectLineups,
-            missedPoints: playoffPotentialPoints - playoffActualPoints,
-            lineupIQ: playoffActualPoints / playoffPotentialPoints,
-            scope: "postseason",
-          },
-        ];
-      })
-      .sort((a, b) => {
-        const aVal =
-          sortBy === "lineup-iq"
-            ? a.lineupIQ
-            : sortBy === "missed-points"
-              ? -a.missedPoints
-              : a.perfectLineups;
-        const bVal =
-          sortBy === "lineup-iq"
-            ? b.lineupIQ
-            : sortBy === "missed-points"
-              ? -b.missedPoints
-              : b.perfectLineups;
-        return bVal - aVal;
-      });
-
-    return {
-      type: "record",
-      category: rd.category,
-      name: rd.name,
-      displayAll: rd.displayAll,
-      dataAvailableFromYear,
-      columns: [
-        {
-          key: "manager",
-          title: "Manager",
-          type: "string",
-        },
-        {
-          key: "perfectLineups",
-          title: "Perfect Lineups",
-          type: "number",
-        },
-        {
-          key: "missedPoints",
-          title: "Total Missed Points",
-          type: "number",
-          decimalPrecision: 2,
-        },
-        {
-          key: "lineupIQ",
-          title: "Lineup IQ",
-          type: "percentage",
-          decimalPrecision: 2,
-        },
-      ],
-      keyField: "key",
-      entries,
-    };
-  };
-}
-
-function managerCareerScoringRecord(
-  sortBy:
-    | "high-score"
-    | "low-score"
-    | "points-forward"
-    | "points-against"
-    | "points-forward-per-game"
-    | "points-against-per-game"
-) {
-  interface RecordEntry extends BaseRecordEntry {
-    key: string;
-    manager: string;
-    highestScore: number;
-    highestScoreWeek: string;
-    lowestScore: number;
-    lowestScoreWeek: string;
-    pointsForward: number;
-    pointsAgainst: number;
-    numGames: number;
-    pointsForwardPerGame: number;
-    pointsAgainstPerGame: number;
-  }
-
-  return function (
-    rd: RecordDefinition,
-    ld: LeagueDefinition,
-    leagues: Record<LeagueId, League>
-  ): FantasyRecord<RecordEntry> {
-    let dataAvailableFromYear = 9999;
-
-    const highestScoreRegular: Record<ManagerId, number> = {};
-    const highestScorePlayoff: Record<ManagerId, number> = {};
-    const lowestScoreRegular: Record<ManagerId, number> = {};
-    const lowestScorePlayoff: Record<ManagerId, number> = {};
-
-    const highestScoreRegularWeek: Record<ManagerId, string> = {};
-    const highestScorePlayoffWeek: Record<ManagerId, string> = {};
-    const lowestScoreRegularWeek: Record<ManagerId, string> = {};
-    const lowestScorePlayoffWeek: Record<ManagerId, string> = {};
-
-    const pointsForwardRegular: Record<ManagerId, number> = {};
-    const pointsForwardPlayoff: Record<ManagerId, number> = {};
-    const pointsAgainstRegular: Record<ManagerId, number> = {};
-    const pointsAgainstPlayoff: Record<ManagerId, number> = {};
-
-    const numGamesRegular: Record<ManagerId, number> = {};
-    const numGamesPlayoff: Record<ManagerId, number> = {};
-
-    ld.years
-      .map((league) => leagues[league.leagueId])
-      .forEach((league) => {
-        for (const matchup of league.matchupData.matchups) {
-          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
-            continue;
-          }
-
-          if (league.year < dataAvailableFromYear) {
-            dataAvailableFromYear = league.year;
-          }
-
-          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
-
-          const team1Id = matchup.team1.teamId;
-          const manager1Id = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team1Id
-          ) as ManagerId;
-
-          const team2Id = matchup.team2.teamId;
-          const manager2Id = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team2Id
-          ) as ManagerId;
-
-          if (!isPlayoff) {
-            if (matchup.team1.points > (highestScoreRegular[manager1Id] ?? 0)) {
-              highestScoreRegular[manager1Id] = matchup.team1.points;
-              highestScoreRegularWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
-            }
-            if (matchup.team2.points > (highestScoreRegular[manager2Id] ?? 0)) {
-              highestScoreRegular[manager2Id] = matchup.team2.points;
-              highestScoreRegularWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
-            }
-
-            if (matchup.team1.points < (lowestScoreRegular[manager1Id] ?? 999)) {
-              lowestScoreRegular[manager1Id] = matchup.team1.points;
-              lowestScoreRegularWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
-            }
-            if (matchup.team2.points < (lowestScoreRegular[manager2Id] ?? 999)) {
-              lowestScoreRegular[manager2Id] = matchup.team2.points;
-              lowestScoreRegularWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
-            }
-
-            pointsForwardRegular[manager1Id] =
-              (pointsForwardRegular[manager1Id] ?? 0) + matchup.team1.points;
-            pointsForwardRegular[manager2Id] =
-              (pointsForwardRegular[manager2Id] ?? 0) + matchup.team2.points;
-
-            pointsAgainstRegular[manager1Id] =
-              (pointsAgainstRegular[manager1Id] ?? 0) + matchup.team2.points;
-            pointsAgainstRegular[manager2Id] =
-              (pointsAgainstRegular[manager2Id] ?? 0) + matchup.team1.points;
-
-            numGamesRegular[manager1Id] = (numGamesRegular[manager1Id] ?? 0) + 1;
-            numGamesRegular[manager2Id] = (numGamesRegular[manager2Id] ?? 0) + 1;
-          } else {
-            if (matchup.team1.points > (highestScorePlayoff[manager1Id] ?? 0)) {
-              highestScorePlayoff[manager1Id] = matchup.team1.points;
-              highestScorePlayoffWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
-            }
-            if (matchup.team2.points > (highestScorePlayoff[manager2Id] ?? 0)) {
-              highestScorePlayoff[manager2Id] = matchup.team2.points;
-              highestScorePlayoffWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
-            }
-
-            if (matchup.team1.points < (lowestScorePlayoff[manager1Id] ?? 999)) {
-              lowestScorePlayoff[manager1Id] = matchup.team1.points;
-              lowestScorePlayoffWeek[manager1Id] = `${league.year} WK ${matchup.week}`;
-            }
-            if (matchup.team2.points < (lowestScorePlayoff[manager2Id] ?? 999)) {
-              lowestScorePlayoff[manager2Id] = matchup.team2.points;
-              lowestScorePlayoffWeek[manager2Id] = `${league.year} WK ${matchup.week}`;
-            }
-
-            pointsForwardPlayoff[manager1Id] =
-              (pointsForwardPlayoff[manager1Id] ?? 0) + matchup.team1.points;
-            pointsForwardPlayoff[manager2Id] =
-              (pointsForwardPlayoff[manager2Id] ?? 0) + matchup.team2.points;
-
-            pointsAgainstPlayoff[manager1Id] =
-              (pointsAgainstPlayoff[manager1Id] ?? 0) + matchup.team2.points;
-            pointsAgainstPlayoff[manager2Id] =
-              (pointsAgainstPlayoff[manager2Id] ?? 0) + matchup.team1.points;
-
-            numGamesPlayoff[manager1Id] = (numGamesPlayoff[manager1Id] ?? 0) + 1;
-            numGamesPlayoff[manager2Id] = (numGamesPlayoff[manager2Id] ?? 0) + 1;
-          }
-        }
-      });
-
-    const managers = _.uniqBy(
-      ld.years
-        .map((league) => leagues[league.leagueId])
-        .flatMap((league) => Object.values(league.mangerData.managers)),
-      (el) => el.managerId
-    );
-
-    const entries = managers
-      .flatMap<RecordEntry>((manager) => {
-        const highestScoreRegulars = highestScoreRegular[manager.managerId];
-        const highestScoreRegularsWeek = highestScoreRegularWeek[manager.managerId];
-        const highestScorePlayoffs = highestScorePlayoff[manager.managerId];
-        const highestScorePlayoffsWeek = highestScorePlayoffWeek[manager.managerId];
-        const lowestScoreRegulars = lowestScoreRegular[manager.managerId];
-        const lowestScoreRegularsWeek = lowestScoreRegularWeek[manager.managerId];
-        const lowestScorePlayoffs = lowestScorePlayoff[manager.managerId];
-        const lowestScorePlayoffsWeek = lowestScorePlayoffWeek[manager.managerId];
-        const pointsForwardRegulars = pointsForwardRegular[manager.managerId] ?? 0;
-        const pointsForwardPlayoffs = pointsForwardPlayoff[manager.managerId] ?? 0;
-        const pointsAgainstRegulars = pointsAgainstRegular[manager.managerId] ?? 0;
-        const pointsAgainstPlayoffs = pointsAgainstPlayoff[manager.managerId] ?? 0;
-        const numGamesRegulars = numGamesRegular[manager.managerId] ?? 0;
-        const numGamesPlayoffs = numGamesPlayoff[manager.managerId] ?? 0;
-
-        return [
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            highestScore:
-              highestScoreRegulars > (highestScorePlayoffs ?? 0)
-                ? highestScoreRegulars
-                : highestScorePlayoffs,
-            highestScoreWeek:
-              highestScoreRegulars > (highestScorePlayoffs ?? 0)
-                ? highestScoreRegularsWeek
-                : highestScorePlayoffsWeek,
-            lowestScore:
-              lowestScoreRegulars < (lowestScorePlayoffs ?? 999)
-                ? lowestScoreRegulars
-                : lowestScorePlayoffs,
-            lowestScoreWeek:
-              lowestScoreRegulars < (lowestScorePlayoffs ?? 999)
-                ? lowestScoreRegularsWeek
-                : lowestScorePlayoffsWeek,
-            pointsForward: pointsForwardRegulars + pointsForwardPlayoffs,
-            pointsAgainst: pointsAgainstRegulars + pointsAgainstPlayoffs,
-            numGames: numGamesRegulars + numGamesPlayoffs,
-            pointsForwardPerGame:
-              (pointsForwardRegulars + pointsForwardPlayoffs) /
-              (numGamesRegulars + numGamesPlayoffs),
-            pointsAgainstPerGame:
-              (pointsAgainstRegulars + pointsAgainstPlayoffs) /
-              (numGamesRegulars + numGamesPlayoffs),
-          },
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            highestScore: highestScoreRegulars,
-            highestScoreWeek: highestScoreRegularsWeek,
-            lowestScore: lowestScoreRegulars,
-            lowestScoreWeek: lowestScoreRegularsWeek,
-            pointsForward: pointsForwardRegulars,
-            pointsAgainst: pointsAgainstRegulars,
-            numGames: numGamesRegulars,
-            pointsForwardPerGame: pointsForwardRegulars / numGamesRegulars,
-            pointsAgainstPerGame: pointsAgainstRegulars / numGamesRegulars,
-            scope: "in-season",
-          },
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            highestScore: highestScorePlayoffs,
-            highestScoreWeek: highestScorePlayoffsWeek,
-            lowestScore: lowestScorePlayoffs,
-            lowestScoreWeek: lowestScorePlayoffsWeek,
-            pointsForward: pointsForwardPlayoffs,
-            pointsAgainst: pointsAgainstPlayoffs,
-            numGames: numGamesPlayoffs,
-            pointsForwardPerGame: pointsForwardPlayoffs / numGamesPlayoffs,
-            pointsAgainstPerGame: pointsAgainstPlayoffs / numGamesPlayoffs,
-            scope: "postseason",
-          },
-        ];
-      })
-      .sort((a, b) => {
-        const aVal =
-          sortBy === "high-score"
-            ? a.highestScore
-            : sortBy === "low-score"
-              ? -a.lowestScore
-              : sortBy === "points-forward"
-                ? a.pointsForward
-                : sortBy === "points-forward-per-game"
-                  ? a.pointsForwardPerGame
-                  : sortBy === "points-against-per-game"
-                    ? a.pointsAgainstPerGame
-                    : a.pointsAgainst;
-        const bVal =
-          sortBy === "high-score"
-            ? b.highestScore
-            : sortBy === "low-score"
-              ? -b.lowestScore
-              : sortBy === "points-forward"
-                ? b.pointsForward
-                : sortBy === "points-forward-per-game"
-                  ? b.pointsForwardPerGame
-                  : sortBy === "points-against-per-game"
-                    ? b.pointsAgainstPerGame
-                    : b.pointsAgainst;
-        return bVal - aVal;
-      });
-
-    return {
-      type: "record",
-      category: rd.category,
-      name: rd.name,
-      displayAll: rd.displayAll,
-      dataAvailableFromYear,
-      columns: [
-        {
-          key: "manager",
-          title: "Manager",
-          type: "string",
-        },
-        {
-          key: "highestScore",
-          hintKey: "highestScoreWeek",
-          title: "Highest Score",
-          type: "number",
-          decimalPrecision: 2,
-        },
-        {
-          key: "lowestScore",
-          hintKey: "lowestScoreWeek",
-          title: "Lowest Score",
-          type: "number",
-          decimalPrecision: 2,
-        },
-        {
-          key: "pointsForward",
-          title: "PF",
-          type: "number",
-          decimalPrecision: 2,
-        },
-        {
-          key: "pointsAgainst",
-          title: "PA",
-          type: "number",
-          decimalPrecision: 2,
-        },
-        {
-          key: "numGames",
-          title: "G",
-          type: "number",
-        },
-        {
-          key: "pointsForwardPerGame",
-          title: "PFPG",
-          type: "number",
-          decimalPrecision: 2,
-        },
-        {
-          key: "pointsAgainstPerGame",
-          title: "PAPG",
-          type: "number",
-          decimalPrecision: 2,
-        },
-      ],
-      keyField: "key",
-      entries,
-    };
-  };
-}
-
 function managerCareerStandingsRecord(
   sortBy: "win" | "loss" | "win%" | "win-streak" | "loss-streak" | "years"
 ) {
@@ -1553,6 +1028,7 @@ function managerCareerStandingsRecord(
     const entries = managers
       .flatMap<RecordEntry>((manager) => {
         const records: RecordEntry[] = [];
+
         for (const scope of [undefined, "in-season", "postseason"] as const) {
           for (const medianMethod of [
             "no-medians",
@@ -1851,6 +1327,585 @@ function managerCareerStandingsRecord(
           hintKey: "longestLossStreakNote",
           title: "Longest Loss Streak",
           type: "number",
+        },
+      ],
+      keyField: "key",
+      entries,
+    };
+  };
+}
+
+function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" | "lineup-iq") {
+  interface RecordEntry extends BaseRecordEntry {
+    key: string;
+    manager: string;
+    perfectLineups: number;
+    missedPoints: number;
+    lineupIQ: number;
+  }
+
+  return function (
+    rd: RecordDefinition,
+    ld: LeagueDefinition,
+    leagues: Record<LeagueId, League>,
+    nflData: NFLData
+  ): FantasyRecord<RecordEntry> {
+    let dataAvailableFromYear = 9999;
+
+    const managers = _.uniqBy(
+      ld.years
+        .map((league) => leagues[league.leagueId])
+        .flatMap((league) => Object.values(league.mangerData.managers)),
+      (el) => el.managerId
+    );
+
+    function initMap(): Record<ManagerId, Record<LeagueId, number>> {
+      return Object.fromEntries(
+        managers.map((manager) => [
+          manager.managerId,
+          Object.fromEntries(ld.years.map((league) => [league.leagueId, 0])),
+        ])
+      );
+    }
+
+    const perfectLineupsRegular = initMap();
+    const perfectLineupsPlayoff = initMap();
+    const potentialPointsRegular = initMap();
+    const potentialPointsPlayoff = initMap();
+    const realizedPointsRegular = initMap();
+    const realizedPointsPlayoff = initMap();
+
+    ld.years
+      .map((league) => leagues[league.leagueId])
+      .forEach((league) => {
+        const leagueId = league.leagueId;
+        for (const matchup of league.matchupData.matchups) {
+          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
+
+          // TEAM 1
+          if (matchup.team1.hasPlayerData) {
+            if (league.year < dataAvailableFromYear) {
+              dataAvailableFromYear = league.year;
+            }
+
+            const potentialScore = optimizeScore(
+              matchup.team1.players
+                .filter((p) => !!p)
+                .concat(matchup.team1.bench)
+                .concat(matchup.team1.injuryReserve),
+              nflData.players,
+              matchup.team1.playerPoints,
+              league.teamData.rosterPositions
+            );
+            const actualScore = matchup.team1.points;
+
+            const teamId = matchup.team1.teamId;
+            const managerId = Object.keys(league.mangerData.teamAssignments).find(
+              (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === teamId
+            ) as ManagerId;
+
+            if (!isPlayoff) {
+              realizedPointsRegular[managerId][leagueId] += actualScore;
+              potentialPointsRegular[managerId][leagueId] += potentialScore;
+              if (actualScore / potentialScore > 0.999) {
+                perfectLineupsRegular[managerId][leagueId] += 1;
+              }
+            } else {
+              realizedPointsPlayoff[managerId][leagueId] += actualScore;
+              potentialPointsPlayoff[managerId][leagueId] += potentialScore;
+              if (actualScore / potentialScore > 0.999) {
+                perfectLineupsPlayoff[managerId][leagueId] += 1;
+              }
+            }
+          }
+
+          // TEAM 2
+          if (matchup.team2 !== "BYE" && matchup.team2 !== "TBD" && matchup.team2.hasPlayerData) {
+            if (league.year < dataAvailableFromYear) {
+              dataAvailableFromYear = league.year;
+            }
+
+            const potentialScore = optimizeScore(
+              matchup.team2.players
+                .filter((p) => !!p)
+                .concat(matchup.team2.bench)
+                .concat(matchup.team2.injuryReserve),
+              nflData.players,
+              matchup.team2.playerPoints,
+              league.teamData.rosterPositions
+            );
+            const actualScore = matchup.team2.points;
+
+            const teamId = matchup.team2.teamId;
+            const managerId = Object.keys(league.mangerData.teamAssignments).find(
+              (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === teamId
+            ) as ManagerId;
+
+            if (!isPlayoff) {
+              realizedPointsRegular[managerId][leagueId] += actualScore;
+              potentialPointsRegular[managerId][leagueId] += potentialScore;
+              if (actualScore / potentialScore > 0.999) {
+                perfectLineupsRegular[managerId][leagueId] += 1;
+              }
+            } else {
+              realizedPointsPlayoff[managerId][leagueId] += actualScore;
+              potentialPointsPlayoff[managerId][leagueId] += potentialScore;
+              if (actualScore / potentialScore > 0.999) {
+                perfectLineupsPlayoff[managerId][leagueId] += 1;
+              }
+            }
+          }
+        }
+      });
+
+    const entries = (Object.keys(realizedPointsPlayoff) as ManagerId[])
+      .flatMap<RecordEntry>((managerId) => {
+        const records: RecordEntry[] = [];
+
+        for (const scope of [undefined, "in-season", "postseason"] as const) {
+          for (const league of [undefined, ...ld.years]) {
+            const leagueId = league?.leagueId;
+
+            const manager = managers.find((m) => m.managerId == managerId)!;
+
+            let perfectLineups = 0;
+            let potentialPoints = 0;
+            let realizedPoints = 0;
+
+            if (leagueId) {
+              // Inidividual league
+              if (scope !== "postseason") {
+                // Regular season scope
+                perfectLineups += perfectLineupsRegular[managerId][leagueId];
+                potentialPoints += potentialPointsRegular[managerId][leagueId];
+                realizedPoints += realizedPointsRegular[managerId][leagueId];
+              }
+              if (scope !== "in-season") {
+                // Postseason scope
+                perfectLineups += perfectLineupsPlayoff[managerId][leagueId];
+                potentialPoints += potentialPointsPlayoff[managerId][leagueId];
+                realizedPoints += realizedPointsPlayoff[managerId][leagueId];
+              }
+            } else {
+              // Aggregate across all years
+              for (const league of ld.years) {
+                if (scope !== "postseason") {
+                  // Regular season scope
+                  perfectLineups += perfectLineupsRegular[managerId][league.leagueId];
+                  potentialPoints += potentialPointsRegular[managerId][league.leagueId];
+                  realizedPoints += realizedPointsRegular[managerId][league.leagueId];
+                }
+                if (scope !== "in-season") {
+                  // Postseason scope
+                  perfectLineups += perfectLineupsPlayoff[managerId][league.leagueId];
+                  potentialPoints += potentialPointsPlayoff[managerId][league.leagueId];
+                  realizedPoints += realizedPointsPlayoff[managerId][league.leagueId];
+                }
+              }
+            }
+
+            if (realizedPoints > 0) {
+              records.push({
+                key:
+                  manager.managerId + (leagueId ? `-${leagueId}` : "") + (scope ? `-${scope}` : ""),
+                manager: manager.name,
+                perfectLineups,
+                missedPoints: potentialPoints - realizedPoints,
+                lineupIQ: realizedPoints / potentialPoints,
+                league: leagueId,
+                scope,
+              });
+            }
+          }
+        }
+
+        return records;
+      })
+      .sort((a, b) => {
+        const aVal =
+          sortBy === "lineup-iq"
+            ? a.lineupIQ
+            : sortBy === "missed-points"
+              ? -a.missedPoints
+              : a.perfectLineups;
+        const bVal =
+          sortBy === "lineup-iq"
+            ? b.lineupIQ
+            : sortBy === "missed-points"
+              ? -b.missedPoints
+              : b.perfectLineups;
+        return bVal - aVal;
+      });
+
+    return {
+      type: "record",
+      category: rd.category,
+      name: rd.name,
+      displayAll: rd.displayAll,
+      dataAvailableFromYear,
+      columns: [
+        {
+          key: "manager",
+          title: "Manager",
+          type: "string",
+        },
+        {
+          key: "perfectLineups",
+          title: "Perfect Lineups",
+          type: "number",
+        },
+        {
+          key: "missedPoints",
+          title: "Total Missed Points",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "lineupIQ",
+          title: "Lineup IQ",
+          type: "percentage",
+          decimalPrecision: 2,
+        },
+      ],
+      keyField: "key",
+      entries,
+    };
+  };
+}
+
+function managerCareerScoringRecord(
+  sortBy:
+    | "high-score"
+    | "low-score"
+    | "points-forward"
+    | "points-against"
+    | "points-forward-per-game"
+    | "points-against-per-game"
+) {
+  interface RecordEntry extends BaseRecordEntry {
+    key: string;
+    manager: string;
+    highestScore: number;
+    highestScoreWeek: string;
+    lowestScore: number;
+    lowestScoreWeek: string;
+    pointsForward: number;
+    pointsAgainst: number;
+    numGames: number;
+    pointsForwardPerGame: number;
+    pointsAgainstPerGame: number;
+  }
+
+  return function (
+    rd: RecordDefinition,
+    ld: LeagueDefinition,
+    leagues: Record<LeagueId, League>
+  ): FantasyRecord<RecordEntry> {
+    let dataAvailableFromYear = 9999;
+
+    const managers = _.uniqBy(
+      ld.years
+        .map((league) => leagues[league.leagueId])
+        .flatMap((league) => Object.values(league.mangerData.managers)),
+      (el) => el.managerId
+    );
+
+    function initMap<T>(val: T): Record<ManagerId, Record<LeagueId, T>> {
+      return Object.fromEntries(
+        managers.map((manager) => [
+          manager.managerId,
+          Object.fromEntries(ld.years.map((league) => [league.leagueId, val])),
+        ])
+      );
+    }
+
+    const highestScoreRegular = initMap(0);
+    const highestScorePlayoff = initMap(0);
+    const lowestScoreRegular = initMap(9999);
+    const lowestScorePlayoff = initMap(9999);
+
+    const highestScoreRegularWeek = initMap("N/A");
+    const highestScorePlayoffWeek = initMap("N/A");
+    const lowestScoreRegularWeek = initMap("N/A");
+    const lowestScorePlayoffWeek = initMap("N/A");
+
+    const pointsForwardRegular = initMap(0);
+    const pointsForwardPlayoff = initMap(0);
+    const pointsAgainstRegular = initMap(0);
+    const pointsAgainstPlayoff = initMap(0);
+
+    const numGamesRegular = initMap(0);
+    const numGamesPlayoff = initMap(0);
+
+    ld.years
+      .map((league) => leagues[league.leagueId])
+      .forEach((league) => {
+        const leagueId = league.leagueId;
+
+        for (const matchup of league.matchupData.matchups) {
+          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
+            continue;
+          }
+
+          if (league.year < dataAvailableFromYear) {
+            dataAvailableFromYear = league.year;
+          }
+
+          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
+
+          const team1Id = matchup.team1.teamId;
+          const manager1Id = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team1Id
+          ) as ManagerId;
+
+          const team2Id = matchup.team2.teamId;
+          const manager2Id = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team2Id
+          ) as ManagerId;
+
+          if (!isPlayoff) {
+            if (matchup.team1.points > highestScoreRegular[manager1Id][leagueId]) {
+              highestScoreRegular[manager1Id][leagueId] = matchup.team1.points;
+              highestScoreRegularWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points > highestScoreRegular[manager2Id][leagueId]) {
+              highestScoreRegular[manager2Id][leagueId] = matchup.team2.points;
+              highestScoreRegularWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+
+            if (matchup.team1.points < lowestScoreRegular[manager1Id][leagueId]) {
+              lowestScoreRegular[manager1Id][leagueId] = matchup.team1.points;
+              lowestScoreRegularWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points < lowestScoreRegular[manager2Id][leagueId]) {
+              lowestScoreRegular[manager2Id][leagueId] = matchup.team2.points;
+              lowestScoreRegularWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+
+            pointsForwardRegular[manager1Id][leagueId] += matchup.team1.points;
+            pointsForwardRegular[manager2Id][leagueId] += matchup.team2.points;
+
+            pointsAgainstRegular[manager1Id][leagueId] += matchup.team2.points;
+            pointsAgainstRegular[manager2Id][leagueId] += matchup.team1.points;
+
+            numGamesRegular[manager1Id][leagueId] += 1;
+            numGamesRegular[manager2Id][leagueId] += 1;
+          } else {
+            if (matchup.team1.points > highestScorePlayoff[manager1Id][leagueId]) {
+              highestScorePlayoff[manager1Id][leagueId] = matchup.team1.points;
+              highestScorePlayoffWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points > highestScorePlayoff[manager2Id][leagueId]) {
+              highestScorePlayoff[manager2Id][leagueId] = matchup.team2.points;
+              highestScorePlayoffWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+
+            if (matchup.team1.points < lowestScorePlayoff[manager1Id][leagueId]) {
+              lowestScorePlayoff[manager1Id][leagueId] = matchup.team1.points;
+              lowestScorePlayoffWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+            if (matchup.team2.points < lowestScorePlayoff[manager2Id][leagueId]) {
+              lowestScorePlayoff[manager2Id][leagueId] = matchup.team2.points;
+              lowestScorePlayoffWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+            }
+
+            pointsForwardPlayoff[manager1Id][leagueId] += matchup.team1.points;
+            pointsForwardPlayoff[manager2Id][leagueId] += matchup.team2.points;
+
+            pointsAgainstPlayoff[manager1Id][leagueId] += matchup.team2.points;
+            pointsAgainstPlayoff[manager2Id][leagueId] += matchup.team1.points;
+
+            numGamesPlayoff[manager1Id][leagueId] += 1;
+            numGamesPlayoff[manager2Id][leagueId] += 1;
+          }
+        }
+      });
+
+    const entries = managers
+      .flatMap<RecordEntry>((manager) => {
+        const records: RecordEntry[] = [];
+
+        for (const scope of [undefined, "in-season", "postseason"] as const) {
+          for (const league of [undefined, ...ld.years]) {
+            const leagueId = league?.leagueId;
+
+            let highestScore = 0;
+            let highestScoreWeek = "N/A";
+            let lowestScore = 9999;
+            let lowestScoreWeek = "N/A";
+            let pointsForward = 0;
+            let pointsAgainst = 0;
+            let numGames = 0;
+
+            if (leagueId) {
+              // Individual league
+              if (scope !== "postseason") {
+                // Regular season scope
+                if (highestScoreRegular[manager.managerId][leagueId] > highestScore) {
+                  highestScore = highestScoreRegular[manager.managerId][leagueId];
+                  highestScoreWeek = highestScoreRegularWeek[manager.managerId][leagueId];
+                }
+                if (lowestScoreRegular[manager.managerId][leagueId] < lowestScore) {
+                  lowestScore = lowestScoreRegular[manager.managerId][leagueId];
+                  lowestScoreWeek = lowestScoreRegularWeek[manager.managerId][leagueId];
+                }
+                pointsForward += pointsForwardRegular[manager.managerId][leagueId];
+                pointsAgainst += pointsAgainstRegular[manager.managerId][leagueId];
+                numGames += numGamesRegular[manager.managerId][leagueId];
+              }
+              if (scope !== "in-season") {
+                // Postseason scope
+                if (highestScorePlayoff[manager.managerId][leagueId] > highestScore) {
+                  highestScore = highestScorePlayoff[manager.managerId][leagueId];
+                  highestScoreWeek = highestScorePlayoffWeek[manager.managerId][leagueId];
+                }
+                if (lowestScorePlayoff[manager.managerId][leagueId] < lowestScore) {
+                  lowestScore = lowestScorePlayoff[manager.managerId][leagueId];
+                  lowestScoreWeek = lowestScorePlayoffWeek[manager.managerId][leagueId];
+                }
+                pointsForward += pointsForwardPlayoff[manager.managerId][leagueId];
+                pointsAgainst += pointsAgainstPlayoff[manager.managerId][leagueId];
+                numGames += numGamesPlayoff[manager.managerId][leagueId];
+              }
+            } else {
+              // Aggregate across all years
+              for (const league of ld.years) {
+                if (scope !== "postseason") {
+                  // Regular season scope
+                  if (highestScoreRegular[manager.managerId][league.leagueId] > highestScore) {
+                    highestScore = highestScoreRegular[manager.managerId][league.leagueId];
+                    highestScoreWeek = highestScoreRegularWeek[manager.managerId][league.leagueId];
+                  }
+                  if (lowestScoreRegular[manager.managerId][league.leagueId] < lowestScore) {
+                    lowestScore = lowestScoreRegular[manager.managerId][league.leagueId];
+                    lowestScoreWeek = lowestScoreRegularWeek[manager.managerId][league.leagueId];
+                  }
+                  pointsForward += pointsForwardRegular[manager.managerId][league.leagueId];
+                  pointsAgainst += pointsAgainstRegular[manager.managerId][league.leagueId];
+                  numGames += numGamesRegular[manager.managerId][league.leagueId];
+                }
+                if (scope !== "in-season") {
+                  // Postseason scope
+                  if (highestScorePlayoff[manager.managerId][league.leagueId] > highestScore) {
+                    highestScore = highestScorePlayoff[manager.managerId][league.leagueId];
+                    highestScoreWeek = highestScorePlayoffWeek[manager.managerId][league.leagueId];
+                  }
+                  if (lowestScorePlayoff[manager.managerId][league.leagueId] < lowestScore) {
+                    lowestScore = lowestScorePlayoff[manager.managerId][league.leagueId];
+                    lowestScoreWeek = lowestScorePlayoffWeek[manager.managerId][league.leagueId];
+                  }
+                  pointsForward += pointsForwardPlayoff[manager.managerId][league.leagueId];
+                  pointsAgainst += pointsAgainstPlayoff[manager.managerId][league.leagueId];
+                  numGames += numGamesPlayoff[manager.managerId][league.leagueId];
+                }
+              }
+            }
+
+            if (numGames > 0) {
+              records.push({
+                key:
+                  manager.managerId + (leagueId ? `-${leagueId}` : "") + (scope ? `-${scope}` : ""),
+                manager: manager.name,
+                highestScore,
+                highestScoreWeek,
+                lowestScore,
+                lowestScoreWeek,
+                pointsForward,
+                pointsAgainst,
+                numGames,
+                pointsForwardPerGame: pointsForward / numGames,
+                pointsAgainstPerGame: pointsAgainst / numGames,
+                scope,
+                league: leagueId,
+              });
+            }
+          }
+        }
+
+        return records;
+      })
+      .sort((a, b) => {
+        const aVal =
+          sortBy === "high-score"
+            ? a.highestScore
+            : sortBy === "low-score"
+              ? -a.lowestScore
+              : sortBy === "points-forward"
+                ? a.pointsForward
+                : sortBy === "points-forward-per-game"
+                  ? a.pointsForwardPerGame
+                  : sortBy === "points-against-per-game"
+                    ? a.pointsAgainstPerGame
+                    : a.pointsAgainst;
+        const bVal =
+          sortBy === "high-score"
+            ? b.highestScore
+            : sortBy === "low-score"
+              ? -b.lowestScore
+              : sortBy === "points-forward"
+                ? b.pointsForward
+                : sortBy === "points-forward-per-game"
+                  ? b.pointsForwardPerGame
+                  : sortBy === "points-against-per-game"
+                    ? b.pointsAgainstPerGame
+                    : b.pointsAgainst;
+        return bVal - aVal;
+      });
+
+    return {
+      type: "record",
+      category: rd.category,
+      name: rd.name,
+      displayAll: rd.displayAll,
+      dataAvailableFromYear,
+      columns: [
+        {
+          key: "manager",
+          title: "Manager",
+          type: "string",
+        },
+        {
+          key: "highestScore",
+          hintKey: "highestScoreWeek",
+          title: "Highest Score",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "lowestScore",
+          hintKey: "lowestScoreWeek",
+          title: "Lowest Score",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "pointsForward",
+          title: "PF",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "pointsAgainst",
+          title: "PA",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "numGames",
+          title: "G",
+          type: "number",
+        },
+        {
+          key: "pointsForwardPerGame",
+          title: "PFPG",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "pointsAgainstPerGame",
+          title: "PAPG",
+          type: "number",
+          decimalPrecision: 2,
         },
       ],
       keyField: "key",

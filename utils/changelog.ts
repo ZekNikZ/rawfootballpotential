@@ -7,7 +7,7 @@ interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "1.3.01",
+    version: "1.3.0",
     date: new Date(2025, 7, 3),
     title: "Add 2024 season",
     description: `
