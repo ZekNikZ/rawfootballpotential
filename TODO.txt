@@ -1,4 +1,3 @@
-- selectable years on manager page
 - account for placements
   > highest placement
   > lowest placement
