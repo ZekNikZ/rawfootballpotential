@@ -43,9 +43,12 @@ export interface RecordFilter<T> {
 
 export type RecordScope = "in-season" | "playoffs" | "toilet-bowl" | "postseason";
 
+export type MedianScope = "default" | "include-medians" | "only-medians" | "no-medians";
+
 export interface BaseRecordEntry {
   league?: LeagueId;
   scope?: RecordScope;
+  medianMethod?: MedianScope;
 }
 
 export interface FantasyRecord<T extends BaseRecordEntry> {

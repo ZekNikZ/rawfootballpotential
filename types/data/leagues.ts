@@ -29,6 +29,7 @@ interface MatchupData {
   playoffSpots: number;
   playoffWeekStart: number;
   totalWeekCount: number;
+  medianEnabled: boolean;
 }
 
 type TransactionData = {

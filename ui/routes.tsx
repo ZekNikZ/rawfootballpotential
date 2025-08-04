@@ -20,6 +20,7 @@ import { RouteData } from "../types";
 import { HomePage } from "./pages/Home.page";
 import OverallRecordsPage from "./pages/OverallRecords.page";
 import ManagerRecordsPage from "./pages/ManagerRecords.page";
+import SingleSeasonRecordsPage from "./pages/SingleSeasonRecords.page";
 
 const routes: RouteData[] = [
   {
@@ -146,7 +147,7 @@ const routes: RouteData[] = [
       {
         path: "/:leagueId/records/single",
         title: "Single Season",
-        element: <HomePage />,
+        element: <SingleSeasonRecordsPage />,
         navbarProperties: {
           icon: CalendarDot,
           isDisabled: () => true,

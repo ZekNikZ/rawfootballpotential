@@ -8,7 +8,7 @@ import {
   Table,
   Text,
 } from "@mantine/core";
-import { BaseRecordEntry, LeagueId, FantasyRecord, RecordColumn } from "../../types";
+import { BaseRecordEntry, LeagueId, FantasyRecord, RecordColumn, MedianScope } from "../../types";
 import formatter from "format-number";
 import { useMemo, useState } from "react";
 import _ from "lodash";
@@ -97,16 +97,27 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
     Exclude<BaseRecordEntry["scope"], null> | "all" | "postseason"
   >("all");
 
+  const medianScopes = useMemo(() => {
+    return _.uniq(record.entries.map((x) => x.medianMethod))
+      .filter((m) => !!m)
+      .sort((a, b) => a.localeCompare(b));
+  }, [record.entries]);
+  const [medianScope, setMedianScope] = useState<MedianScope>("default");
+
   const [numEntries, setMaxEntries] = useState(5);
   const [page, setPage] = useState(1);
 
   const entries = useMemo(() => {
     let res = record.entries;
+
+    // Filter by league year
     if (league !== "all") {
       res = res.filter((entry) => entry.league === league);
     } else if (hasNullLeague) {
       res = res.filter((entry) => !entry.league);
     }
+
+    // Filter by scope
     if (scope === "postseason") {
       if (hasPostseasonScope) {
         res = res.filter((entry) => entry.scope === "postseason");
@@ -118,8 +129,23 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
     } else if (hasNullScope) {
       res = res.filter((entry) => !entry.scope);
     }
+
+    // Filter by median method
+    if (medianScopes.length >= 2) {
+      res = res.filter((entry) => entry.medianMethod === medianScope);
+    }
+
     return res;
-  }, [record.entries, league, hasNullLeague, scope, hasNullScope, hasPostseasonScope]);
+  }, [
+    record.entries,
+    league,
+    hasNullLeague,
+    scope,
+    hasNullScope,
+    medianScopes.length,
+    hasPostseasonScope,
+    medianScope,
+  ]);
 
   const maxPages = useMemo(
     () => Math.ceil(entries.length / (numEntries ?? 1)),
@@ -170,8 +196,19 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
                     label: "🏈 All",
                     value: "all",
                   },
+                  ...scopes
+                    .filter((scope) => scope !== "postseason")
+                    .map((scope) => ({
+                      label:
+                        scope === "in-season"
+                          ? "📅 Regular Season"
+                          : scope === "playoffs"
+                            ? "🏆 Playoffs"
+                            : "💩 Toilet Bowl",
+                      value: scope,
+                    })),
                   {
-                    label: "🏅 Postseason Only",
+                    label: scopes.length > 2 ? "🏅 All Postseason" : "🏅 Postseason",
                     value: "postseason",
                   },
                 ]}
@@ -181,21 +218,30 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
                   setPage(1);
                 }}
               />
+            </Group>
+          </Stack>
+        )}
+        {medianScopes.length >= 2 && (
+          <Stack gap={0}>
+            <Text>Medians</Text>
+            <Group gap={4}>
               <SegmentedControl
-                data={scopes
-                  .filter((scope) => scope !== "postseason")
-                  .map((scope) => ({
+                data={[
+                  ...medianScopes.map((medianScope) => ({
                     label:
-                      scope === "in-season"
-                        ? "📅 Regular Season"
-                        : scope === "playoffs"
-                          ? "🏆 Playoffs"
-                          : "💩 Toilet Bowl",
-                    value: scope,
-                  }))}
-                value={scope}
+                      medianScope === "default"
+                        ? "🧡 Season Default"
+                        : medianScope === "include-medians"
+                          ? "✅ Include"
+                          : medianScope === "only-medians"
+                            ? "🔷 Only Medians"
+                            : "⛔ Exclude",
+                    value: medianScope,
+                  })),
+                ]}
+                value={medianScope}
                 onChange={(value) => {
-                  setScope(value as never);
+                  setMedianScope(value as never);
                   setPage(1);
                 }}
               />

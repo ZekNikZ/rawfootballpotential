@@ -1,0 +1,35 @@
+- selectable years on manager page
+- account for placements
+  > highest placement
+  > lowest placement
+- trade stats
+- draft stats (starting and ending rosters)
+- add trophies tab
+  > year by year:
+    >  PODIUM / TOILET BOWL
+      >  podium & toilet bowl
+    >  Manager Statistics
+      >  "Best Manager" - highest lineup IQ / lowest missed points
+      >  "Most Points Acquired" - most points for
+      >  "Unluckiest" - most points against
+    >  Matchup Statistics
+      >  "Highest Scorer" - highest weekly score
+      >  "Best Clutch" - narrowest win
+      >  "Most Dominant" - largest blowout
+    > Trades & Waivers
+      >  "Most Trades" - most trades in a year
+      >  "Biggest Trade" - most ammount of players / picks traded in one trade
+      >  "Biggest Spender" - most spent on a single transaction in a year
+  > Overall
+    >  PLACEMENTS
+      >  "Most Wins" - highest placement across all years
+      >  1-3 "Highest Placements" - highest placement across all years
+    >  SCORING
+      >  "Highest Scorer" - highest weekly score
+      >  "Most Points Acquired" - most points for
+      >  "Unluckiest" - most points against
+    >  SCORING
+      >  "Best Manager" - highest lineup IQ / lowest missed points
+      >  "Best Clutch" - narrowest win
+      >  "Most Dominant" - largest blowout
+  > By manager

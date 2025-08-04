@@ -7,7 +7,18 @@ interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "1.1.0",
+    version: "1.3.01",
+    date: new Date(2025, 7, 3),
+    title: "Add 2024 season",
+    description: `
+**Records**
+- Added 2024 season to all records.
+- Where available, you now have the ability to filter by median **included**, **excluded**, or **season default**.
+- Manager records are now filterable by season.
+    `,
+  },
+  {
+    version: "1.2.0",
     date: new Date(2024, 7, 31),
     title: "Separation of playoffs & toilet bowl",
     description: `
@@ -16,7 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     `,
   },
   {
-    version: "1.0.0",
+    version: "1.1.0",
     date: new Date(2024, 7, 31),
     title: "Average points for & against",
     description: `

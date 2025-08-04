@@ -666,426 +666,6 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
   };
 }
 
-function managerCareerStandingsRecord(
-  sortBy: "win" | "loss" | "win%" | "win-streak" | "loss-streak" | "years"
-) {
-  interface RecordEntry extends BaseRecordEntry {
-    key: string;
-    manager: string;
-    wins: number;
-    losses: number;
-    yearsInLeague: number;
-    winPercentage: number;
-    longestWinStreak: number;
-    longestWinStreakYear: number;
-    longestLossStreak: number;
-    longestLossStreakYear: number;
-  }
-
-  return function (
-    rd: RecordDefinition,
-    ld: LeagueDefinition,
-    leagues: Record<LeagueId, League>
-  ): FantasyRecord<RecordEntry> {
-    let dataAvailableFromYear = 9999;
-
-    const managers = _.uniqBy(
-      ld.years
-        .map((league) => leagues[league.leagueId])
-        .flatMap((league) => Object.values(league.mangerData.managers)),
-      (el) => el.managerId
-    );
-
-    const totalSeasonWins: Record<ManagerId, number> = {};
-    const totalSeasonLosses: Record<ManagerId, number> = {};
-    const totalPlayoffWins: Record<ManagerId, number> = {};
-    const totalPlayoffLosses: Record<ManagerId, number> = {};
-    const yearsInLeague: Record<ManagerId, number[]> = {};
-    const longestSeasonWinStreaks: Record<ManagerId, { streak: number; year: number }> = {};
-    const longestSeasonLossStreaks: Record<ManagerId, { streak: number; year: number }> = {};
-    const longestPlayoffWinStreaks: Record<ManagerId, { streak: number; year: number }> = {};
-    const longestPlayoffLossStreaks: Record<ManagerId, { streak: number; year: number }> = {};
-    const longestTotalWinStreaks: Record<ManagerId, { streak: number; year: number }> = {};
-    const longestTotalLossStreaks: Record<ManagerId, { streak: number; year: number }> = {};
-    let currentSeasonStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
-    let currentPlayoffStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
-    let currentTotalStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
-
-    ld.years
-      .map((league) => leagues[league.leagueId])
-      .forEach((league) => {
-        currentSeasonStreaks = {};
-        currentPlayoffStreaks = {};
-        currentTotalStreaks = {};
-
-        for (const matchup of league.matchupData.matchups.sort((a, b) => a.week - b.week)) {
-          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
-            continue;
-          }
-
-          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
-
-          if (league.year < dataAvailableFromYear) {
-            dataAvailableFromYear = league.year;
-          }
-
-          // Determine winner and loser
-          const didTeam1Win = matchup.team1.points > matchup.team2.points;
-          const winnerTeamId = didTeam1Win ? matchup.team1.teamId : matchup.team2.teamId;
-          const loserTeamId = didTeam1Win ? matchup.team2.teamId : matchup.team1.teamId;
-
-          // Get manager IDs of winner and loser
-          const winner = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) =>
-              league.mangerData.teamAssignments[managerId as ManagerId] === winnerTeamId
-          ) as ManagerId;
-          const loser = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === loserTeamId
-          ) as ManagerId;
-
-          // Count wins and losses
-          if (!isPlayoff) {
-            if (!totalSeasonWins[winner]) {
-              totalSeasonWins[winner] = 0;
-            }
-            totalSeasonWins[winner] += 1;
-          } else {
-            if (!totalPlayoffWins[winner]) {
-              totalPlayoffWins[winner] = 0;
-            }
-            totalPlayoffWins[winner] += 1;
-          }
-
-          if (!isPlayoff) {
-            if (!totalSeasonLosses[loser]) {
-              totalSeasonLosses[loser] = 0;
-            }
-            totalSeasonLosses[loser] += 1;
-          } else {
-            if (!totalPlayoffLosses[loser]) {
-              totalPlayoffLosses[loser] = 0;
-            }
-            totalPlayoffLosses[loser] += 1;
-          }
-
-          // Count years in league
-          const winnerYears = yearsInLeague[winner] ?? [];
-          const loserYears = yearsInLeague[loser] ?? [];
-          yearsInLeague[winner] = _.uniq([...winnerYears, league.year]);
-          yearsInLeague[loser] = _.uniq([...loserYears, league.year]);
-
-          // Streaks
-          if (!currentTotalStreaks[winner]) {
-            currentTotalStreaks[winner] = { streak: 1, type: "W" };
-          } else {
-            if (currentTotalStreaks[winner].type === "W") {
-              currentTotalStreaks[winner].streak += 1;
-            } else {
-              if (
-                currentTotalStreaks[winner].streak > (longestTotalLossStreaks[winner]?.streak ?? 0)
-              ) {
-                longestTotalLossStreaks[winner] = {
-                  streak: currentTotalStreaks[winner].streak,
-                  year: league.year,
-                };
-              }
-              currentTotalStreaks[winner] = { streak: 1, type: "W" };
-            }
-          }
-          if (!isPlayoff) {
-            if (!currentSeasonStreaks[winner]) {
-              currentSeasonStreaks[winner] = { streak: 1, type: "W" };
-            } else {
-              if (currentSeasonStreaks[winner].type === "W") {
-                currentSeasonStreaks[winner].streak += 1;
-              } else {
-                if (
-                  currentSeasonStreaks[winner].streak >
-                  (longestSeasonLossStreaks[winner]?.streak ?? 0)
-                ) {
-                  longestSeasonLossStreaks[winner] = {
-                    streak: currentSeasonStreaks[winner].streak,
-                    year: league.year,
-                  };
-                }
-                currentSeasonStreaks[winner] = { streak: 1, type: "W" };
-              }
-            }
-          } else {
-            if (!currentPlayoffStreaks[winner]) {
-              currentPlayoffStreaks[winner] = { streak: 1, type: "W" };
-            } else {
-              if (currentPlayoffStreaks[winner].type === "W") {
-                currentPlayoffStreaks[winner].streak += 1;
-              } else {
-                if (
-                  currentPlayoffStreaks[winner].streak >
-                  (longestPlayoffLossStreaks[winner]?.streak ?? 0)
-                ) {
-                  longestPlayoffLossStreaks[winner] = {
-                    streak: currentPlayoffStreaks[winner].streak,
-                    year: league.year,
-                  };
-                }
-                currentPlayoffStreaks[winner] = { streak: 1, type: "W" };
-              }
-            }
-          }
-
-          if (!currentTotalStreaks[loser]) {
-            currentTotalStreaks[loser] = { streak: 1, type: "L" };
-          } else {
-            if (currentTotalStreaks[loser].type === "L") {
-              currentTotalStreaks[loser].streak += 1;
-            } else {
-              if (
-                currentTotalStreaks[loser].streak > (longestTotalWinStreaks[loser]?.streak ?? 0)
-              ) {
-                longestTotalWinStreaks[loser] = {
-                  streak: currentTotalStreaks[loser].streak,
-                  year: league.year,
-                };
-              }
-              currentTotalStreaks[loser] = { streak: 1, type: "L" };
-            }
-          }
-          if (!isPlayoff) {
-            if (!currentSeasonStreaks[loser]) {
-              currentSeasonStreaks[loser] = { streak: 1, type: "L" };
-            } else {
-              if (currentSeasonStreaks[loser].type === "L") {
-                currentSeasonStreaks[loser].streak += 1;
-              } else {
-                if (
-                  currentSeasonStreaks[loser].streak > (longestSeasonWinStreaks[loser]?.streak ?? 0)
-                ) {
-                  longestSeasonWinStreaks[loser] = {
-                    streak: currentSeasonStreaks[loser].streak,
-                    year: league.year,
-                  };
-                }
-                currentSeasonStreaks[loser] = { streak: 1, type: "L" };
-              }
-            }
-          } else {
-            if (!currentPlayoffStreaks[loser]) {
-              currentPlayoffStreaks[loser] = { streak: 1, type: "L" };
-            } else {
-              if (currentPlayoffStreaks[loser].type === "L") {
-                currentPlayoffStreaks[loser].streak += 1;
-              } else {
-                if (
-                  currentPlayoffStreaks[loser].streak >
-                  (longestPlayoffWinStreaks[loser]?.streak ?? 0)
-                ) {
-                  longestPlayoffWinStreaks[loser] = {
-                    streak: currentPlayoffStreaks[loser].streak,
-                    year: league.year,
-                  };
-                }
-                currentPlayoffStreaks[loser] = { streak: 1, type: "L" };
-              }
-            }
-          }
-        }
-
-        for (const manager of Object.keys(currentTotalStreaks) as ManagerId[]) {
-          // Total
-          if (
-            currentTotalStreaks[manager].type === "W" &&
-            currentTotalStreaks[manager].streak > (longestTotalWinStreaks[manager]?.streak ?? 0)
-          ) {
-            longestTotalWinStreaks[manager] = {
-              streak: currentTotalStreaks[manager].streak,
-              year: league.year,
-            };
-          }
-          if (
-            currentTotalStreaks[manager].type === "L" &&
-            currentTotalStreaks[manager].streak > (longestTotalLossStreaks[manager]?.streak ?? 0)
-          ) {
-            longestTotalLossStreaks[manager] = {
-              streak: currentTotalStreaks[manager].streak,
-              year: league.year,
-            };
-          }
-
-          // Season
-          if (
-            currentSeasonStreaks[manager].type === "W" &&
-            currentSeasonStreaks[manager].streak > (longestSeasonWinStreaks[manager]?.streak ?? 0)
-          ) {
-            longestSeasonWinStreaks[manager] = {
-              streak: currentSeasonStreaks[manager].streak,
-              year: league.year,
-            };
-          }
-          if (
-            currentSeasonStreaks[manager].type === "L" &&
-            currentSeasonStreaks[manager].streak > (longestSeasonLossStreaks[manager]?.streak ?? 0)
-          ) {
-            longestSeasonLossStreaks[manager] = {
-              streak: currentSeasonStreaks[manager].streak,
-              year: league.year,
-            };
-          }
-
-          // Playoff
-          if (
-            currentPlayoffStreaks[manager] &&
-            currentPlayoffStreaks[manager].type === "W" &&
-            currentPlayoffStreaks[manager].streak > (longestPlayoffWinStreaks[manager]?.streak ?? 0)
-          ) {
-            longestPlayoffWinStreaks[manager] = {
-              streak: currentPlayoffStreaks[manager].streak,
-              year: league.year,
-            };
-          }
-          if (
-            currentPlayoffStreaks[manager] &&
-            currentPlayoffStreaks[manager].type === "L" &&
-            currentPlayoffStreaks[manager].streak >
-              (longestPlayoffLossStreaks[manager]?.streak ?? 0)
-          ) {
-            longestPlayoffLossStreaks[manager] = {
-              streak: currentPlayoffStreaks[manager].streak,
-              year: league.year,
-            };
-          }
-        }
-      });
-
-    const entries = managers
-      .flatMap<RecordEntry>((manager) => {
-        const seasonWins = totalSeasonWins[manager.managerId] ?? 0;
-        const playoffWins = totalPlayoffWins[manager.managerId] ?? 0;
-        const seasonLosses = totalSeasonLosses[manager.managerId] ?? 0;
-        const playoffLosses = totalPlayoffLosses[manager.managerId] ?? 0;
-        const yearsInLeagueForManager = (yearsInLeague[manager.managerId] ?? []).length;
-
-        return [
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            wins: seasonWins + playoffWins,
-            losses: seasonLosses + playoffLosses,
-            yearsInLeague: yearsInLeagueForManager,
-            winPercentage:
-              (seasonWins + playoffWins) /
-              (seasonWins + playoffWins + seasonLosses + playoffLosses),
-            longestWinStreak: longestTotalWinStreaks[manager.managerId]?.streak,
-            longestWinStreakYear: longestTotalWinStreaks[manager.managerId]?.year,
-            longestLossStreak: longestTotalLossStreaks[manager.managerId]?.streak,
-            longestLossStreakYear: longestTotalLossStreaks[manager.managerId]?.year,
-          },
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            wins: seasonWins,
-            losses: seasonLosses,
-            yearsInLeague: yearsInLeagueForManager,
-            winPercentage: seasonWins / (seasonWins + seasonLosses),
-            longestWinStreak: longestSeasonWinStreaks[manager.managerId]?.streak,
-            longestWinStreakYear: longestSeasonWinStreaks[manager.managerId]?.year,
-            longestLossStreak: longestSeasonLossStreaks[manager.managerId]?.streak,
-            longestLossStreakYear: longestSeasonLossStreaks[manager.managerId]?.year,
-            scope: "in-season",
-          },
-          {
-            key: manager.managerId,
-            manager: manager.name,
-            wins: playoffWins,
-            losses: playoffLosses,
-            yearsInLeague: yearsInLeagueForManager,
-            winPercentage: playoffWins / (playoffWins + playoffLosses),
-            longestWinStreak: longestPlayoffWinStreaks[manager.managerId]?.streak,
-            longestWinStreakYear: longestPlayoffWinStreaks[manager.managerId]?.year,
-            longestLossStreak: longestPlayoffLossStreaks[manager.managerId]?.streak,
-            longestLossStreakYear: longestPlayoffLossStreaks[manager.managerId]?.year,
-            scope: "postseason",
-          },
-        ];
-      })
-      .sort((a, b) => {
-        const aVal =
-          sortBy === "win"
-            ? a.wins
-            : sortBy === "loss"
-              ? a.losses
-              : sortBy === "years"
-                ? a.yearsInLeague
-                : sortBy === "win-streak"
-                  ? (a.longestWinStreak ?? -1)
-                  : sortBy === "loss-streak"
-                    ? (a.longestLossStreak ?? -1)
-                    : a.winPercentage;
-        const bVal =
-          sortBy === "win"
-            ? b.wins
-            : sortBy === "loss"
-              ? b.losses
-              : sortBy === "years"
-                ? b.yearsInLeague
-                : sortBy === "win-streak"
-                  ? (b.longestWinStreak ?? -1)
-                  : sortBy === "loss-streak"
-                    ? (b.longestLossStreak ?? -1)
-                    : b.winPercentage;
-        return bVal - aVal;
-      });
-
-    return {
-      type: "record",
-      category: rd.category,
-      name: rd.name,
-      displayAll: rd.displayAll,
-      dataAvailableFromYear,
-      columns: [
-        {
-          key: "manager",
-          title: "Manager",
-          type: "string",
-        },
-        {
-          key: "yearsInLeague",
-          title: "YiL",
-          type: "number",
-        },
-        {
-          key: "wins",
-          title: "Wins",
-          type: "number",
-        },
-        {
-          key: "losses",
-          title: "Losses",
-          type: "number",
-        },
-        {
-          key: "winPercentage",
-          title: "Win %",
-          type: "percentage",
-          decimalPrecision: 2,
-        },
-        {
-          key: "longestWinStreak",
-          hintKey: "longestWinStreakYear",
-          title: "Longest Win Streak",
-          type: "number",
-        },
-        {
-          key: "longestLossStreak",
-          hintKey: "longestLossStreakYear",
-          title: "Longest Loss Streak",
-          type: "number",
-        },
-      ],
-      keyField: "key",
-      entries,
-    };
-  };
-}
-
 function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" | "lineup-iq") {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
@@ -1603,6 +1183,674 @@ function managerCareerScoringRecord(
           title: "PAPG",
           type: "number",
           decimalPrecision: 2,
+        },
+      ],
+      keyField: "key",
+      entries,
+    };
+  };
+}
+
+function managerCareerStandingsRecord(
+  sortBy: "win" | "loss" | "win%" | "win-streak" | "loss-streak" | "years"
+) {
+  interface RecordEntry extends BaseRecordEntry {
+    key: string;
+    manager: string;
+    wins: number;
+    losses: number;
+    yearsInLeague: number;
+    winPercentage: number;
+    longestWinStreak: number;
+    longestWinStreakNote?: string;
+    longestLossStreak: number;
+    longestLossStreakNote?: string;
+  }
+
+  return function (
+    rd: RecordDefinition,
+    ld: LeagueDefinition,
+    leagues: Record<LeagueId, League>
+  ): FantasyRecord<RecordEntry> {
+    let dataAvailableFromYear = 9999;
+
+    const managers = _.uniqBy(
+      ld.years
+        .map((league) => leagues[league.leagueId])
+        .flatMap((league) => Object.values(league.mangerData.managers)),
+      (el) => el.managerId
+    );
+
+    function initMap(): Record<ManagerId, Record<LeagueId, number>> {
+      return Object.fromEntries(
+        managers.map((manager) => [
+          manager.managerId,
+          Object.fromEntries(ld.years.map((league) => [league.leagueId, 0])),
+        ])
+      );
+    }
+
+    function initStreaksMap(): Record<ManagerId, { streak: number; type: "W" | "L" }> {
+      return Object.fromEntries(
+        managers.map((manager) => [manager.managerId, { streak: 0, type: "W" }])
+      );
+    }
+
+    const seasonWins = initMap();
+    const seasonLosses = initMap();
+
+    const playoffWins = initMap();
+    const playoffLosses = initMap();
+
+    const seasonMedianWins = initMap();
+    const seasonMedianLosses = initMap();
+
+    const longestSeasonWinStreaks = initMap();
+    const longestPlayoffWinStreaks = initMap();
+    const longestMedianWinStreaks = initMap();
+    const longestTotalWinStreaks = initMap();
+
+    const longestSeasonLossStreaks = initMap();
+    const longestPlayoffLossStreaks = initMap();
+    const longestMedianLossStreaks = initMap();
+    const longestTotalLossStreaks = initMap();
+
+    const yearsInLeague: Record<ManagerId, Set<number>> = Object.fromEntries(
+      managers.map((manager) => [manager.managerId, new Set<number>()])
+    );
+
+    let currentSeasonStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
+    let currentPlayoffStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
+    let currentMedianStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
+    let currentTotalStreaks: Record<ManagerId, { streak: number; type: "W" | "L" }>;
+
+    ld.years
+      .map((league) => leagues[league.leagueId])
+      .forEach((league) => {
+        const leagueId = league.leagueId;
+
+        currentSeasonStreaks = initStreaksMap();
+        currentPlayoffStreaks = initStreaksMap();
+        currentMedianStreaks = initStreaksMap();
+        currentTotalStreaks = initStreaksMap();
+
+        // Compute medians
+        const scoresPerWeek: Record<number, number[]> = {};
+        for (const matchup of league.matchupData.matchups) {
+          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
+            continue;
+          }
+
+          if (!scoresPerWeek[matchup.week]) {
+            scoresPerWeek[matchup.week] = [];
+          }
+          scoresPerWeek[matchup.week].push(matchup.team1.points, matchup.team2.points);
+        }
+        const mediansPerWeek: Record<number, number> = {};
+        for (const week in scoresPerWeek) {
+          const scores = scoresPerWeek[week];
+          scores.sort((a, b) => a - b);
+          const midIndex = Math.floor(scores.length / 2);
+          mediansPerWeek[Number(week)] =
+            scores.length % 2 === 0
+              ? (scores[midIndex - 1] + scores[midIndex]) / 2
+              : scores[midIndex];
+        }
+
+        // Process matchups
+        for (const matchup of league.matchupData.matchups.sort((a, b) => a.week - b.week)) {
+          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
+            continue;
+          }
+
+          const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
+
+          if (league.year < dataAvailableFromYear) {
+            dataAvailableFromYear = league.year;
+          }
+
+          // Determine winner and loser
+          const didTeam1Win = matchup.team1.points > matchup.team2.points;
+          const team1Id = matchup.team1.teamId;
+          const team2Id = matchup.team2.teamId;
+          const winnerTeamId = didTeam1Win ? matchup.team1.teamId : matchup.team2.teamId;
+          const loserTeamId = didTeam1Win ? matchup.team2.teamId : matchup.team1.teamId;
+
+          // Get manager IDs of winner and loser
+          const winner = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) =>
+              league.mangerData.teamAssignments[managerId as ManagerId] === winnerTeamId
+          ) as ManagerId;
+          const loser = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === loserTeamId
+          ) as ManagerId;
+          const team1 = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team1Id
+          ) as ManagerId;
+          const team2 = Object.keys(league.mangerData.teamAssignments).find(
+            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team2Id
+          ) as ManagerId;
+
+          // Count wins and losses
+          if (!isPlayoff) {
+            seasonWins[winner][leagueId] += 1;
+          } else {
+            playoffWins[winner][leagueId] += 1;
+          }
+
+          if (!isPlayoff) {
+            seasonLosses[loser][leagueId] += 1;
+          } else {
+            playoffLosses[loser][leagueId] += 1;
+          }
+
+          // Count median wins and losses
+          if (!isPlayoff) {
+            if (matchup.team1.points >= mediansPerWeek[matchup.week]) {
+              seasonMedianWins[team1][leagueId] += 1;
+            } else {
+              seasonMedianLosses[team1][leagueId] += 1;
+            }
+            if (matchup.team2.points >= mediansPerWeek[matchup.week]) {
+              seasonMedianWins[team2][leagueId] += 1;
+            } else {
+              seasonMedianLosses[team2][leagueId] += 1;
+            }
+          }
+
+          // Count years in league
+          yearsInLeague[winner].add(league.year);
+          yearsInLeague[loser].add(league.year);
+
+          // Total Streaks
+          if (currentTotalStreaks[winner].type === "W") {
+            // WINNER: Continuing a win streak
+            currentTotalStreaks[winner].streak += 1;
+          } else {
+            // WINNER: Starting a win streak
+            if (currentTotalStreaks[winner].streak > longestTotalLossStreaks[winner][leagueId]) {
+              longestTotalLossStreaks[winner][leagueId] = currentTotalStreaks[winner].streak;
+            }
+            currentTotalStreaks[winner] = { streak: 1, type: "W" };
+          }
+
+          if (currentTotalStreaks[loser].type === "L") {
+            // LOSER: Continuing a loss streak
+            currentTotalStreaks[loser].streak += 1;
+          } else {
+            // LOSER: Starting a loss streak
+            if (currentTotalStreaks[loser].streak > longestTotalWinStreaks[loser][leagueId]) {
+              longestTotalWinStreaks[loser][leagueId] = currentTotalStreaks[loser].streak;
+            }
+            currentTotalStreaks[loser] = { streak: 1, type: "L" };
+          }
+
+          // Season and Playoff Streaks
+          if (!isPlayoff) {
+            // WINNER: Regular season streaks
+            if (currentSeasonStreaks[winner].type === "W") {
+              // WINNER: Continuing a win streak
+              currentSeasonStreaks[winner].streak += 1;
+            } else {
+              // WINNER: Starting a win streak
+              if (
+                currentSeasonStreaks[winner].streak > longestSeasonLossStreaks[winner][leagueId]
+              ) {
+                longestSeasonLossStreaks[winner][leagueId] = currentSeasonStreaks[winner].streak;
+              }
+              currentSeasonStreaks[winner] = { streak: 1, type: "W" };
+            }
+          } else {
+            // WINNER: Playoff streaks
+            if (currentPlayoffStreaks[winner].type === "W") {
+              // WINNER: Continuing a win streak
+              currentPlayoffStreaks[winner].streak += 1;
+            } else {
+              // WINNER: Starting a win streak
+              if (
+                currentPlayoffStreaks[winner].streak > longestPlayoffLossStreaks[winner][leagueId]
+              ) {
+                longestPlayoffLossStreaks[winner][leagueId] = currentPlayoffStreaks[winner].streak;
+              }
+              currentPlayoffStreaks[winner] = { streak: 1, type: "W" };
+            }
+          }
+
+          if (!isPlayoff) {
+            // LOSER: Regular season streaks
+            if (currentSeasonStreaks[loser].type === "L") {
+              // LOSER: Continuing a loss streak
+              currentSeasonStreaks[loser].streak += 1;
+            } else {
+              // LOSER: Starting a loss streak
+              if (currentSeasonStreaks[loser].streak > longestSeasonWinStreaks[loser][leagueId]) {
+                longestSeasonWinStreaks[loser][leagueId] = currentSeasonStreaks[loser].streak;
+              }
+              currentSeasonStreaks[loser] = { streak: 1, type: "L" };
+            }
+          } else {
+            // LOSER: Playoff streaks
+            if (currentPlayoffStreaks[loser].type === "L") {
+              // LOSER: Continuing a loss streak
+              currentPlayoffStreaks[loser].streak += 1;
+            } else {
+              // LOSER: Starting a loss streak
+              if (currentPlayoffStreaks[loser].streak > longestPlayoffWinStreaks[loser][leagueId]) {
+                longestPlayoffWinStreaks[loser][leagueId] = currentPlayoffStreaks[loser].streak;
+              }
+              currentPlayoffStreaks[loser] = { streak: 1, type: "L" };
+            }
+          }
+
+          // Median Streaks
+          if (!isPlayoff) {
+            // Team 1
+            if (matchup.team1.points >= mediansPerWeek[matchup.week]) {
+              // TEAM 1: BEAT MEDIAN
+              if (currentMedianStreaks[team1].type === "W") {
+                // TEAM 1: Continuing win streak
+                currentMedianStreaks[team1].streak += 1;
+              } else {
+                // TEAM 1: Starting win streak
+                if (
+                  currentMedianStreaks[team1].streak > longestMedianLossStreaks[team1][leagueId]
+                ) {
+                  longestMedianLossStreaks[team1][leagueId] = currentMedianStreaks[team1].streak;
+                }
+                currentMedianStreaks[team1] = { streak: 1, type: "W" };
+              }
+            } else {
+              // TEAM 1: MISSED MEDIAN
+              if (currentMedianStreaks[team1].type === "L") {
+                // TEAM 1: Continuing loss streak
+                currentMedianStreaks[team1].streak += 1;
+              } else {
+                // TEAM 1: Starting loss streak
+                if (currentMedianStreaks[team1].streak > longestMedianWinStreaks[team1][leagueId]) {
+                  longestMedianWinStreaks[team1][leagueId] = currentMedianStreaks[team1].streak;
+                }
+                currentMedianStreaks[team1] = { streak: 1, type: "L" };
+              }
+            }
+
+            // Team 2
+            if (matchup.team2.points >= mediansPerWeek[matchup.week]) {
+              // TEAM 2: BEAT MEDIAN
+              if (currentMedianStreaks[team2].type === "W") {
+                // TEAM 2: Continuing win streak
+                currentMedianStreaks[team2].streak += 1;
+              } else {
+                // TEAM 2: Starting win streak
+                if (
+                  currentMedianStreaks[team2].streak > longestMedianLossStreaks[team2][leagueId]
+                ) {
+                  longestMedianLossStreaks[team2][leagueId] = currentMedianStreaks[team2].streak;
+                }
+                currentMedianStreaks[team2] = { streak: 1, type: "W" };
+              }
+            } else {
+              // TEAM 2: MISSED MEDIAN
+              if (currentMedianStreaks[team2].type === "L") {
+                // TEAM 2: Continuing loss streak
+                currentMedianStreaks[team2].streak += 1;
+              } else {
+                // TEAM 2: Starting loss streak
+                if (currentMedianStreaks[team2].streak > longestMedianWinStreaks[team2][leagueId]) {
+                  longestMedianWinStreaks[team2][leagueId] = currentMedianStreaks[team2].streak;
+                }
+                currentMedianStreaks[team2] = { streak: 1, type: "L" };
+              }
+            }
+          }
+        }
+
+        // Check if current streaks are the longest for each manager
+        for (const manager of Object.keys(currentTotalStreaks) as ManagerId[]) {
+          // Total
+          if (
+            currentTotalStreaks[manager].type === "W" &&
+            currentTotalStreaks[manager].streak > longestTotalWinStreaks[manager][leagueId]
+          ) {
+            longestTotalWinStreaks[manager][leagueId] = currentTotalStreaks[manager].streak;
+          }
+          if (
+            currentTotalStreaks[manager].type === "L" &&
+            currentTotalStreaks[manager].streak > longestTotalLossStreaks[manager][leagueId]
+          ) {
+            longestTotalLossStreaks[manager][leagueId] = currentTotalStreaks[manager].streak;
+          }
+
+          // Season
+          if (
+            currentSeasonStreaks[manager].type === "W" &&
+            currentSeasonStreaks[manager].streak > longestSeasonWinStreaks[manager][leagueId]
+          ) {
+            longestSeasonWinStreaks[manager][leagueId] = currentSeasonStreaks[manager].streak;
+          }
+          if (
+            currentSeasonStreaks[manager].type === "L" &&
+            currentSeasonStreaks[manager].streak > longestSeasonLossStreaks[manager][leagueId]
+          ) {
+            longestSeasonLossStreaks[manager][leagueId] = currentSeasonStreaks[manager].streak;
+          }
+
+          // Playoff
+          if (
+            currentPlayoffStreaks[manager].type === "W" &&
+            currentPlayoffStreaks[manager].streak > longestPlayoffWinStreaks[manager][leagueId]
+          ) {
+            longestPlayoffWinStreaks[manager][leagueId] = currentPlayoffStreaks[manager].streak;
+          }
+          if (
+            currentPlayoffStreaks[manager].type === "L" &&
+            currentPlayoffStreaks[manager].streak > longestPlayoffLossStreaks[manager][leagueId]
+          ) {
+            longestPlayoffLossStreaks[manager][leagueId] = currentPlayoffStreaks[manager].streak;
+          }
+        }
+      });
+
+    const entries = managers
+      .flatMap<RecordEntry>((manager) => {
+        const records: RecordEntry[] = [];
+        for (const scope of [undefined, "in-season", "postseason"] as const) {
+          for (const medianMethod of [
+            "no-medians",
+            "only-medians",
+            "include-medians",
+            "default",
+          ] as const) {
+            for (const league of [undefined, ...ld.years]) {
+              const leagueId = league?.leagueId;
+
+              let wins = 0;
+              let losses = 0;
+              let longestWinStreak = 0;
+              let longestWinStreakNote: string | undefined = undefined;
+              let longestLossStreak = 0;
+              let longestLossStreakNote: string | undefined = undefined;
+
+              // Count wins and losses
+              if (leagueId) {
+                // Individual league
+                const actualMedianMethod =
+                  medianMethod === "default"
+                    ? leagues[leagueId].matchupData.medianEnabled
+                      ? "include-medians"
+                      : "no-medians"
+                    : medianMethod;
+
+                // Count non-median wins and losses
+                if (actualMedianMethod !== "only-medians") {
+                  // Count regular season wins and losses
+                  if (scope !== "postseason") {
+                    wins += seasonWins[manager.managerId][leagueId];
+                    losses += seasonLosses[manager.managerId][leagueId];
+                  }
+
+                  // Count playoff wins and losses
+                  if (scope !== "in-season") {
+                    wins += playoffWins[manager.managerId][leagueId];
+                    losses += playoffLosses[manager.managerId][leagueId];
+                  }
+                }
+
+                // Count median wins and losses
+                if (actualMedianMethod !== "no-medians") {
+                  wins += seasonMedianWins[manager.managerId][leagueId];
+                  losses += seasonMedianLosses[manager.managerId][leagueId];
+                }
+              } else {
+                // League aggregate
+
+                for (const league of ld.years) {
+                  const actualMedianMethod =
+                    medianMethod === "default"
+                      ? leagues[league.leagueId].matchupData.medianEnabled
+                        ? "include-medians"
+                        : "no-medians"
+                      : medianMethod;
+
+                  // Count non-median wins and losses
+                  if (actualMedianMethod !== "only-medians") {
+                    // Count regular season wins and losses
+                    if (scope !== "postseason") {
+                      wins += seasonWins[manager.managerId][league.leagueId];
+                      losses += seasonLosses[manager.managerId][league.leagueId];
+                    }
+
+                    // Count playoff wins and losses
+                    if (scope !== "in-season") {
+                      wins += playoffWins[manager.managerId][league.leagueId];
+                      losses += playoffLosses[manager.managerId][league.leagueId];
+                    }
+                  }
+
+                  // Count median wins and losses
+                  if (actualMedianMethod !== "no-medians") {
+                    wins += seasonMedianWins[manager.managerId][league.leagueId];
+                    losses += seasonMedianLosses[manager.managerId][league.leagueId];
+                  }
+                }
+              }
+
+              // Get longest win streak
+              if (leagueId) {
+                // Individual league
+                const actualMedianMethod =
+                  medianMethod === "default"
+                    ? leagues[leagueId].matchupData.medianEnabled
+                      ? "include-medians"
+                      : "no-medians"
+                    : medianMethod;
+
+                if (actualMedianMethod === "only-medians") {
+                  // Only median streaks
+                  longestWinStreak = longestMedianWinStreaks[manager.managerId][leagueId];
+                  longestLossStreak = longestMedianLossStreaks[manager.managerId][leagueId];
+                } else {
+                  switch (scope) {
+                    case "in-season":
+                      longestWinStreak = longestSeasonWinStreaks[manager.managerId][leagueId];
+                      longestLossStreak = longestSeasonLossStreaks[manager.managerId][leagueId];
+                      break;
+                    case "postseason":
+                      longestWinStreak = longestPlayoffWinStreaks[manager.managerId][leagueId];
+                      longestLossStreak = longestPlayoffLossStreaks[manager.managerId][leagueId];
+                      break;
+                    default:
+                      longestWinStreak = longestTotalWinStreaks[manager.managerId][leagueId];
+                      longestLossStreak = longestTotalLossStreaks[manager.managerId][leagueId];
+                      break;
+                  }
+                }
+              } else {
+                // Aggregate across all years
+                for (const league of ld.years) {
+                  const actualMedianMethod =
+                    medianMethod === "default"
+                      ? leagues[league.leagueId].matchupData.medianEnabled
+                        ? "include-medians"
+                        : "no-medians"
+                      : medianMethod;
+
+                  if (actualMedianMethod === "only-medians") {
+                    // Only median streaks
+                    if (
+                      longestMedianWinStreaks[manager.managerId][league.leagueId] > longestWinStreak
+                    ) {
+                      longestWinStreak =
+                        longestMedianWinStreaks[manager.managerId][league.leagueId];
+                      longestWinStreakNote = `${league.year}`;
+                    }
+                    if (
+                      longestMedianLossStreaks[manager.managerId][league.leagueId] >
+                      longestLossStreak
+                    ) {
+                      longestLossStreak =
+                        longestMedianLossStreaks[manager.managerId][league.leagueId];
+                      longestLossStreakNote = `${league.year}`;
+                    }
+                  } else {
+                    switch (scope) {
+                      case "in-season":
+                        if (
+                          longestSeasonWinStreaks[manager.managerId][league.leagueId] >
+                          longestWinStreak
+                        ) {
+                          longestWinStreak =
+                            longestSeasonWinStreaks[manager.managerId][league.leagueId];
+                          longestWinStreakNote = `${league.year}`;
+                        }
+                        if (
+                          longestSeasonLossStreaks[manager.managerId][league.leagueId] >
+                          longestLossStreak
+                        ) {
+                          longestLossStreak =
+                            longestSeasonLossStreaks[manager.managerId][league.leagueId];
+                          longestLossStreakNote = `${league.year}`;
+                        }
+                        break;
+                      case "postseason":
+                        if (
+                          longestPlayoffWinStreaks[manager.managerId][league.leagueId] >
+                          longestWinStreak
+                        ) {
+                          longestWinStreak =
+                            longestPlayoffWinStreaks[manager.managerId][league.leagueId];
+                          longestWinStreakNote = `${league.year}`;
+                        }
+                        if (
+                          longestPlayoffLossStreaks[manager.managerId][league.leagueId] >
+                          longestLossStreak
+                        ) {
+                          longestLossStreak =
+                            longestPlayoffLossStreaks[manager.managerId][league.leagueId];
+                          longestLossStreakNote = `${league.year}`;
+                        }
+                        break;
+                      default:
+                        if (
+                          longestTotalWinStreaks[manager.managerId][league.leagueId] >
+                          longestWinStreak
+                        ) {
+                          longestWinStreak =
+                            longestTotalWinStreaks[manager.managerId][league.leagueId];
+                          longestWinStreakNote = `${league.year}`;
+                        }
+                        if (
+                          longestTotalLossStreaks[manager.managerId][league.leagueId] >
+                          longestLossStreak
+                        ) {
+                          longestLossStreak =
+                            longestTotalLossStreaks[manager.managerId][league.leagueId];
+                          longestLossStreakNote = `${league.year}`;
+                        }
+                        break;
+                    }
+                  }
+                }
+              }
+
+              if (wins + losses > 0) {
+                records.push({
+                  key:
+                    manager.managerId +
+                    (leagueId ? `-${leagueId}` : "") +
+                    (scope ? `-${scope}` : "") +
+                    (medianMethod ? `-${medianMethod}` : ""),
+                  manager: manager.name,
+                  wins,
+                  losses,
+                  yearsInLeague: yearsInLeague[manager.managerId].size,
+                  winPercentage: wins / (wins + losses),
+                  longestWinStreak,
+                  longestWinStreakNote,
+                  longestLossStreak,
+                  longestLossStreakNote,
+                  league: leagueId,
+                  scope,
+                  medianMethod,
+                });
+              }
+            }
+          }
+        }
+
+        return records;
+      })
+      .sort((a, b) => {
+        const aVal =
+          sortBy === "win"
+            ? a.wins
+            : sortBy === "loss"
+              ? a.losses
+              : sortBy === "years"
+                ? a.yearsInLeague
+                : sortBy === "win-streak"
+                  ? (a.longestWinStreak ?? -1)
+                  : sortBy === "loss-streak"
+                    ? (a.longestLossStreak ?? -1)
+                    : a.winPercentage;
+        const bVal =
+          sortBy === "win"
+            ? b.wins
+            : sortBy === "loss"
+              ? b.losses
+              : sortBy === "years"
+                ? b.yearsInLeague
+                : sortBy === "win-streak"
+                  ? (b.longestWinStreak ?? -1)
+                  : sortBy === "loss-streak"
+                    ? (b.longestLossStreak ?? -1)
+                    : b.winPercentage;
+        return bVal - aVal;
+      });
+
+    return {
+      type: "record",
+      category: rd.category,
+      name: rd.name,
+      displayAll: rd.displayAll,
+      dataAvailableFromYear,
+      columns: [
+        {
+          key: "manager",
+          title: "Manager",
+          type: "string",
+        },
+        {
+          key: "yearsInLeague",
+          title: "YiL",
+          type: "number",
+        },
+        {
+          key: "wins",
+          title: "Wins",
+          type: "number",
+        },
+        {
+          key: "losses",
+          title: "Losses",
+          type: "number",
+        },
+        {
+          key: "winPercentage",
+          title: "Win %",
+          type: "percentage",
+          decimalPrecision: 2,
+        },
+        {
+          key: "longestWinStreak",
+          hintKey: "longestWinStreakNote",
+          title: "Longest Win Streak",
+          type: "number",
+        },
+        {
+          key: "longestLossStreak",
+          hintKey: "longestLossStreakNote",
+          title: "Longest Loss Streak",
+          type: "number",
         },
       ],
       keyField: "key",

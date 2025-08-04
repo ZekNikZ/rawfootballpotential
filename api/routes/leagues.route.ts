@@ -182,6 +182,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
           const matchupsResponse = await fetch(
             `https://api.sleeper.app/v1/league/${year.internalId}/matchups/${week}`
           );
+          console.log(`https://api.sleeper.app/v1/league/${year.internalId}/matchups/${week}`);
           const matchupsJson = await matchupsResponse.json();
           const groupedMatchups = _.groupBy(matchupsJson, (matchup) => matchup.matchup_id);
           return Object.entries(groupedMatchups).map(([matchupId, correspondingMatchups]) => ({
@@ -280,6 +281,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
           playoffSpots: leagueJson.settings.playoff_teams,
           playoffWeekStart: leagueJson.settings.playoff_week_start,
           totalWeekCount: numRegularSeasonWeeks + numPlayoffWeeks,
+          medianEnabled: leagueJson.settings.league_average_match === 1,
         },
         transactionData: "NOT IMPLEMENTED" as unknown as League["transactionData"],
         draft,
