@@ -112,6 +112,18 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
       {
         type: "record",
         category: "overall",
+        name: "Highest actual points",
+        generateRecord: weeklyPotentialScoreRecord("actualScore", "highest"),
+      },
+      {
+        type: "record",
+        category: "overall",
+        name: "Lowest actual points",
+        generateRecord: weeklyPotentialScoreRecord("actualScore", "lowest"),
+      },
+      {
+        type: "record",
+        category: "overall",
         name: "Highest realized points ratio",
         generateRecord: weeklyPotentialScoreRecord("ratio", "highest"),
       },
@@ -509,7 +521,10 @@ function weeklyTeamwideScoreRecord(scoreType: "total" | "bench", sortOrder: "hig
   };
 }
 
-function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highest" | "lowest") {
+function weeklyPotentialScoreRecord(
+  sortBy: "score" | "ratio" | "actualScore",
+  sortOrder: "highest" | "lowest"
+) {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
     team: string;
@@ -614,8 +629,18 @@ function weeklyPotentialScoreRecord(sortBy: "score" | "ratio", sortOrder: "highe
       )
       .filter((entry) => !!entry)
       .sort((a, b) => {
-        const aVal = sortBy === "score" ? a.score : a.realizedScoreRatio;
-        const bVal = sortBy === "score" ? b.score : b.realizedScoreRatio;
+        const aVal =
+          sortBy === "score"
+            ? a.score
+            : sortBy === "actualScore"
+              ? a.actualScore
+              : a.realizedScoreRatio;
+        const bVal =
+          sortBy === "score"
+            ? b.score
+            : sortBy === "actualScore"
+              ? b.actualScore
+              : b.realizedScoreRatio;
         return (aVal - bVal) * (sortOrder === "lowest" ? 1 : -1);
       });
 
