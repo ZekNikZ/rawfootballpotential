@@ -1666,20 +1666,20 @@ function managerCareerScoringRecord(
           if (!isPlayoff) {
             if (matchup.team1.points > highestScoreRegular[manager1Id][leagueId]) {
               highestScoreRegular[manager1Id][leagueId] = matchup.team1.points;
-              highestScoreRegularWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              highestScoreRegularWeek[manager1Id][leagueId] = `WK ${matchup.week}`;
             }
             if (matchup.team2.points > highestScoreRegular[manager2Id][leagueId]) {
               highestScoreRegular[manager2Id][leagueId] = matchup.team2.points;
-              highestScoreRegularWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              highestScoreRegularWeek[manager2Id][leagueId] = `WK ${matchup.week}`;
             }
 
             if (matchup.team1.points < lowestScoreRegular[manager1Id][leagueId]) {
               lowestScoreRegular[manager1Id][leagueId] = matchup.team1.points;
-              lowestScoreRegularWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              lowestScoreRegularWeek[manager1Id][leagueId] = `WK ${matchup.week}`;
             }
             if (matchup.team2.points < lowestScoreRegular[manager2Id][leagueId]) {
               lowestScoreRegular[manager2Id][leagueId] = matchup.team2.points;
-              lowestScoreRegularWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              lowestScoreRegularWeek[manager2Id][leagueId] = `WK ${matchup.week}`;
             }
 
             pointsForwardRegular[manager1Id][leagueId] += matchup.team1.points;
@@ -1693,20 +1693,20 @@ function managerCareerScoringRecord(
           } else {
             if (matchup.team1.points > highestScorePlayoff[manager1Id][leagueId]) {
               highestScorePlayoff[manager1Id][leagueId] = matchup.team1.points;
-              highestScorePlayoffWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              highestScorePlayoffWeek[manager1Id][leagueId] = `WK ${matchup.week}`;
             }
             if (matchup.team2.points > highestScorePlayoff[manager2Id][leagueId]) {
               highestScorePlayoff[manager2Id][leagueId] = matchup.team2.points;
-              highestScorePlayoffWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              highestScorePlayoffWeek[manager2Id][leagueId] = `WK ${matchup.week}`;
             }
 
             if (matchup.team1.points < lowestScorePlayoff[manager1Id][leagueId]) {
               lowestScorePlayoff[manager1Id][leagueId] = matchup.team1.points;
-              lowestScorePlayoffWeek[manager1Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              lowestScorePlayoffWeek[manager1Id][leagueId] = `WK ${matchup.week}`;
             }
             if (matchup.team2.points < lowestScorePlayoff[manager2Id][leagueId]) {
               lowestScorePlayoff[manager2Id][leagueId] = matchup.team2.points;
-              lowestScorePlayoffWeek[manager2Id][leagueId] = `${league.year} WK ${matchup.week}`;
+              lowestScorePlayoffWeek[manager2Id][leagueId] = `WK ${matchup.week}`;
             }
 
             pointsForwardPlayoff[manager1Id][leagueId] += matchup.team1.points;
@@ -1774,11 +1774,11 @@ function managerCareerScoringRecord(
                   // Regular season scope
                   if (highestScoreRegular[manager.managerId][league.leagueId] > highestScore) {
                     highestScore = highestScoreRegular[manager.managerId][league.leagueId];
-                    highestScoreWeek = highestScoreRegularWeek[manager.managerId][league.leagueId];
+                    highestScoreWeek = `${league.year} ${highestScoreRegularWeek[manager.managerId][league.leagueId]}`;
                   }
                   if (lowestScoreRegular[manager.managerId][league.leagueId] < lowestScore) {
                     lowestScore = lowestScoreRegular[manager.managerId][league.leagueId];
-                    lowestScoreWeek = lowestScoreRegularWeek[manager.managerId][league.leagueId];
+                    lowestScoreWeek = `${league.year} ${lowestScoreRegularWeek[manager.managerId][league.leagueId]}`;
                   }
                   pointsForward += pointsForwardRegular[manager.managerId][league.leagueId];
                   pointsAgainst += pointsAgainstRegular[manager.managerId][league.leagueId];
@@ -1788,11 +1788,11 @@ function managerCareerScoringRecord(
                   // Postseason scope
                   if (highestScorePlayoff[manager.managerId][league.leagueId] > highestScore) {
                     highestScore = highestScorePlayoff[manager.managerId][league.leagueId];
-                    highestScoreWeek = highestScorePlayoffWeek[manager.managerId][league.leagueId];
+                    highestScoreWeek = `${league.year} ${highestScorePlayoffWeek[manager.managerId][league.leagueId]}`;
                   }
                   if (lowestScorePlayoff[manager.managerId][league.leagueId] < lowestScore) {
                     lowestScore = lowestScorePlayoff[manager.managerId][league.leagueId];
-                    lowestScoreWeek = lowestScorePlayoffWeek[manager.managerId][league.leagueId];
+                    lowestScoreWeek = `${league.year} ${lowestScorePlayoffWeek[manager.managerId][league.leagueId]}`;
                   }
                   pointsForward += pointsForwardPlayoff[manager.managerId][league.leagueId];
                   pointsAgainst += pointsAgainstPlayoff[manager.managerId][league.leagueId];
