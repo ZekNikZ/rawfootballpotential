@@ -7,6 +7,18 @@ interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.4.0",
+    date: new Date(2025, 7, 4),
+    title: "Manager matchup and placement records",
+    description: `
+**Records**
+- Add placement and manager matchup records.
+- (From 1.3.0) Added 2024 season to all records.
+- (From 1.3.0) Where available, you now have the ability to filter by median **included**, **excluded**, or **season default**.
+- (From 1.3.0) Manager records are now filterable by season.
+    `,
+  },
+  {
     version: "1.3.0",
     date: new Date(2025, 7, 3),
     title: "Add 2024 season",
