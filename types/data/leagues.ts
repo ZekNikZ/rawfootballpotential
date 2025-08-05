@@ -20,6 +20,7 @@ interface TeamData {
   benchSize: number;
   injuryReserveSize: number;
   playoffQualifiedTeams: TeamId[];
+  finalPlacements?: Record<TeamId, number>;
 }
 
 interface MatchupData {
@@ -51,7 +52,7 @@ export interface League {
   status: "in_season" | "complete";
   source: LeagueSource;
   sleeperLeagueId?: string;
-  mangerData: ManagerData;
+  managerData: ManagerData;
   teamData: TeamData;
   matchupData: MatchupData;
   transactionData: TransactionData;

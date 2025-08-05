@@ -1,5 +1,5 @@
 import { LeagueSource } from "./enums";
-import { LeagueId } from "./ids";
+import { LeagueId, TeamId } from "./ids";
 import { League } from "./leagues";
 
 export interface LeagueDefinition {
@@ -11,6 +11,7 @@ export interface LeagueDefinition {
     year: number;
     leagueId: LeagueId;
     internalId: string;
+    finalPlacements: Record<TeamId, number>;
   }[];
 }
 

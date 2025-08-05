@@ -258,7 +258,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
         status: leagueJson.status,
         source: year.source,
         sleeperLeagueId: year.internalId,
-        mangerData: {
+        managerData: {
           managers,
           teamAssignments,
         },
@@ -273,6 +273,7 @@ leaguesRouter.get("/leagues/:leagueId", async (req, res: Response<GetLeagueRespo
           benchSize: (leagueJson.roster_positions as string[]).filter((pos) => pos === "BN").length,
           injuryReserveSize: leagueJson.settings.reserve_slots ?? 0,
           playoffQualifiedTeams,
+          finalPlacements: year.finalPlacements,
         },
         matchupData: {
           matchups,

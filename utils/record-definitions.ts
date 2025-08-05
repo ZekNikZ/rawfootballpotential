@@ -187,6 +187,48 @@ export const RECORD_DEFINITIONS: (RecordDefinition | RecordCategoryDefinition)[]
   {
     type: "category",
     category: "manager",
+    name: "Career Placements",
+    children: [
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest average placement",
+        displayAll: true,
+        generateRecord: managerPlacementsRecord("average-placement"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Highest placement",
+        displayAll: true,
+        generateRecord: managerPlacementsRecord("highest-placement"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Lowest placement",
+        displayAll: true,
+        generateRecord: managerPlacementsRecord("lowest-placement"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Most playoff appearances",
+        displayAll: true,
+        generateRecord: managerPlacementsRecord("playoff-appearances"),
+      },
+      {
+        type: "record",
+        category: "manager",
+        name: "Most toilet bowl appearances",
+        displayAll: true,
+        generateRecord: managerPlacementsRecord("toilet-bowl-appearances"),
+      },
+    ],
+  },
+  {
+    type: "category",
+    category: "manager",
     name: "Career Lineup IQ",
     children: [
       {
@@ -303,10 +345,12 @@ function weeklyScoreRecord(
             dataAvailableFromYear = league.year;
           }
 
+          console.log(league);
+
           const team1 = league.teamData.teams[matchup.team1.teamId];
-          const manager1 = league.mangerData.managers[team1.managerId];
+          const manager1 = league.managerData.managers[team1.managerId];
           const team2 = league.teamData.teams[matchup.team2.teamId];
-          const manager2 = league.mangerData.managers[team2.managerId];
+          const manager2 = league.managerData.managers[team2.managerId];
 
           const scoreDelta = matchup.team1.points - matchup.team2.points;
 
@@ -413,12 +457,12 @@ function weeklyTeamwideScoreRecord(scoreType: "total" | "bench", sortOrder: "hig
                 : "toilet-bowl";
 
           const team1 = league.teamData.teams[matchup.team1.teamId];
-          const manager1 = league.mangerData.managers[team1.managerId];
+          const manager1 = league.managerData.managers[team1.managerId];
 
           let team2Name: string;
           if (matchup.team2 !== "BYE" && matchup.team2 !== "TBD") {
             const team2 = league.teamData.teams[matchup.team2.teamId];
-            const manager2 = league.mangerData.managers[(team2 as Team).managerId];
+            const manager2 = league.managerData.managers[(team2 as Team).managerId];
             team2Name = `${team2.name} (${manager2.name})`;
 
             if (matchup.team2.hasPlayerData) {
@@ -557,12 +601,12 @@ function weeklyPotentialScoreRecord(
                 : "toilet-bowl";
 
           const team1 = league.teamData.teams[matchup.team1.teamId];
-          const manager1 = league.mangerData.managers[team1.managerId];
+          const manager1 = league.managerData.managers[team1.managerId];
 
           let team2Name: string;
           if (matchup.team2 !== "BYE" && matchup.team2 !== "TBD") {
             const team2 = league.teamData.teams[matchup.team2.teamId];
-            const manager2 = league.mangerData.managers[(team2 as Team).managerId];
+            const manager2 = league.managerData.managers[(team2 as Team).managerId];
             team2Name = `${team2.name} (${manager2.name})`;
 
             if (matchup.team2.hasPlayerData) {
@@ -717,7 +761,7 @@ function managerCareerStandingsRecord(
     const managers = _.uniqBy(
       ld.years
         .map((league) => leagues[league.leagueId])
-        .flatMap((league) => Object.values(league.mangerData.managers)),
+        .flatMap((league) => Object.values(league.managerData.managers)),
       (el) => el.managerId
     );
 
@@ -817,18 +861,19 @@ function managerCareerStandingsRecord(
           const loserTeamId = didTeam1Win ? matchup.team2.teamId : matchup.team1.teamId;
 
           // Get manager IDs of winner and loser
-          const winner = Object.keys(league.mangerData.teamAssignments).find(
+          const winner = Object.keys(league.managerData.teamAssignments).find(
             (managerId) =>
-              league.mangerData.teamAssignments[managerId as ManagerId] === winnerTeamId
+              league.managerData.teamAssignments[managerId as ManagerId] === winnerTeamId
           ) as ManagerId;
-          const loser = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === loserTeamId
+          const loser = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) =>
+              league.managerData.teamAssignments[managerId as ManagerId] === loserTeamId
           ) as ManagerId;
-          const team1 = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team1Id
+          const team1 = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team1Id
           ) as ManagerId;
-          const team2 = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team2Id
+          const team2 = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team2Id
           ) as ManagerId;
 
           // Count wins and losses
@@ -1360,6 +1405,219 @@ function managerCareerStandingsRecord(
   };
 }
 
+function managerPlacementsRecord(
+  sortBy:
+    | "highest-placement"
+    | "lowest-placement"
+    | "average-placement"
+    | "playoff-appearances"
+    | "toilet-bowl-appearances"
+) {
+  interface RecordEntry extends BaseRecordEntry {
+    key: string;
+    manager: string;
+    playoffAppearances: number;
+    toiletBowlAppearances: number;
+    highestPlacement: number;
+    highestPlacementNote?: string;
+    lowestPlacement: number;
+    lowestPlacementNote?: string;
+    averagePlacement: number;
+  }
+
+  return function (
+    rd: RecordDefinition,
+    ld: LeagueDefinition,
+    leagues: Record<LeagueId, League>
+  ): FantasyRecord<RecordEntry> {
+    let dataAvailableFromYear = 9999;
+
+    const managers = _.uniqBy(
+      ld.years
+        .map((league) => leagues[league.leagueId])
+        .flatMap((league) => Object.values(league.managerData.managers)),
+      (el) => el.managerId
+    );
+
+    function initMap(): Record<ManagerId, Record<LeagueId, number>> {
+      return Object.fromEntries(
+        managers.map((manager) => [
+          manager.managerId,
+          Object.fromEntries(ld.years.map((league) => [league.leagueId, 0])),
+        ])
+      );
+    }
+
+    const placementByYear = initMap();
+
+    ld.years
+      .map((league) => leagues[league.leagueId])
+      .forEach((league) => {
+        const leagueId = league.leagueId;
+
+        if (!league.teamData.finalPlacements) {
+          return;
+        }
+
+        if (league.year < dataAvailableFromYear) {
+          dataAvailableFromYear = league.year;
+        }
+
+        for (const [teamId, placement] of Object.entries(league.teamData.finalPlacements)) {
+          const managerId = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === teamId
+          ) as ManagerId;
+
+          placementByYear[managerId][leagueId] = placement;
+        }
+      });
+
+    console.log(placementByYear);
+
+    const entries = managers
+      .flatMap<RecordEntry>((manager) => {
+        const records: RecordEntry[] = [];
+        for (const league of [undefined, ...ld.years]) {
+          let playoffAppearances = 0;
+          let toiletBowlAppearances = 0;
+          let highestPlacement = 9999;
+          let highestPlacementNote: string | undefined = undefined;
+          let lowestPlacement = -1;
+          let lowestPlacementNote: string | undefined = undefined;
+          let totalPlacement = 0;
+          let count = 0;
+
+          if (league) {
+            const leagueId = league.leagueId;
+            const placement = placementByYear[manager.managerId][leagueId];
+
+            if (placement !== 0) {
+              count = 1;
+              totalPlacement = placement;
+              highestPlacement = placement;
+              lowestPlacement = placement;
+
+              if (placement <= leagues[leagueId].teamData.playoffQualifiedTeams.length) {
+                playoffAppearances = 1;
+              } else {
+                toiletBowlAppearances = 1;
+              }
+            }
+          } else {
+            // Aggregate across all years
+            for (const league of ld.years) {
+              const leagueId = league.leagueId;
+              const placement = placementByYear[manager.managerId][leagueId];
+
+              if (placement !== 0) {
+                count += 1;
+                totalPlacement += placement;
+
+                if (placement < highestPlacement) {
+                  highestPlacement = placement;
+                  highestPlacementNote = `${league.year}`;
+                }
+                if (placement > lowestPlacement) {
+                  lowestPlacement = placement;
+                  lowestPlacementNote = `${league.year}`;
+                }
+
+                if (placement <= leagues[leagueId].teamData.playoffQualifiedTeams.length) {
+                  playoffAppearances += 1;
+                } else {
+                  toiletBowlAppearances += 1;
+                }
+              }
+            }
+          }
+
+          if (count > 0) {
+            records.push({
+              key: manager.managerId + (league ? `-${league.leagueId}` : ""),
+              manager: manager.name,
+              playoffAppearances,
+              toiletBowlAppearances,
+              highestPlacement,
+              highestPlacementNote,
+              lowestPlacement,
+              lowestPlacementNote,
+              averagePlacement: totalPlacement / count,
+              league: league?.leagueId,
+            });
+          }
+        }
+
+        return records;
+      })
+      .sort((a, b) => {
+        const aVal =
+          sortBy === "highest-placement"
+            ? -a.highestPlacement
+            : sortBy === "lowest-placement"
+              ? a.lowestPlacement
+              : sortBy === "average-placement"
+                ? -a.averagePlacement
+                : sortBy === "playoff-appearances"
+                  ? a.playoffAppearances
+                  : a.toiletBowlAppearances;
+        const bVal =
+          sortBy === "highest-placement"
+            ? -b.highestPlacement
+            : sortBy === "lowest-placement"
+              ? b.lowestPlacement
+              : sortBy === "average-placement"
+                ? -b.averagePlacement
+                : sortBy === "playoff-appearances"
+                  ? b.playoffAppearances
+                  : b.toiletBowlAppearances;
+        return bVal - aVal;
+      });
+
+    return {
+      type: "record",
+      category: rd.category,
+      name: rd.name,
+      displayAll: rd.displayAll,
+      dataAvailableFromYear,
+      columns: [
+        {
+          key: "manager",
+          title: "Manager",
+          type: "string",
+        },
+        {
+          key: "highestPlacement",
+          title: "Highest Placement",
+          type: "number",
+        },
+        {
+          key: "lowestPlacement",
+          title: "Lowest Placement",
+          type: "number",
+        },
+        {
+          key: "averagePlacement",
+          title: "Average Placement",
+          type: "number",
+          decimalPrecision: 2,
+        },
+        {
+          key: "playoffAppearances",
+          title: "Playoff Appearances",
+          type: "number",
+        },
+        {
+          key: "toiletBowlAppearances",
+          title: "Toilet Bowl Appearances",
+          type: "number",
+        },
+      ],
+      keyField: "key",
+      entries,
+    };
+  };
+}
+
 function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" | "lineup-iq") {
   interface RecordEntry extends BaseRecordEntry {
     key: string;
@@ -1380,7 +1638,7 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
     const managers = _.uniqBy(
       ld.years
         .map((league) => leagues[league.leagueId])
-        .flatMap((league) => Object.values(league.mangerData.managers)),
+        .flatMap((league) => Object.values(league.managerData.managers)),
       (el) => el.managerId
     );
 
@@ -1425,8 +1683,8 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
             const actualScore = matchup.team1.points;
 
             const teamId = matchup.team1.teamId;
-            const managerId = Object.keys(league.mangerData.teamAssignments).find(
-              (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === teamId
+            const managerId = Object.keys(league.managerData.teamAssignments).find(
+              (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === teamId
             ) as ManagerId;
 
             if (!isPlayoff) {
@@ -1462,8 +1720,8 @@ function managerCareerLineupRecord(sortBy: "perfect-lineups" | "missed-points" |
             const actualScore = matchup.team2.points;
 
             const teamId = matchup.team2.teamId;
-            const managerId = Object.keys(league.mangerData.teamAssignments).find(
-              (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === teamId
+            const managerId = Object.keys(league.managerData.teamAssignments).find(
+              (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === teamId
             ) as ManagerId;
 
             if (!isPlayoff) {
@@ -1631,7 +1889,7 @@ function managerCareerScoringRecord(
     const managers = _.uniqBy(
       ld.years
         .map((league) => leagues[league.leagueId])
-        .flatMap((league) => Object.values(league.mangerData.managers)),
+        .flatMap((league) => Object.values(league.managerData.managers)),
       (el) => el.managerId
     );
 
@@ -1679,13 +1937,13 @@ function managerCareerScoringRecord(
           const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
 
           const team1Id = matchup.team1.teamId;
-          const manager1Id = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team1Id
+          const manager1Id = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team1Id
           ) as ManagerId;
 
           const team2Id = matchup.team2.teamId;
-          const manager2Id = Object.keys(league.mangerData.teamAssignments).find(
-            (managerId) => league.mangerData.teamAssignments[managerId as ManagerId] === team2Id
+          const manager2Id = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team2Id
           ) as ManagerId;
 
           if (!isPlayoff) {

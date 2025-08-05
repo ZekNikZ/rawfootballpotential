@@ -89,6 +89,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
         setLoadingString(`league (${year.type} ${year.year})`);
         const leagueResponse = await Api.getLeague(year.leagueId);
         if (leagueResponse.success) {
+          console.log(leagueResponse.data);
           setLeagues((leagues) => ({
             ...leagues,
             [year.leagueId]: leagueResponse.data,

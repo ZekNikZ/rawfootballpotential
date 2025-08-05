@@ -1,6 +1,5 @@
 - placement records
-- single season records
-- player score records
+- win percentage against each other player
 
 - add trophies tab
   > year by year:
@@ -25,6 +24,9 @@
     > High Scorer's Club (R >190 pts / D >200 pts)
     > Benchwarmer's Club (R <65 pts / D <90 pts)
     > Smartypants Club (LIQ > 90%)
+
+- single season records
+- player score records
 
 - trade stats
 - draft stats (starting and ending rosters)
