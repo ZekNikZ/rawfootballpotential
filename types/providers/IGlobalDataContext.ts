@@ -1,5 +1,13 @@
 import React from "react";
-import { Config, FantasyRecord, League, LeagueId, NFLData, RecordCategory } from "../data";
+import {
+  Config,
+  FantasyRecord,
+  League,
+  LeagueId,
+  ManagerMatchupData,
+  NFLData,
+  RecordCategory,
+} from "../data";
 
 export interface IGlobalDataContext {
   loadingData: boolean;
@@ -14,6 +22,7 @@ export interface IGlobalDataContext {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   records: Record<string, (FantasyRecord<any> | RecordCategory)[]>;
+  managerMatchups: Record<string, ManagerMatchupData>;
 
   nflData: NFLData;
 }

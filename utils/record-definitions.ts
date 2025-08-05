@@ -843,20 +843,120 @@ function managerCareerStandingsRecord(
 
         // Process matchups
         for (const matchup of league.matchupData.matchups.sort((a, b) => a.week - b.week)) {
-          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
-            continue;
-          }
-
           const isPlayoff = matchup.week >= league.matchupData.playoffWeekStart;
 
           if (league.year < dataAvailableFromYear) {
             dataAvailableFromYear = league.year;
           }
 
+          // Handle medians
+          const team1Id = matchup.team1.teamId;
+          const team2Id =
+            matchup.team2 !== "BYE" && matchup.team2 !== "TBD" ? matchup.team2.teamId : undefined;
+          const team1 = Object.keys(league.managerData.teamAssignments).find(
+            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team1Id
+          ) as ManagerId;
+          const team2 =
+            matchup.team2 !== "BYE" && matchup.team2 !== "TBD"
+              ? (Object.keys(league.managerData.teamAssignments).find(
+                  (managerId) =>
+                    league.managerData.teamAssignments[managerId as ManagerId] === team2Id
+                ) as ManagerId)
+              : undefined;
+
+          // Count years in league
+          yearsInLeague[team1].add(league.year);
+          if (team2) {
+            yearsInLeague[team2].add(league.year);
+          }
+
+          // Count median wins and losses
+          if (!isPlayoff) {
+            if (matchup.team1.points >= mediansPerWeek[matchup.week]) {
+              seasonMedianWins[team1][leagueId] += 1;
+            } else {
+              seasonMedianLosses[team1][leagueId] += 1;
+            }
+            if (team2 && matchup.team2 !== "BYE" && matchup.team2 !== "TBD") {
+              if (matchup.team2.points >= mediansPerWeek[matchup.week]) {
+                seasonMedianWins[team2][leagueId] += 1;
+              } else {
+                seasonMedianLosses[team2][leagueId] += 1;
+              }
+            }
+          }
+
+          // Median Streaks
+          if (!isPlayoff) {
+            // Team 1
+            if (matchup.team1.points >= mediansPerWeek[matchup.week]) {
+              // TEAM 1: BEAT MEDIAN
+              if (currentMedianStreaks[team1].type === "W") {
+                // TEAM 1: Continuing win streak
+                currentMedianStreaks[team1].streak += 1;
+              } else {
+                // TEAM 1: Starting win streak
+                if (
+                  currentMedianStreaks[team1].streak > longestMedianLossStreaks[team1][leagueId]
+                ) {
+                  longestMedianLossStreaks[team1][leagueId] = currentMedianStreaks[team1].streak;
+                }
+                currentMedianStreaks[team1] = { streak: 1, type: "W" };
+              }
+            } else {
+              // TEAM 1: MISSED MEDIAN
+              if (currentMedianStreaks[team1].type === "L") {
+                // TEAM 1: Continuing loss streak
+                currentMedianStreaks[team1].streak += 1;
+              } else {
+                // TEAM 1: Starting loss streak
+                if (currentMedianStreaks[team1].streak > longestMedianWinStreaks[team1][leagueId]) {
+                  longestMedianWinStreaks[team1][leagueId] = currentMedianStreaks[team1].streak;
+                }
+                currentMedianStreaks[team1] = { streak: 1, type: "L" };
+              }
+            }
+
+            // Team 2
+            if (team2 && matchup.team2 !== "BYE" && matchup.team2 !== "TBD") {
+              if (matchup.team2.points >= mediansPerWeek[matchup.week]) {
+                // TEAM 2: BEAT MEDIAN
+                if (currentMedianStreaks[team2].type === "W") {
+                  // TEAM 2: Continuing win streak
+                  currentMedianStreaks[team2].streak += 1;
+                } else {
+                  // TEAM 2: Starting win streak
+                  if (
+                    currentMedianStreaks[team2].streak > longestMedianLossStreaks[team2][leagueId]
+                  ) {
+                    longestMedianLossStreaks[team2][leagueId] = currentMedianStreaks[team2].streak;
+                  }
+                  currentMedianStreaks[team2] = { streak: 1, type: "W" };
+                }
+              } else {
+                // TEAM 2: MISSED MEDIAN
+                if (currentMedianStreaks[team2].type === "L") {
+                  // TEAM 2: Continuing loss streak
+                  currentMedianStreaks[team2].streak += 1;
+                } else {
+                  // TEAM 2: Starting loss streak
+                  if (
+                    currentMedianStreaks[team2].streak > longestMedianWinStreaks[team2][leagueId]
+                  ) {
+                    longestMedianWinStreaks[team2][leagueId] = currentMedianStreaks[team2].streak;
+                  }
+                  currentMedianStreaks[team2] = { streak: 1, type: "L" };
+                }
+              }
+            }
+          }
+
+          if (matchup.team2 === "BYE" || matchup.team2 === "TBD") {
+            continue;
+          }
+
           // Determine winner and loser
           const didTeam1Win = matchup.team1.points > matchup.team2.points;
-          const team1Id = matchup.team1.teamId;
-          const team2Id = matchup.team2.teamId;
           const winnerTeamId = didTeam1Win ? matchup.team1.teamId : matchup.team2.teamId;
           const loserTeamId = didTeam1Win ? matchup.team2.teamId : matchup.team1.teamId;
 
@@ -868,12 +968,6 @@ function managerCareerStandingsRecord(
           const loser = Object.keys(league.managerData.teamAssignments).find(
             (managerId) =>
               league.managerData.teamAssignments[managerId as ManagerId] === loserTeamId
-          ) as ManagerId;
-          const team1 = Object.keys(league.managerData.teamAssignments).find(
-            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team1Id
-          ) as ManagerId;
-          const team2 = Object.keys(league.managerData.teamAssignments).find(
-            (managerId) => league.managerData.teamAssignments[managerId as ManagerId] === team2Id
           ) as ManagerId;
 
           // Count wins and losses
@@ -888,24 +982,6 @@ function managerCareerStandingsRecord(
           } else {
             playoffLosses[loser][leagueId] += 1;
           }
-
-          // Count median wins and losses
-          if (!isPlayoff) {
-            if (matchup.team1.points >= mediansPerWeek[matchup.week]) {
-              seasonMedianWins[team1][leagueId] += 1;
-            } else {
-              seasonMedianLosses[team1][leagueId] += 1;
-            }
-            if (matchup.team2.points >= mediansPerWeek[matchup.week]) {
-              seasonMedianWins[team2][leagueId] += 1;
-            } else {
-              seasonMedianLosses[team2][leagueId] += 1;
-            }
-          }
-
-          // Count years in league
-          yearsInLeague[winner].add(league.year);
-          yearsInLeague[loser].add(league.year);
 
           // Total Streaks
           if (currentTotalStreaks[winner].type === "W") {
@@ -984,67 +1060,6 @@ function managerCareerStandingsRecord(
                 longestPlayoffWinStreaks[loser][leagueId] = currentPlayoffStreaks[loser].streak;
               }
               currentPlayoffStreaks[loser] = { streak: 1, type: "L" };
-            }
-          }
-
-          // Median Streaks
-          if (!isPlayoff) {
-            // Team 1
-            if (matchup.team1.points >= mediansPerWeek[matchup.week]) {
-              // TEAM 1: BEAT MEDIAN
-              if (currentMedianStreaks[team1].type === "W") {
-                // TEAM 1: Continuing win streak
-                currentMedianStreaks[team1].streak += 1;
-              } else {
-                // TEAM 1: Starting win streak
-                if (
-                  currentMedianStreaks[team1].streak > longestMedianLossStreaks[team1][leagueId]
-                ) {
-                  longestMedianLossStreaks[team1][leagueId] = currentMedianStreaks[team1].streak;
-                }
-                currentMedianStreaks[team1] = { streak: 1, type: "W" };
-              }
-            } else {
-              // TEAM 1: MISSED MEDIAN
-              if (currentMedianStreaks[team1].type === "L") {
-                // TEAM 1: Continuing loss streak
-                currentMedianStreaks[team1].streak += 1;
-              } else {
-                // TEAM 1: Starting loss streak
-                if (currentMedianStreaks[team1].streak > longestMedianWinStreaks[team1][leagueId]) {
-                  longestMedianWinStreaks[team1][leagueId] = currentMedianStreaks[team1].streak;
-                }
-                currentMedianStreaks[team1] = { streak: 1, type: "L" };
-              }
-            }
-
-            // Team 2
-            if (matchup.team2.points >= mediansPerWeek[matchup.week]) {
-              // TEAM 2: BEAT MEDIAN
-              if (currentMedianStreaks[team2].type === "W") {
-                // TEAM 2: Continuing win streak
-                currentMedianStreaks[team2].streak += 1;
-              } else {
-                // TEAM 2: Starting win streak
-                if (
-                  currentMedianStreaks[team2].streak > longestMedianLossStreaks[team2][leagueId]
-                ) {
-                  longestMedianLossStreaks[team2][leagueId] = currentMedianStreaks[team2].streak;
-                }
-                currentMedianStreaks[team2] = { streak: 1, type: "W" };
-              }
-            } else {
-              // TEAM 2: MISSED MEDIAN
-              if (currentMedianStreaks[team2].type === "L") {
-                // TEAM 2: Continuing loss streak
-                currentMedianStreaks[team2].streak += 1;
-              } else {
-                // TEAM 2: Starting loss streak
-                if (currentMedianStreaks[team2].streak > longestMedianWinStreaks[team2][leagueId]) {
-                  longestMedianWinStreaks[team2][leagueId] = currentMedianStreaks[team2].streak;
-                }
-                currentMedianStreaks[team2] = { streak: 1, type: "L" };
-              }
             }
           }
         }

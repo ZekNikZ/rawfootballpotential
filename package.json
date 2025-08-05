@@ -28,6 +28,7 @@
     "@tiptap/extension-link": "^2.5.8",
     "@tiptap/react": "^2.5.8",
     "@tiptap/starter-kit": "^2.5.8",
+    "color-interpolate": "^2.0.0",
     "cors": "^2.8.5",
     "dayjs": "^1.11.12",
     "dotenv": "^16.4.5",

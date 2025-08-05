@@ -1,5 +1,5 @@
 import { LeagueDefinition } from "./config";
-import { LeagueId } from "./ids";
+import { LeagueId, ManagerId } from "./ids";
 import { League } from "./leagues";
 import { NFLData } from "./nfl";
 
@@ -70,3 +70,13 @@ export interface RecordCategory {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   children: FantasyRecord<any>[];
 }
+
+export interface ManagerMatchup {
+  wins: number;
+  count: number;
+}
+
+export type ManagerMatchupData = {
+  dataAvailableFromYear: number;
+  data: Record<ManagerId, Record<ManagerId | "MEDIAN", ManagerMatchup>>;
+};

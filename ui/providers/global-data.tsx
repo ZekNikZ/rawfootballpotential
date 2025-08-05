@@ -13,11 +13,13 @@ import {
   IGlobalDataContext,
   League,
   LeagueId,
+  ManagerMatchupData,
   NFLData,
   RecordCategory,
 } from "../../types";
 import { Api, RECORD_DEFINITIONS } from "../../utils";
 import { notifications } from "@mantine/notifications";
+import { computeManagerMatchups } from "../../utils/manager-matchups";
 
 const GlobalDataContext = createContext<IGlobalDataContext | undefined>(undefined);
 
@@ -28,9 +30,10 @@ export function GlobalDataProvider(props: PropsWithChildren) {
 
   const [leagues, setLeagues] = useState<Record<LeagueId, League>>({});
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [records, setRecords] = useState<Record<LeagueId, (RecordCategory | FantasyRecord<any>)[]>>(
+  const [records, setRecords] = useState<Record<string, (RecordCategory | FantasyRecord<any>)[]>>(
     {}
   );
+  const [managerMatchups, setManagerMatchups] = useState<Record<string, ManagerMatchupData>>({});
 
   const [nflData, setNflData] = useState<NFLData>({ teams: {}, players: {} });
 
@@ -145,6 +148,10 @@ export function GlobalDataProvider(props: PropsWithChildren) {
             }
           }),
         }));
+        setManagerMatchups((managerMatchups) => ({
+          ...managerMatchups,
+          [league.name]: computeManagerMatchups(league, leagues),
+        }));
       }
 
       setLoadingString(undefined);
@@ -169,6 +176,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
         leagues,
         records,
         nflData,
+        managerMatchups,
       }}
     >
       {props.children}
