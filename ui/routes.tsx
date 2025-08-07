@@ -22,6 +22,8 @@ import OverallRecordsPage from "./pages/OverallRecords.page";
 import ManagerRecordsPage from "./pages/ManagerRecords.page";
 import SingleSeasonRecordsPage from "./pages/SingleSeasonRecords.page";
 
+const SHOW_UNAVAILABLE = false;
+
 const routes: RouteData[] = [
   {
     path: "/:leagueId",
@@ -38,6 +40,7 @@ const routes: RouteData[] = [
     navbarProperties: {
       icon: Article,
       isDisabled: () => true,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
   },
   {
@@ -47,6 +50,7 @@ const routes: RouteData[] = [
     navbarProperties: {
       icon: ListNumbers,
       isDisabled: () => true,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
   },
   {
@@ -56,6 +60,7 @@ const routes: RouteData[] = [
     navbarProperties: {
       icon: FootballHelmet,
       isDisabled: () => true,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
   },
   {
@@ -64,6 +69,7 @@ const routes: RouteData[] = [
     navbarProperties: {
       icon: UsersThree,
       isDisabled: () => true,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
     children: [
       {
@@ -72,6 +78,7 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: Rows,
+          isAvailable: () => SHOW_UNAVAILABLE,
         },
       },
       {
@@ -80,6 +87,7 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: Columns,
+          isAvailable: () => SHOW_UNAVAILABLE,
         },
       },
     ],
@@ -90,6 +98,7 @@ const routes: RouteData[] = [
     navbarProperties: {
       icon: ArrowsLeftRight,
       isDisabled: () => true,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
     children: [
       {
@@ -98,6 +107,7 @@ const routes: RouteData[] = [
         element: <HomePage />,
         navbarProperties: {
           icon: Handshake,
+          isAvailable: () => SHOW_UNAVAILABLE,
         },
       },
       {
@@ -118,6 +128,7 @@ const routes: RouteData[] = [
     navbarProperties: {
       icon: GridNine,
       isDisabled: () => true,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
   },
   {

@@ -104,7 +104,7 @@ function RecordTable<T extends BaseRecordEntry>(props: Props<T>) {
   }, [record.entries]);
   const [medianScope, setMedianScope] = useState<MedianScope>("default");
 
-  const [numEntries, setMaxEntries] = useState(5);
+  const [numEntries, setMaxEntries] = useState(10);
   const [page, setPage] = useState(1);
 
   const entries = useMemo(() => {
