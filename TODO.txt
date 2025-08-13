@@ -3,27 +3,27 @@
 
 - add trophies tab
   > year by year:
-    >  PODIUM / TOILET BOWL
-      >  podium & toilet bowl
+    >  PODIUM / TOILET BOWL 
+      >  podium & toilet bowl 
     >  Manager Statistics
-      >  "Best Manager" - highest lineup IQ / lowest missed points
-      >  "Most Points Acquired" - most points for
-      >  "Unluckiest" - most points against
+      >  "Best Manager" - highest lineup IQ / lowest missed points 
+      >  "Most Points Acquired" - most points for 
+      >  "Unluckiest" - most points against 
     >  Matchup Statistics
-      >  "Highest Scorer" - highest weekly score
-      >  "Best Clutch" - narrowest win
-      >  "Most Dominant" - largest blowout
+      >  "Highest Scorer" - highest weekly score 
+      >  "Best Clutch" - narrowest win 
+      >  "Most Dominant" - largest blowout 
     > Trades & Waivers
       >  "Most Trades" - most trades in a year
       >  "Biggest Trade" - most ammount of players / picks traded in one trade
       >  "Biggest Spender" - most spent on a single transaction in a year
   > Overall
-    > Winners Circle
-    > Podium Finishers
-    > Losers Circle
-    > High Scorer's Club (R >190 pts / D >200 pts)
-    > Benchwarmer's Club (R <65 pts / D <90 pts)
-    > Smartypants Club (LIQ > 90%)
+    > Winners Circle 
+    > Podium Finishers 
+    > Losers Circle 
+    > High Scorer's Club (R >190 pts / D >200 pts) 
+    > Benchwarmer's Club (R <65 pts / D <90 pts) 
+    > Smartypants Club (LIQ > 90%) 
 
 - single season records
 - player score records

@@ -345,7 +345,7 @@ function weeklyScoreRecord(
             dataAvailableFromYear = league.year;
           }
 
-          console.log(league);
+          // console.log(league);
 
           const team1 = league.teamData.teams[matchup.team1.teamId];
           const manager1 = league.managerData.managers[team1.managerId];
@@ -1487,7 +1487,7 @@ function managerPlacementsRecord(
         }
       });
 
-    console.log(placementByYear);
+    // console.log(placementByYear);
 
     const entries = managers
       .flatMap<RecordEntry>((manager) => {

@@ -76,7 +76,33 @@ export interface ManagerMatchup {
   count: number;
 }
 
-export type ManagerMatchupData = {
+export interface ManagerMatchupData {
   dataAvailableFromYear: number;
   data: Record<ManagerId, Record<ManagerId | "MEDIAN", ManagerMatchup>>;
+}
+
+export type TrophyType =
+  | "placement"
+  | "overall-high-score"
+  | "overall-low-score"
+  | "overall-high-iq"
+  | "season-high-score"
+  | "season-narrowest-win"
+  | "season-largest-blowout"
+  | "season-points-for"
+  | "season-points-against"
+  | "season-high-iq";
+
+export interface Trophy {
+  trophyType: TrophyType;
+  year: number;
+  managerId: ManagerId;
+  placement?: number;
+  note?: string;
+  week?: number;
+}
+
+export type TrophyData = {
+  dataAvailableFromYear: number;
+  trophies: Trophy[];
 };

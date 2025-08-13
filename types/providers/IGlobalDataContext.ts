@@ -7,6 +7,7 @@ import {
   ManagerMatchupData,
   NFLData,
   RecordCategory,
+  TrophyData,
 } from "../data";
 
 export interface IGlobalDataContext {
@@ -23,6 +24,7 @@ export interface IGlobalDataContext {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   records: Record<string, (FantasyRecord<any> | RecordCategory)[]>;
   managerMatchups: Record<string, ManagerMatchupData>;
+  trophies: Record<string, TrophyData>;
 
   nflData: NFLData;
 }

@@ -16,10 +16,12 @@ import {
   ManagerMatchupData,
   NFLData,
   RecordCategory,
+  TrophyData,
 } from "../../types";
 import { Api, RECORD_DEFINITIONS } from "../../utils";
 import { notifications } from "@mantine/notifications";
 import { computeManagerMatchups } from "../../utils/manager-matchups";
+import { computeTrophies } from "../../utils/trophies";
 
 const GlobalDataContext = createContext<IGlobalDataContext | undefined>(undefined);
 
@@ -34,6 +36,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
     {}
   );
   const [managerMatchups, setManagerMatchups] = useState<Record<string, ManagerMatchupData>>({});
+  const [trophies, setTrophies] = useState<Record<string, TrophyData>>({});
 
   const [nflData, setNflData] = useState<NFLData>({ teams: {}, players: {} });
 
@@ -92,7 +95,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
         setLoadingString(`league (${year.type} ${year.year})`);
         const leagueResponse = await Api.getLeague(year.leagueId);
         if (leagueResponse.success) {
-          console.log(leagueResponse.data);
+          // console.log(leagueResponse.data);
           setLeagues((leagues) => ({
             ...leagues,
             [year.leagueId]: leagueResponse.data,
@@ -152,6 +155,10 @@ export function GlobalDataProvider(props: PropsWithChildren) {
           ...managerMatchups,
           [league.name]: computeManagerMatchups(league, leagues),
         }));
+        setTrophies((trophies) => ({
+          ...trophies,
+          [league.name]: computeTrophies(league, leagues, nflData),
+        }));
       }
 
       setLoadingString(undefined);
@@ -177,6 +184,7 @@ export function GlobalDataProvider(props: PropsWithChildren) {
         records,
         nflData,
         managerMatchups,
+        trophies,
       }}
     >
       {props.children}
