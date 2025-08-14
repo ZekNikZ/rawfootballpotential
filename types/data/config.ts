@@ -24,6 +24,7 @@ export interface ManagerDefinition {
 export interface Config {
   metadata: {
     name: string;
+    shortName: string;
   };
   leagues: LeagueDefinition[];
   managers: ManagerDefinition[];

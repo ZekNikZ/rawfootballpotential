@@ -123,7 +123,7 @@ export default function MathTestPage() {
         <button className={styles.startBtn} onClick={handleStart} disabled={!roomCode.trim()}>
           Start Game
         </button>
-        <p>
+        <p className={styles.roomCodeInfo}>
           Room code determines the sequence of problems. Share it to play the same test with
           friends!
         </p>
