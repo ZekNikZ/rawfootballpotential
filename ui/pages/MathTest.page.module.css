@@ -1,0 +1,138 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 100%;
+  padding: 1rem;
+}
+.timer {
+  font-size: 1.5rem;
+  color: #949494;
+  font-style: italic;
+}
+.problem {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin: 1rem 0;
+  text-align: center;
+}
+.numpad {
+  position: fixed;
+  bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: 350px;
+  margin: 2rem 0 1rem 0;
+  flex: 1;
+}
+.numpad button {
+  font-size: 2rem;
+  padding: 1.5rem 0;
+  border-radius: 1rem;
+  border: none;
+  background: #e0e7ef;
+  color: #222;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: background 0.2s;
+}
+.numpad button:active {
+  background: #cbd5e1;
+}
+.input {
+  font-size: 2rem;
+  text-align: center;
+  margin: 1rem 0;
+  min-height: 2.5rem;
+  letter-spacing: 0.1em;
+}
+.roomCodeInput {
+  font-size: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  max-width: 300px;
+}
+.startBtn {
+  font-size: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 2rem;
+  width: 100%;
+  max-width: 300px;
+  transition: background 0.2s;
+}
+.startBtn:active {
+  background: #1d4ed8;
+}
+.results {
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.results h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+.score-row {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+}
+.score-big {
+  font-size: 5rem;
+  font-weight: bold;
+  line-height: 1;
+  color: #2563eb;
+}
+.score-total {
+  font-size: 1.5rem;
+  color: #555;
+  margin-left: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.results-list {
+  width: 100%;
+  max-height: 250px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+}
+.results-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.results-list li {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.results .wrong {
+  color: #dc2626;
+  font-weight: bold;
+}
+.results .correct {
+  color: #16a34a;
+  font-weight: bold;
+}
+.results .playAgainBtn {
+  width: 100%;
+  max-width: none;
+  margin-top: 1rem;
+}

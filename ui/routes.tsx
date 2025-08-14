@@ -9,6 +9,7 @@ import {
   Handshake,
   House,
   ListNumbers,
+  MathOperations,
   Ranking,
   Rows,
   Ticket,
@@ -21,6 +22,7 @@ import { HomePage } from "./pages/Home.page";
 import OverallRecordsPage from "./pages/OverallRecords.page";
 import ManagerRecordsPage from "./pages/ManagerRecords.page";
 import SingleSeasonRecordsPage from "./pages/SingleSeasonRecords.page";
+import MathTestPage from "./pages/MathTest.page";
 
 const SHOW_UNAVAILABLE = false;
 
@@ -173,6 +175,14 @@ const routes: RouteData[] = [
         },
       },
     ],
+  },
+  {
+    path: "/:leagueId/math-test",
+    title: "Math Test",
+    element: <MathTestPage />,
+    navbarProperties: {
+      icon: MathOperations,
+    },
   },
 ];
 
