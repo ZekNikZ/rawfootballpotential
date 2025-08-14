@@ -8,7 +8,7 @@ const DEFAULT_CONFIG: ProblemConfig = {
   hardUntil: 20,
 };
 
-const GAME_DURATION = 120; // seconds
+const GAME_DURATION = 10; // seconds
 const NUMPAD = [
   [1, 2, 3],
   [4, 5, 6],
@@ -31,6 +31,7 @@ export default function MathTestPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [showResults, setShowResults] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [playAgainDisabled, setPlayAgainDisabled] = useState(false);
 
   // Start game
   function handleStart() {
@@ -108,6 +109,17 @@ export default function MathTestPage() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [started, showResults, submitAnswer, input]);
 
+  useEffect(() => {
+    if (showResults) {
+      setPlayAgainDisabled(true);
+      const t = setTimeout(() => setPlayAgainDisabled(false), 10000);
+      return () => clearTimeout(t);
+    } else {
+      setPlayAgainDisabled(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showResults]);
+
   // Render
   if (!started) {
     return (
@@ -117,7 +129,7 @@ export default function MathTestPage() {
           className={styles.roomCodeInput}
           placeholder="Enter Room Code"
           value={roomCode}
-          onChange={(e) => setRoomCode(e.target.value)}
+          onChange={(e) => setRoomCode(e.target.value.toUpperCase().trim())}
           maxLength={16}
         />
         <button className={styles.startBtn} onClick={handleStart} disabled={!roomCode.trim()}>
@@ -166,6 +178,7 @@ export default function MathTestPage() {
               setStarted(false);
               setRoomCode("");
             }}
+            disabled={playAgainDisabled}
           >
             Play Again
           </button>
