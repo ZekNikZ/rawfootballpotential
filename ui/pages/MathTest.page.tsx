@@ -8,7 +8,7 @@ const DEFAULT_CONFIG: ProblemConfig = {
   hardUntil: 20,
 };
 
-const GAME_DURATION = 10; // seconds
+const GAME_DURATION = 120; // seconds
 const NUMPAD = [
   [1, 2, 3],
   [4, 5, 6],
