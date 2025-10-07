@@ -1,6 +1,5 @@
 import {
   ArrowsLeftRight,
-  Article,
   CalendarDot,
   CalendarDots,
   Columns,
@@ -33,16 +32,6 @@ const routes: RouteData[] = [
     element: <HomePage />,
     navbarProperties: {
       icon: House,
-    },
-  },
-  {
-    path: "/:leagueId/blog",
-    title: "Blog",
-    element: <HomePage />,
-    navbarProperties: {
-      icon: Article,
-      isDisabled: () => true,
-      isAvailable: () => SHOW_UNAVAILABLE,
     },
   },
   {

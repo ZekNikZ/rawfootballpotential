@@ -1,29 +1,29 @@
-import { Title, Text } from "@mantine/core";
-import classes from "./Home.page.module.css";
-import { useCurrentLeague, useGlobalData } from "../providers";
-import { useMemo } from "react";
+import { SimpleGrid, Stack, Title } from "@mantine/core";
+import BlogPost from "../components/blog/BlogPost";
+import useRss from "../hooks/useRss";
 
 export function HomePage() {
-  const { config } = useGlobalData();
-  const { leagueId } = useCurrentLeague();
-  const currentLeagueData = useMemo(() => {
-    return config!.leagues.find((league) =>
-      league.years.find((year) => year.leagueId === leagueId)
-    )!;
-  }, [leagueId, config]);
+  const rssFeed = useRss(
+    "https://api.allorigins.win/raw?url=https://jaytalentedmo.wixsite.com/raw-football-potenti/blog-feed.xml"
+  );
 
   return (
-    <>
-      <Title className={classes.title} ta="center" mt={100}>
-        🚧{" "}
-        <Text inherit c={currentLeagueData.color} component="span">
-          We're still working on this page.
-        </Text>{" "}
-        🚧
-      </Title>
-      <Text c="dimmed" ta="center" size="lg" maw={580} mx="auto" mt="xl">
-        Check back soon to see exciting new features right here!
-      </Text>
-    </>
+    <Stack>
+      <Title order={1}>Latest Blog Posts</Title>
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+        {rssFeed &&
+          rssFeed.items.map((item) => (
+            <BlogPost
+              key={item.link}
+              title={item.title ?? ""}
+              date={item.pubDate ?? ""}
+              author={item.creator ?? "Unknown Author"}
+              previewText={item.contentSnippet ?? item.content ?? ""}
+              href={item.link ?? "#"}
+              imgSrc={item.enclosure?.url ?? undefined}
+            />
+          ))}
+      </SimpleGrid>
+    </Stack>
   );
 }

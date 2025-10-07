@@ -32,6 +32,7 @@
     "cors": "^2.8.5",
     "dayjs": "^1.11.12",
     "dotenv": "^16.4.5",
+    "events": "^3.3.0",
     "express": "^4.19.2",
     "format-number": "^3.0.0",
     "lodash": "^4.17.21",
@@ -41,6 +42,7 @@
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.26.0",
     "recharts": "2",
+    "rss-parser": "^3.13.0",
     "string-hash": "^1.1.3",
     "vite-express": "^0.17.0",
     "winston": "^3.14.1"
