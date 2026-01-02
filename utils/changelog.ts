@@ -7,6 +7,15 @@ interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.4.1",
+    date: new Date(2026, 1, 1),
+    title: "Add 2025 season",
+    description: `
+**Records**
+- Added 2025 season to all records.
+    `,
+  },
+  {
     version: "1.4.0",
     date: new Date(2025, 7, 4),
     title: "Manager matchup and placement records",

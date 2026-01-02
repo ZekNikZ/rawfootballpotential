@@ -171,6 +171,7 @@ const routes: RouteData[] = [
     element: <MathTestPage />,
     navbarProperties: {
       icon: MathOperations,
+      isAvailable: () => SHOW_UNAVAILABLE,
     },
   },
 ];
