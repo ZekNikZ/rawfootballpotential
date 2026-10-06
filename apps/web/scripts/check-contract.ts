@@ -3,15 +3,18 @@
 import type { z } from "zod";
 import {
   blogResponse,
+  draftsResponse,
   catalogResponse,
   franchiseProfileResponse,
   franchisesResponse,
   h2hResponse,
   leaguesResponse,
   matchupsResponse,
+  picksResponse,
   recordResponse,
   siteResponse,
   standingsResponse,
+  teamsResponse,
   transactionsResponse,
   trophiesResponse,
 } from "../src/api/schemas";
@@ -53,11 +56,14 @@ for (const lg of leagues) {
   const fr = await check(`/api/leagues/${lg.slug}/franchises`, franchisesResponse);
   for (const id of fr?.franchises ?? [])
     await check(`/api/leagues/${lg.slug}/franchises/${id}`, franchiseProfileResponse);
-  const latest = lg.seasons.at(-1);
-  if (latest) {
-    await check(`/api/seasons/${latest.id}/standings`, standingsResponse);
-    await check(`/api/seasons/${latest.id}/matchups`, matchupsResponse);
-    await check(`/api/seasons/${latest.id}/transactions?limit=5`, transactionsResponse);
+  await check(`/api/leagues/${lg.slug}/picks`, picksResponse);
+  // Every season, not just the latest: the ESPN years have no lineups, transactions or drafts.
+  for (const season of lg.seasons) {
+    await check(`/api/seasons/${season.id}/standings`, standingsResponse);
+    await check(`/api/seasons/${season.id}/matchups?players=true`, matchupsResponse);
+    await check(`/api/seasons/${season.id}/teams?rosters=true`, teamsResponse);
+    await check(`/api/seasons/${season.id}/transactions?limit=25`, transactionsResponse);
+    await check(`/api/seasons/${season.id}/draft`, draftsResponse);
   }
 }
 console.log(failures === 0 ? "contract OK" : `${failures} failures`);

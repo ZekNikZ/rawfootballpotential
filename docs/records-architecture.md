@@ -688,10 +688,20 @@ Differences from the plan above, and decisions the plan left open:
 - **Trophies page** (the legacy site had it disabled): season filter, champions/podium/last place per season, a trophy cabinet by manager, the three clubs (paged lists) and the season awards table. "Best lineup IQ of the season" is a tie among all perfect lineups in most seasons, so it shows a count instead of 90 teams.
 - **Version history** loads `react-markdown` only when first opened (separate 40 kB chunk).
 - **Page titles** come from route `handle.title`; a page whose title depends on data (franchise profile) refines it with `usePageTitle`.
-- `/:league/:season/:page` and `/:league/picks` resolve to a "Soon" placeholder so pasted links to unbuilt pages aren't 404s; they're replaced in M7.
 - Tooling: `pnpm --filter @rfp/web screenshots` (every page, light/dark, desktop/mobile, into the git-ignored `docs/screenshots/m5/`) and `pnpm --filter @rfp/web smoke` (browser test of URL-backed filters, paging, the version-history modal and no sideways page scroll at 390 px). Both need the dev server (`pnpm --filter @rfp/web dev`) and the API running; set `PW_CHROMIUM` to an installed Chromium to avoid downloading Playwright's.
 
----
+#### 3.11.2 Info pages as built (M7)
+
+All six pages are live and the nav no longer shows "Soon" items (the capability stays in `nav.tsx` for later). They read the M4 season endpoints, and nothing else changed on the server.
+
+- **Standings** (`/:league/:season/standings`): week picker (`?week=`), overall or by-division view (`?view=divisions`, only when the season has divisions), a line under the last playoff spot for a season in progress, final placement for a completed one. Median games are in the W-L (doc §2) and the page says so.
+- **Matchups** (`/:league/:season/matchups/:week?`): previous / next / week select, a live / final / upcoming badge, a refresh every 30 s while the week is in progress, game cards with projections, bracket and placement-at-stake badges, tie and "adjusted" (commissioner override) markers, expandable lineups (starters / bench / IR with bye and injury marks), and the teams that had no game.
+- **Teams** and **Rosters** (`/teams`, `/teams/rosters`): team cards by division; rosters as an accordion (slot, position, NFL team, injury, how acquired), as of the latest sync.
+- **Transactions** (`?type=`, `?team=`, `?page=`): trades shown as what each team gets, claims and free agents as adds / drops with the FAAB bid, failed claims marked and never counted.
+- **Draft**: a board (rounds x pick slots, with "to Team" when a pick was traded and a keeper badge) for snake and linear drafts and a list with prices for auctions; a switch when a season has more than one draft.
+- **Future Picks** (dynasty): traded picks with the original and current owner (franchise labels use the current manager), filterable by owner.
+- `/:league/standings` (and `matchups`, `teams`, `teams/rosters`, `transactions`, `draft`) redirect to the latest season.
+- Seasons without a kind of data (the 2020 / 2021 ESPN years have no transactions, drafts or lineups) say so in place of an empty page. `check:contract` now parses every season's responses for these endpoints.
 
 ## 4. Record catalog
 
@@ -802,6 +812,9 @@ All accepted. They're grouped by data cost. Everything in the first group runs o
 - **Bye-week blunders that cost a game:** losses where swapping the bye/inactive starters for bench players would have won.
 - **Bye-week survivor:** highest team score in a week with the most of its starters' NFL teams on bye. Also a "heaviest bye week survived" count.
 - **NFL game stack:** most points from players in a single NFL game (needs `nfl_game_id`).
+
+---
+
 
 ---
 

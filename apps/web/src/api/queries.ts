@@ -7,7 +7,10 @@ import {
   franchisesResponse,
   h2hResponse,
   leaguesResponse,
+  draftsResponse,
   matchupsResponse,
+  picksResponse,
+  teamsResponse,
   recordResponse,
   siteResponse,
   standingsResponse,
@@ -86,25 +89,69 @@ export const blogQuery = () =>
     retry: false,
   });
 
-export const standingsQuery = (seasonId: number) =>
+export const standingsQuery = (seasonId: number, week?: number) =>
   queryOptions({
-    queryKey: ["standings", seasonId],
+    queryKey: ["standings", seasonId, week ?? "latest"],
     queryFn: ({ signal }) =>
-      getJson(`/seasons/${seasonId}/standings`, standingsResponse, {}, signal),
+      getJson(
+        `/seasons/${seasonId}/standings`,
+        standingsResponse,
+        week === undefined ? {} : { week },
+        signal
+      ),
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
 
-export const matchupsQuery = (seasonId: number) =>
+export const matchupsQuery = (seasonId: number, week?: number, players = false) =>
   queryOptions({
-    queryKey: ["matchups", seasonId],
-    queryFn: ({ signal }) => getJson(`/seasons/${seasonId}/matchups`, matchupsResponse, {}, signal),
+    queryKey: ["matchups", seasonId, week ?? "current", players],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/seasons/${seasonId}/matchups`,
+        matchupsResponse,
+        { ...(week === undefined ? {} : { week }), ...(players ? { players: "true" } : {}) },
+        signal
+      ),
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
+  });
+
+export const teamsQuery = (seasonId: number, rosters: boolean) =>
+  queryOptions({
+    queryKey: ["teams", seasonId, rosters],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/seasons/${seasonId}/teams`,
+        teamsResponse,
+        rosters ? { rosters: "true" } : {},
+        signal
+      ),
+    staleTime: 60_000,
+  });
+
+export const transactionsQuery = (seasonId: number, params: Params) =>
+  queryOptions({
+    queryKey: ["transactions", seasonId, params],
+    queryFn: ({ signal }) =>
+      getJson(`/seasons/${seasonId}/transactions`, transactionsResponse, params, signal),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+
+export const draftsQuery = (seasonId: number) =>
+  queryOptions({
+    queryKey: ["drafts", seasonId],
+    queryFn: ({ signal }) => getJson(`/seasons/${seasonId}/draft`, draftsResponse, {}, signal),
+    staleTime: 60_000,
+  });
+
+export const picksQuery = (league: string) =>
+  queryOptions({
+    queryKey: ["picks", league],
+    queryFn: ({ signal }) => getJson(`/leagues/${league}/picks`, picksResponse, {}, signal),
+    staleTime: 60_000,
   });
 
 export const recentTransactionsQuery = (seasonId: number) =>
-  queryOptions({
-    queryKey: ["transactions", seasonId, "recent"],
-    queryFn: ({ signal }) =>
-      getJson(`/seasons/${seasonId}/transactions`, transactionsResponse, { limit: 8 }, signal),
-    staleTime: 30_000,
-  });
+  transactionsQuery(seasonId, { limit: 8 });

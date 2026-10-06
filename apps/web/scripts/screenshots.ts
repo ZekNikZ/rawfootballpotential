@@ -28,7 +28,26 @@ const PAGES: {
     path: "/redraft/records/overall?single-week-scores.rec=blowout&single-week-scores.scope=playoffs&single-week-scores.seasons=2024",
   },
   { name: "franchise", path: "/redraft/franchises/5" },
-  { name: "coming-soon", path: "/redraft/2026/standings" },
+  { name: "standings", path: "/redraft/2026/standings" },
+  { name: "standings-final", path: "/redraft/2025/standings" },
+  { name: "standings-espn", path: "/redraft/2020/standings" },
+  { name: "matchups-live", path: "/redraft/2026/matchups" },
+  {
+    name: "matchups-lineups",
+    path: "/redraft/2025/matchups/17",
+    action: async (p) => {
+      await p.getByRole("button", { name: "Show lineups" }).first().click();
+      await p.waitForTimeout(500);
+    },
+  },
+  { name: "teams", path: "/redraft/2026/teams" },
+  { name: "rosters", path: "/redraft/2026/teams/rosters" },
+  { name: "transactions", path: "/redraft/2026/transactions" },
+  { name: "transactions-trades", path: "/dynasty/2025/transactions?type=trade" },
+  { name: "transactions-espn", path: "/redraft/2020/transactions" },
+  { name: "draft-redraft", path: "/redraft/2025/draft" },
+  { name: "draft-dynasty", path: "/dynasty/2025/draft" },
+  { name: "future-picks", path: "/dynasty/picks" },
   { name: "not-found", path: "/redraft/nope/nothing/here" },
 ];
 

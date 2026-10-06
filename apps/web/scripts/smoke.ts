@@ -53,6 +53,38 @@ const check = (ok: boolean, what: string) => {
   await page.waitForFunction(() => location.search.includes("single-week-scores.rec=blowout"));
   check(page.url().includes("scope=regular"), "switching record keeps filters");
 
+  // season pages: week navigation, lineups, standings week, transaction filters
+  await page.goto(`${base}/redraft/2025/matchups/16`, { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Next week" }).click();
+  await page.waitForURL(/\/matchups\/17$/);
+  check(true, "next-week button moves to week 17");
+  await page.getByRole("button", { name: "Show lineups" }).first().click();
+  check(await page.getByText("Starters").first().isVisible(), "a game's lineups expand");
+  await page.getByRole("button", { name: "Previous week" }).click();
+  await page.waitForURL(/\/matchups\/16$/);
+
+  await page.goto(`${base}/redraft/2026/standings`, { waitUntil: "networkidle" });
+  const weeks = page.getByLabel("Week");
+  await weeks.selectOption({ label: "Week 2" });
+  await page.waitForFunction(() => location.search.includes("week=2"));
+  check(true, "standings week is kept in the URL");
+
+  await page.goto(`${base}/dynasty/2025/transactions`, { waitUntil: "networkidle" });
+  const filtered = page.waitForResponse((r) => r.url().includes("type=trade"));
+  await page.getByText("Trades", { exact: true }).click();
+  await filtered;
+  check(page.url().includes("type=trade"), "transaction type filter lands in the URL");
+
+  await page.goto(`${base}/redraft`, { waitUntil: "networkidle" });
+  await page.getByRole("link", { name: "Standings" }).click();
+  await page.waitForURL(/\/redraft\/2026\/standings$/);
+  check(true, "the nav opens the selected season's standings");
+  await page.goto(`${base}/redraft/standings`, { waitUntil: "networkidle" });
+  check(
+    page.url().endsWith("/redraft/2026/standings"),
+    "/:league/standings redirects to the latest season"
+  );
+
   // modal opens automatically for an unseen version, and not again after closing
   await ctx.close();
   const fresh = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -86,6 +118,14 @@ const check = (ok: boolean, what: string) => {
     "/redraft/records/managers",
     "/dynasty/records/managers",
     "/redraft/franchises/5",
+    "/redraft/2026/standings",
+    "/redraft/2025/matchups/17",
+    "/redraft/2026/teams",
+    "/redraft/2026/teams/rosters",
+    "/redraft/2026/transactions",
+    "/redraft/2025/draft",
+    "/dynasty/2025/draft",
+    "/dynasty/picks",
   ]) {
     await page.goto(base + path, { waitUntil: "networkidle" });
     const overflow = await page.evaluate(

@@ -5,6 +5,7 @@ import { leaguesQuery } from "../api/queries";
 import { ErrorPage } from "../components/ErrorPage";
 import { ShellSkeleton } from "../components/ShellSkeleton";
 import { Layout } from "./Layout";
+import { LatestSeasonRedirect } from "./LatestSeasonRedirect";
 
 /** `/` goes to the first league. */
 function IndexRedirect() {
@@ -53,16 +54,50 @@ const leagueRoutes: RouteObject[] = [
     handle: { title: "Franchise" },
     ...lazyPage(() => import("../pages/FranchiseProfile")),
   },
-  // Pages that arrive later still resolve (nav shows them as "Soon"), so a pasted link isn't a 404.
+  // `/:league/standings` (no season) means the latest season.
+  ...["standings", "matchups", "teams", "teams/rosters", "transactions", "draft"].map((page) => ({
+    path: page,
+    element: <LatestSeasonRedirect page={page} />,
+  })),
+  {
+    path: ":season",
+    children: [
+      {
+        path: "standings",
+        handle: { title: "Standings" },
+        ...lazyPage(() => import("../pages/season/Standings")),
+      },
+      {
+        path: "matchups/:week?",
+        handle: { title: "Matchups" },
+        ...lazyPage(() => import("../pages/season/Matchups")),
+      },
+      {
+        path: "teams",
+        handle: { title: "Teams" },
+        ...lazyPage(() => import("../pages/season/Teams")),
+      },
+      {
+        path: "teams/rosters",
+        handle: { title: "Rosters" },
+        lazy: async () => ({ Component: (await import("../pages/season/Teams")).Rosters }),
+      },
+      {
+        path: "transactions",
+        handle: { title: "Transactions" },
+        ...lazyPage(() => import("../pages/season/Transactions")),
+      },
+      {
+        path: "draft",
+        handle: { title: "Draft" },
+        ...lazyPage(() => import("../pages/season/Draft")),
+      },
+    ],
+  },
   {
     path: "picks",
     handle: { title: "Future Picks" },
-    ...lazyPage(() => import("../pages/ComingSoon")),
-  },
-  {
-    path: ":season/:page",
-    handle: { title: "Coming soon" },
-    ...lazyPage(() => import("../pages/ComingSoon")),
+    ...lazyPage(() => import("../pages/season/FuturePicks")),
   },
   { path: "*", handle: { title: "Not found" }, ...lazyPage(() => import("../pages/NotFound")) },
 ];

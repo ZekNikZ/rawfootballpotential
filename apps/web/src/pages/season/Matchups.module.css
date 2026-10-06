@@ -1,0 +1,48 @@
+/* An opened game takes the whole row so two lineups fit side by side. */
+.card[data-open] {
+  grid-column: 1 / -1;
+}
+
+.team {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.score {
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.link {
+  cursor: pointer;
+}
+
+.caret {
+  transition: transform 150ms;
+
+  &[data-open] {
+    transform: rotate(180deg);
+  }
+}
+
+.lineup {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--mantine-font-size-sm);
+
+  th,
+  td {
+    white-space: nowrap;
+  }
+
+  [data-numeric] {
+    text-align: right;
+  }
+}
+
+.group td {
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  font-weight: 600;
+  font-size: var(--mantine-font-size-xs);
+  text-transform: uppercase;
+}

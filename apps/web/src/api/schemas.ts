@@ -18,6 +18,14 @@ export const seasonSchema = z.object({
   medianEnabled: z.boolean(),
   hasLosersBracket: z.boolean(),
   lastCompletedWeek: nullableNum,
+  data: z.object({
+    playerData: z.boolean(),
+    projections: z.boolean(),
+    transactions: z.boolean(),
+    draft: z.boolean(),
+    faab: z.boolean(),
+    auctionDraft: z.boolean(),
+  }),
 });
 export type Season = z.infer<typeof seasonSchema>;
 
@@ -286,10 +294,24 @@ export const blogResponse = z.object({
 });
 export type BlogPost = z.infer<typeof blogResponse>["posts"][number];
 
-// ---- season pages (home snapshot) ----
+// ---- season pages ----
+
+const seasonSummary = z.object({
+  id: z.number(),
+  year: z.number(),
+  status: z.string(),
+  regular_season_weeks: z.number(),
+  playoff_week_start: z.number(),
+  last_week: z.number(),
+  playoff_teams: z.number(),
+  team_count: z.number(),
+  median_enabled: z.boolean(),
+  has_losers_bracket: z.boolean(),
+  last_completed_week: z.number(),
+});
 
 export const standingsResponse = z.object({
-  season: z.object({ id: z.number(), year: z.number(), status: z.string() }),
+  season: seasonSummary,
   week: nullableNum,
   weeks: z.array(z.number()),
   rows: z.array(
@@ -303,6 +325,9 @@ export const standingsResponse = z.object({
       pf: z.number(),
       pa: z.number(),
       rank: z.number(),
+      games_back: nullableNum,
+      clinched: z.string().nullable(),
+      eliminated: z.boolean().nullable(),
       seed: nullableNum,
       final_place: nullableNum,
       made_playoffs: z.boolean().nullable(),
@@ -312,29 +337,90 @@ export const standingsResponse = z.object({
 });
 export type Standings = z.infer<typeof standingsResponse>;
 
+export const lineupEntry = z.object({
+  playerId: z.number(),
+  name: z.string(),
+  position: z.string().nullable(),
+  nflTeam: z.string().nullable(),
+  slot: z.string(),
+  slotKind: z.string(),
+  points: nullableNum,
+  projected: nullableNum,
+  nflStatus: z.string().nullable(),
+  onBye: z.boolean(),
+});
+export type LineupEntry = z.infer<typeof lineupEntry>;
+
+const matchupTeam = z.object({
+  teamSeasonId: z.number(),
+  points: z.number(),
+  projected: nullableNum,
+  result: z.string().nullable(),
+  isFinal: z.boolean(),
+  pointsOverridden: z.boolean(),
+  lineup: z.array(lineupEntry).optional(),
+});
+export type MatchupTeam = z.infer<typeof matchupTeam>;
+
 export const matchupsResponse = z.object({
-  season: z.object({ id: z.number(), year: z.number() }),
-  week: nullableNum,
-  weekStatus: z.string().nullable(),
+  season: seasonSummary,
+  week: z.number(),
+  weekStatus: z.string(),
   games: z.array(
     z.object({
       matchupId: z.number(),
       gameType: z.string().nullable(),
+      bracket: z.string().nullable(),
+      bracketRound: nullableNum,
+      placementAtStake: nullableNum,
       isChampionship: z.boolean(),
-      teams: z.array(
-        z.object({
-          teamSeasonId: z.number(),
-          points: z.number(),
-          projected: z.number().nullable(),
-          result: z.string().nullable(),
-          isFinal: z.boolean(),
-        })
-      ),
+      counts: z.boolean(),
+      teams: z.array(matchupTeam),
+    })
+  ),
+  idle: z.array(matchupTeam),
+  entities: entitiesSchema,
+});
+export type Matchups = z.infer<typeof matchupsResponse>;
+
+export const teamsResponse = z.object({
+  season: seasonSummary,
+  teams: z.array(
+    z.object({
+      team_season_id: z.number(),
+      franchise_id: z.number(),
+      name: z.string(),
+      avatar: z.string().nullable(),
+      division: z.string().nullable(),
+      seed: nullableNum,
+      final_place: nullableNum,
+      made_playoffs: z.boolean().nullable(),
+      wins: nullableNum,
+      losses: nullableNum,
+      ties: nullableNum,
+      pf: nullableNum,
+      pa: nullableNum,
+      rank: nullableNum,
+      roster: z
+        .array(
+          z.object({
+            playerId: z.number(),
+            name: z.string(),
+            position: z.string().nullable(),
+            nflTeam: z.string().nullable(),
+            injuryStatus: z.string().nullable(),
+            status: z.string().nullable(),
+            slot: z.string().nullable(),
+            slotKind: z.string(),
+            acquiredVia: z.string().nullable(),
+          })
+        )
+        .optional(),
     })
   ),
   entities: entitiesSchema,
 });
-export type Matchups = z.infer<typeof matchupsResponse>;
+export type Teams = z.infer<typeof teamsResponse>;
 
 export const transactionsResponse = z.object({
   total: z.number(),
@@ -342,6 +428,8 @@ export const transactionsResponse = z.object({
     z.object({
       id: z.number(),
       type: z.string(),
+      status: z.string(),
+      failureReason: z.string().nullable(),
       week: nullableNum,
       executedAt: z.string().nullable(),
       creatorTeamSeasonId: nullableNum,
@@ -353,6 +441,7 @@ export const transactionsResponse = z.object({
           position: z.string().nullable(),
           pickSeason: nullableNum,
           pickRound: nullableNum,
+          originalFranchiseId: nullableNum,
           amount: nullableNum,
           faabBid: nullableNum,
           fromTeamSeasonId: nullableNum,
@@ -364,3 +453,47 @@ export const transactionsResponse = z.object({
   entities: entitiesSchema,
 });
 export type Transactions = z.infer<typeof transactionsResponse>;
+
+export const picksResponse = z.object({
+  picks: z.array(
+    z.object({
+      season: z.number(),
+      round: z.number(),
+      originalFranchiseId: z.number(),
+      ownerFranchiseId: z.number(),
+      asOf: z.string().nullable(),
+    })
+  ),
+  entities: entitiesSchema,
+});
+
+export const draftsResponse = z.object({
+  drafts: z.array(
+    z.object({
+      id: z.number(),
+      kind: z.string(),
+      type: z.string(),
+      status: z.string(),
+      rounds: nullableNum,
+      startedAt: z.string().nullable(),
+      slotOrder: z.record(z.string(), z.number()).nullable(),
+      picks: z.array(
+        z.object({
+          pickNo: z.number(),
+          round: z.number(),
+          slot: nullableNum,
+          teamSeasonId: z.number(),
+          originalTeamSeasonId: nullableNum,
+          playerId: nullableNum,
+          player: z.string().nullable(),
+          position: z.string().nullable(),
+          nflTeam: z.string().nullable(),
+          amount: nullableNum,
+          isKeeper: z.boolean(),
+        })
+      ),
+    })
+  ),
+  entities: entitiesSchema,
+});
+export type Drafts = z.infer<typeof draftsResponse>;
