@@ -2,8 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>Raw Football Potential</title>
+    <script>
+      // Apply the saved (or system) color scheme before first paint so dark mode doesn't flash.
+      try {
+        var saved = localStorage.getItem("mantine-color-scheme-value") || "auto";
+        var dark = saved === "dark" || (saved === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.setAttribute("data-mantine-color-scheme", dark ? "dark" : "light");
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

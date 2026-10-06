@@ -1,0 +1,57 @@
+/* Red -> neutral -> green. Light mode mixes light tints with dark text, dark mode mixes deep tints with white text,
+   so contrast holds at every strength. */
+.table {
+  --heat-loss: light-dark(var(--mantine-color-red-4), var(--mantine-color-red-9));
+  --heat-win: light-dark(var(--mantine-color-green-4), var(--mantine-color-green-9));
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+
+  &[data-fetching] {
+    opacity: 0.6;
+  }
+}
+
+.cell {
+  text-align: center;
+  white-space: nowrap;
+  background-color: color-mix(
+    in oklab,
+    var(--heat-color) calc(var(--heat-strength) * 100%),
+    var(--mantine-color-body)
+  );
+
+  &[data-side="win"] {
+    --heat-color: var(--heat-win);
+  }
+
+  &[data-side="loss"] {
+    --heat-color: var(--heat-loss);
+  }
+}
+
+.empty {
+  text-align: center;
+  color: var(--mantine-color-dimmed);
+}
+
+.colHead {
+  vertical-align: bottom;
+  padding-block: var(--mantine-spacing-xs);
+
+  span {
+    display: inline-block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+  }
+}
+
+.corner,
+.rowHead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--mantine-color-body);
+  text-align: left;
+  white-space: nowrap;
+}

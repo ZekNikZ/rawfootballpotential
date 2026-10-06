@@ -34,11 +34,11 @@ _Status: agreed direction, 2026-10-02. This doc is the input for the from-scratc
 
 ### 1.3 Filters don't mean the same thing everywhere
 
-| Filter | Single-game records | Manager records |
-|---|---|---|
-| Season "All" | no filter applied | entries with `league === undefined` (pre-aggregated) |
+| Filter       | Single-game records                                                         | Manager records                                                                   |
+| ------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Season "All" | no filter applied                                                           | entries with `league === undefined` (pre-aggregated)                              |
 | Scope values | `in-season` / `playoffs` / `toilet-bowl`; the UI builds "postseason" itself | `undefined` / `in-season` / `postseason`; playoffs and toilet bowl can't be split |
-| Median | n/a | only the standings records support it |
+| Median       | n/a                                                                         | only the standings records support it                                             |
 
 `RecordTable` guesses which convention applies from `hasNullLeague`, `hasNullScope` and `hasPostseasonScope`.
 
@@ -48,19 +48,20 @@ _Status: agreed direction, 2026-10-02. This doc is the input for the from-scratc
 2. **Ties count as a win for team 2.** Every file uses `team1.points > team2.points`. The median comparison uses `>=`, so a score equal to the median counts as a win.
 3. **Season trophies are computed wrong** (`utils/trophies.ts`):
    - `pointsFor` only adds the winner's score.
-   - `pointsAgainst[loser]` adds the loser's *own* score.
+   - `pointsAgainst[loser]` adds the loser's _own_ score.
    - Both include playoff weeks.
 4. **"Years in league" ignores the season filter.** It always shows the career total.
 5. **Median streaks are inconsistent.** "Include medians" streaks ignore median results; median results only feed the "only medians" streaks.
-6. **Playoff vs. toilet bowl is a guess.** It's decided by `week >= playoffWeekStart` plus whether team 1 is in `playoffQualifiedTeams`. For Sleeper, that list is rebuilt by sorting the *current* roster `settings.wins`. Brackets are never read, so placement games can't be identified.
+6. **Playoff vs. toilet bowl is a guess.** It's decided by `week >= playoffWeekStart` plus whether team 1 is in `playoffQualifiedTeams`. For Sleeper, that list is rebuilt by sorting the _current_ roster `settings.wins`. Brackets are never read, so placement games can't be identified.
 7. **Possible fake games in playoff weeks (needs checking).** Sleeper's docs don't say what `matchup_id` is for teams with no game. If it's `null`, `groupBy(matchup_id)` puts every idle team into one "matchup", and the code treats the first two as a real game.
-8. **Optimal lineups use today's player positions.** They read `nflPosition` from the *current* player dump, not what the player was eligible for that week, and ignore multi-position eligibility (`fantasy_positions`).
+8. **Optimal lineups use today's player positions.** They read `nflPosition` from the _current_ player dump, not what the player was eligible for that week, and ignore multi-position eligibility (`fantasy_positions`).
 9. **Manager lookups assume one manager per team per season.** The reverse lookup is an `Object.keys(...).find` scan inside hot loops, and there's no concept of co-managers, owner changes or franchises.
 10. Sleeper brackets, transactions and drafts are `"NOT IMPLEMENTED"` casts.
 
 ### 1.5 The main takeaway
 
-Most of the slowness comes from *how data is loaded*, not from where the math runs:
+Most of the slowness comes from _how data is loaded_, not from where the math runs:
+
 - live Sleeper rebuilds on every request,
 - league seasons fetched one at a time,
 - a 5MB player dump shipped to the browser,
@@ -72,26 +73,26 @@ The data is small: about 10 seasons × 17 weeks × 12 teams ≈ 2k team-games, a
 
 ## 2. Decisions
 
-| Topic | Decision |
-|---|---|
-| **Head-to-head ties** | Stored as `T`. Win % = (W + 0.5·T) / games played. A tie ends both a win streak and a loss streak. No tiebreaker: it would make our standings disagree with the platforms' official ones. |
-| **Median game** | Compared against the **true median** of all teams' scores that week (the middle score; the average of the two middle scores when the team count is even). It doesn't depend on head-to-head results. |
-| **Median ties** | A score exactly equal to the median is a **tie** (`T`), same as head-to-head. |
-| **Median scope** | Median games exist only in regular-season weeks. |
-| **Streaks** | **Per season** by default. A cross-season streak is a separate, later record (`streakAcrossSeasons` param, same query). |
-| **Entity** | Records follow the **franchise**. Displayed manager: that season's manager when the record covers one season (a single game or a season total); the franchise's **current** manager (most recent season) when it spans several seasons. |
-| **Redraft franchises** | Franchise = manager. Same person means same franchise, and a new person means a new franchise. |
-| **Dynasty franchises** | Dynasty only exists on Sleeper (no ESPN dynasty leagues). The model still supports any configuration: the season-to-franchise mapping is explicit config, seeded from Sleeper's `previous_league_id` + `roster_id`. |
-| **Postseason scopes** | **Follow the bracket.** Winners-bracket games, *including placement games* (3rd, 5th, …), are `playoffs`. Losers-bracket games, including their placement games, are `toilet_bowl`. `postseason` = both. Each game also stores `placement_at_stake` and `is_championship`, so filters like "championship only" or "exclude placement games" can be added later. |
-| **Seasons without a losers bracket** | Playoff-week games with no bracket entry are marked `game_type = 'none'`: kept in the data but **left out of every scope**. Ingestion will report what the source actually contains for those weeks. |
-| **Scope filter** | The same 5-way filter everywhere a record is scope-aware: All / Regular / Playoffs / Toilet bowl / Postseason. |
-| **Player season totals** | Only the weeks the player was **rostered in the league**, scored with that season's league scoring. A player can contribute to more than one team in a season. No full NFL stat pull. |
-| **"Bye week" scores** | A team's score in a week with **no counted game** (playoff bye, eliminated, no bracket game), plus the best player on that roster that week. Stored as `team_week` rows with `counts = false`. |
-| **Drafted-player retention** | The player is on the **team that drafted him in the final week of the season**. Traded or dropped = no, even if he was re-acquired later; that's checked with `player_tenure` (one continuous stint from draft to final week). |
-| **Waiver claims** | Only **successful** claims count. Failed claims are stored but never counted. Whether free-agent adds count is decided **per record**: each transaction record's definition says which transaction types it includes (`txTypes: ["waiver"]` or `["waiver", "free_agent"]`). It's not a user filter. "$ spent" = winning FAAB bids. |
-| **Trade size** | "Largest trade" = number of distinct **players** moved. Picks and FAAB don't count, but are shown as extra columns. "Broadest" = number of distinct teams. |
-| **Most moved player** | Number of distinct completed transactions involving the player. A trade = 1 and a drop = 1; another team then adding him = 1 more. Example: dropped by A, claimed by B, traded to C = 3. |
-| **Live data in records** | Records only read **completed weeks**. Each record declares whether a partial in-progress season counts (see §3.3). |
+| Topic                                | Decision                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Head-to-head ties**                | Stored as `T`. Win % = (W + 0.5·T) / games played. A tie ends both a win streak and a loss streak. No tiebreaker: it would make our standings disagree with the platforms' official ones.                                                                                                                                                                       |
+| **Median game**                      | Compared against the **true median** of all teams' scores that week (the middle score; the average of the two middle scores when the team count is even). It doesn't depend on head-to-head results.                                                                                                                                                            |
+| **Median ties**                      | A score exactly equal to the median is a **tie** (`T`), same as head-to-head.                                                                                                                                                                                                                                                                                   |
+| **Median scope**                     | Median games exist only in regular-season weeks.                                                                                                                                                                                                                                                                                                                |
+| **Streaks**                          | **Per season** by default. A cross-season streak is a separate, later record (`streakAcrossSeasons` param, same query).                                                                                                                                                                                                                                         |
+| **Entity**                           | Records follow the **franchise**. Displayed manager: that season's manager when the record covers one season (a single game or a season total); the franchise's **current** manager (most recent season) when it spans several seasons.                                                                                                                         |
+| **Redraft franchises**               | Franchise = manager. Same person means same franchise, and a new person means a new franchise.                                                                                                                                                                                                                                                                  |
+| **Dynasty franchises**               | Dynasty only exists on Sleeper (no ESPN dynasty leagues). The model still supports any configuration: the season-to-franchise mapping is explicit config, seeded from Sleeper's `previous_league_id` + `roster_id`.                                                                                                                                             |
+| **Postseason scopes**                | **Follow the bracket.** Winners-bracket games, _including placement games_ (3rd, 5th, …), are `playoffs`. Losers-bracket games, including their placement games, are `toilet_bowl`. `postseason` = both. Each game also stores `placement_at_stake` and `is_championship`, so filters like "championship only" or "exclude placement games" can be added later. |
+| **Seasons without a losers bracket** | Playoff-week games with no bracket entry are marked `game_type = 'none'`: kept in the data but **left out of every scope**. Ingestion will report what the source actually contains for those weeks.                                                                                                                                                            |
+| **Scope filter**                     | The same 5-way filter everywhere a record is scope-aware: All / Regular / Playoffs / Toilet bowl / Postseason.                                                                                                                                                                                                                                                  |
+| **Player season totals**             | Only the weeks the player was **rostered in the league**, scored with that season's league scoring. A player can contribute to more than one team in a season. No full NFL stat pull.                                                                                                                                                                           |
+| **"Bye week" scores**                | A team's score in a week with **no counted game** (playoff bye, eliminated, no bracket game), plus the best player on that roster that week. Stored as `team_week` rows with `counts = false`.                                                                                                                                                                  |
+| **Drafted-player retention**         | The player is on the **team that drafted him in the final week of the season**. Traded or dropped = no, even if he was re-acquired later; that's checked with `player_tenure` (one continuous stint from draft to final week).                                                                                                                                  |
+| **Waiver claims**                    | Only **successful** claims count. Failed claims are stored but never counted. Whether free-agent adds count is decided **per record**: each transaction record's definition says which transaction types it includes (`txTypes: ["waiver"]` or `["waiver", "free_agent"]`). It's not a user filter. "$ spent" = winning FAAB bids.                              |
+| **Trade size**                       | "Largest trade" = number of distinct **players** moved. Picks and FAAB don't count, but are shown as extra columns. "Broadest" = number of distinct teams.                                                                                                                                                                                                      |
+| **Most moved player**                | Number of distinct completed transactions involving the player. A trade = 1 and a drop = 1; another team then adding him = 1 more. Example: dropped by A, claimed by B, traded to C = 3.                                                                                                                                                                        |
+| **Live data in records**             | Records only read **completed weeks**. Each record declares whether a partial in-progress season counts (see §3.3).                                                                                                                                                                                                                                             |
 
 ---
 
@@ -105,7 +106,7 @@ The data is small: about 10 seasons × 17 weeks × 12 teams ≈ 2k team-games, a
  ESPN scrape ─┘   (jsonb)  (canonical)  └──────────────────┘     keyed by (record, params, data_version)
 ```
 
-1. **Ingest time (TypeScript, once per sync):** normalize source data into the canonical schema. Then compute the expensive *per-row* facts once:
+1. **Ingest time (TypeScript, once per sync):** normalize source data into the canonical schema. Then compute the expensive _per-row_ facts once:
    - optimal lineup,
    - game type from the brackets,
    - weekly median and median results,
@@ -207,6 +208,7 @@ record_cache        record_id, params_hash, version_key, payload jsonb, computed
 ```
 
 `game_result` is the key table. The median is a **pseudo-opponent row** (`kind = 'median'`), so:
+
 - every median filter is just a `WHERE` on `kind`:
   - `include`: both kinds
   - `exclude`: `h2h` only
@@ -243,17 +245,17 @@ Today's categories (`overall`, `single-season`, `manager`) are really **grains**
 
 **Grains**
 
-| Grain | Row = | Example records |
-|---|---|---|
-| `team_week` | one team in one week (`counts = true` unless the record asks otherwise) | highest score, largest blowout, best lineup IQ, best score that didn't count |
-| `matchup` | both teams in one game | highest combined score, closest championship |
-| `league_week` | the whole league in one week | highest weekly median |
-| `team_season` | franchise × season | most PF in a season, worst champion, best team to miss the playoffs |
-| `franchise_career` | franchise across seasons | career wins, win %, championships, average placement |
-| `player_week` | player on a roster in one week | best player performance, biggest bench miss |
-| `player_season` | player × season (weeks rostered in the league) | season player score, PPG, biggest benchwarmer |
-| `transaction` | one transaction | biggest trade, highest FAAB bid, best pickup |
-| `draft_pick` | one pick | best value pick, biggest bust |
+| Grain              | Row =                                                                   | Example records                                                              |
+| ------------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `team_week`        | one team in one week (`counts = true` unless the record asks otherwise) | highest score, largest blowout, best lineup IQ, best score that didn't count |
+| `matchup`          | both teams in one game                                                  | highest combined score, closest championship                                 |
+| `league_week`      | the whole league in one week                                            | highest weekly median                                                        |
+| `team_season`      | franchise × season                                                      | most PF in a season, worst champion, best team to miss the playoffs          |
+| `franchise_career` | franchise across seasons                                                | career wins, win %, championships, average placement                         |
+| `player_week`      | player on a roster in one week                                          | best player performance, biggest bench miss                                  |
+| `player_season`    | player × season (weeks rostered in the league)                          | season player score, PPG, biggest benchwarmer                                |
+| `transaction`      | one transaction                                                         | biggest trade, highest FAAB bid, best pickup                                 |
+| `draft_pick`       | one pick                                                                | best value pick, biggest bust                                                |
 
 **Definitions**
 
@@ -261,18 +263,26 @@ These definitions live in `packages/core`, and the API compiles them to SQL:
 
 ```ts
 export const metrics = {
-  points:    { agg: sum("tg.points"), format: "points" },
-  margin:    { agg: sum("tg.margin"), format: "points" },
-  optimal:   { agg: sum("s.optimal_points"), format: "points", requires: ["playerData"] },
-  lineupIQ:  { agg: ratio(sum("tg.points"), sum("s.optimal_points")), format: "pct", requires: ["playerData"] },
-  wins:      { agg: countWhere("gr.result", "W"), source: "game_result" },
-  winPct:    { agg: winPct("gr"), source: "game_result", qualifier: { minGames: 10 } },
+  points: { agg: sum("tg.points"), format: "points" },
+  margin: { agg: sum("tg.margin"), format: "points" },
+  optimal: { agg: sum("s.optimal_points"), format: "points", requires: ["playerData"] },
+  lineupIQ: {
+    agg: ratio(sum("tg.points"), sum("s.optimal_points")),
+    format: "pct",
+    requires: ["playerData"],
+  },
+  wins: { agg: countWhere("gr.result", "W"), source: "game_result" },
+  winPct: { agg: winPct("gr"), source: "game_result", qualifier: { minGames: 10 } },
   // ...
 };
 
 defineRecord({
   id: "points.high",
-  title: { team_week: "Highest score", team_season: "Most points in a season", franchise_career: "Most career points" },
+  title: {
+    team_week: "Highest score",
+    team_season: "Most points in a season",
+    franchise_career: "Most career points",
+  },
   metric: "points",
   grains: ["team_week", "team_season", "franchise_career"],
   direction: "desc",
@@ -280,10 +290,15 @@ defineRecord({
   columns: ["entity", "when", "opponent", "metric"],
 });
 
-defineCustomRecord({ id: "streak.win", grain: "franchise_career", query: (db, p) => winStreakQuery(db, p) });
+defineCustomRecord({
+  id: "streak.win",
+  grain: "franchise_career",
+  query: (db, p) => winStreakQuery(db, p),
+});
 ```
 
 **Rules**
+
 - Ratio metrics are always `sum/sum`, never an average of per-game ratios.
 - Ranking uses `RANK()`, so ties share a position.
 - `qualifier` (e.g. minimum games) is enforced in SQL and reported in the response.
@@ -293,7 +308,7 @@ defineCustomRecord({ id: "streak.win", grain: "franchise_career", query: (db, p)
 - **Completed weeks only.** Every record query reads through `rec_*` views that keep only rows where `league_season_week.status = 'complete'` and `team_week.is_final`. In-progress weeks never reach a record.
 - **Active-season policy:** each record declares one:
   - `include`: partial seasons are fine. Examples: single-week records, career totals, most points in a season so far.
-  - `complete_only`: the in-progress season is left out until it finishes. Examples: lowest season PF/PA, fewest wins, placements, playoff and toilet bowl appearances, draft retention %, lowest trade/claim counts. Without this, a half-finished season would "win" every *lowest* record.
+  - `complete_only`: the in-progress season is left out until it finishes. Examples: lowest season PF/PA, fewest wins, placements, playoff and toilet bowl appearances, draft retention %, lowest trade/claim counts. Without this, a half-finished season would "win" every _lowest_ record.
   - `flag`: included, but the row is marked as in progress in the UI. Example: highest season PF so far.
 
 ### 3.4 Filters: one typed, validated query object
@@ -302,23 +317,24 @@ defineCustomRecord({ id: "streak.win", grain: "franchise_career", query: (db, p)
 interface RecordQuery {
   seasons: "all" | number[] | { from: number; to: number };
   scope: "all" | "regular" | "postseason" | "playoffs" | "toilet_bowl";
-  median: "default" | "include" | "exclude" | "only";   // only on W/L metrics
+  median: "default" | "include" | "exclude" | "only"; // only on W/L metrics
   weeks?: { from: number; to: number };
   franchise?: FranchiseId;
   opponent?: FranchiseId;
-  onePer?: "season" | "franchise";     // "season max": keep only the best row per season (or per franchise)
+  onePer?: "season" | "franchise"; // "season max": keep only the best row per season (or per franchise)
   // player records
-  positions?: Position[];              // the player's position *that week* (player_week.position)
+  positions?: Position[]; // the player's position *that week* (player_week.position)
   slots?: ("starter" | "bench" | "ir" | "taxi")[];
-  excludeZero?: boolean;               // "non-zero" lowest scores
+  excludeZero?: boolean; // "non-zero" lowest scores
   // team-week records
-  countedOnly?: boolean;               // default true; false includes byes and eliminated weeks
+  countedOnly?: boolean; // default true; false includes byes and eliminated weeks
   divisionOnly?: boolean;
-  championshipOnly?: boolean;          // future
-  excludePlacementGames?: boolean;     // future
-  streakAcrossSeasons?: boolean;       // future, default false
+  championshipOnly?: boolean; // future
+  excludePlacementGames?: boolean; // future
+  streakAcrossSeasons?: boolean; // future, default false
   minGames?: number;
-  limit: number; offset: number;
+  limit: number;
+  offset: number;
 }
 ```
 
@@ -416,50 +432,53 @@ The active season goes through the same tables as history. "Current" is just a s
 
 **Sync jobs (`apps/ingest`)**
 
-| Job | When | What it does |
-|---|---|---|
-| `live` | every few minutes during NFL game windows, active season only | refreshes `team_week` / `player_week` points for the current week (`is_final = false`). Live scores feed the Matchups page only. |
-| `daily` | once a day | `players/nfl` (current player info), `/state/nfl`, rosters → `roster_current`, transactions, traded picks, draft (if drafting), team names and avatars |
-| `finalize` | when `/state/nfl` moves past a week and scores are final (Tuesday morning; can be re-run if stat corrections arrive) | marks the week `complete`, sets `is_final`, recomputes the season's derived tables (`team_week_stats`, `game_result`, `team_season_week`, `player_tenure`), bumps the season's `data_version`, pre-warms caches |
-| `nfl-reference` | daily in season; once for backfill | NFL schedule → `nfl_game` / `nfl_team_week`, nflverse weekly rosters → `nfl_player_week`, ID crosswalk → `player_id_map`; then fills `player_week.nfl_team / nfl_game_id / nfl_status` |
-| `season-rollover` | when Sleeper creates the next season | creates `league_season` (via `previous_league_id`), team seasons and the franchise mapping (redraft: by manager; dynasty: by roster) |
+| Job               | When                                                                                                                 | What it does                                                                                                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `live`            | every few minutes during NFL game windows, active season only                                                        | refreshes `team_week` / `player_week` points for the current week (`is_final = false`). Live scores feed the Matchups page only.                                                                                |
+| `daily`           | once a day                                                                                                           | `players/nfl` (current player info), `/state/nfl`, rosters → `roster_current`, transactions, traded picks, draft (if drafting), team names and avatars                                                          |
+| `finalize`        | when `/state/nfl` moves past a week and scores are final (Tuesday morning; can be re-run if stat corrections arrive) | marks the week `complete`, sets `is_final`, recomputes the season's derived tables (`team_week_stats`, `game_result`, `team_season_week`, `player_tenure`), bumps the season's `data_version`, pre-warms caches |
+| `nfl-reference`   | daily in season; once for backfill                                                                                   | NFL schedule → `nfl_game` / `nfl_team_week`, nflverse weekly rosters → `nfl_player_week`, ID crosswalk → `player_id_map`; then fills `player_week.nfl_team / nfl_game_id / nfl_status`                          |
+| `season-rollover` | when Sleeper creates the next season                                                                                 | creates `league_season` (via `previous_league_id`), team seasons and the franchise mapping (redraft: by manager; dynasty: by roster)                                                                            |
 
 **What each info page reads**
 
-| Page | Data |
-|---|---|
-| Home | current standings (`team_season_week`, latest week), current week's matchups, recent transactions |
-| Standings | `team_season_week` (any week; also standings history), divisions, playoff seeds, clinched/eliminated |
-| Matchups | `team_week` + `player_week` for any week, live while in progress, with projections |
-| Teams → Divisions / Rosters | `team_season` + `roster_current` + `player` (injury, NFL team) |
-| Transactions → Trades & Waivers | `transaction` + `transaction_item` feed, filterable |
-| Transactions → Future Picks | `traded_pick` (dynasty) |
-| Draft | `draft` + `draft_pick` (live while drafting) |
-| Records / Trophies | `rec_*` views (completed weeks only) |
+| Page                            | Data                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Home                            | current standings (`team_season_week`, latest week), current week's matchups, recent transactions    |
+| Standings                       | `team_season_week` (any week; also standings history), divisions, playoff seeds, clinched/eliminated |
+| Matchups                        | `team_week` + `player_week` for any week, live while in progress, with projections                   |
+| Teams → Divisions / Rosters     | `team_season` + `roster_current` + `player` (injury, NFL team)                                       |
+| Transactions → Trades & Waivers | `transaction` + `transaction_item` feed, filterable                                                  |
+| Transactions → Future Picks     | `traded_pick` (dynasty)                                                                              |
+| Draft                           | `draft` + `draft_pick` (live while drafting)                                                         |
+| Records / Trophies              | `rec_*` views (completed weeks only)                                                                 |
 
 **Rules**
+
 - Team names and avatars only exist as "current" in Sleeper. They're overwritten daily while a season is active and frozen once it completes.
 - Projections are stored per `player_week` for every week, including the upcoming one, so the Matchups page can show projected scores.
 - Info pages may read in-progress weeks. **Records never do** (§3.3).
 
 ### 3.8 NFL reference data (bye weeks, NFL teams, inactives)
 
-None of the fantasy APIs give a clean historical "which NFL team was this player on, and was that team on bye" per week. Sleeper's player dump only has *current* teams. Three free sources cover it. I checked each one on 2026-10-05:
+None of the fantasy APIs give a clean historical "which NFL team was this player on, and was that team on bye" per week. Sleeper's player dump only has _current_ teams. Three free sources cover it. I checked each one on 2026-10-05:
 
-| Source | What it gives | Use |
-|---|---|---|
-| **nflverse `games.csv`**: `https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv` | every NFL game since 1999: `season, game_type, week, gameday, away_team, home_team, scores, …` | **Primary schedule.** A bye = an NFL team with no game in a REG week. One file, all history. |
-| **nflverse weekly rosters**: `https://github.com/nflverse/nflverse-data/releases/download/weekly_rosters/roster_weekly_{season}.csv` | per season and week: `team, position, status, sleeper_id, espn_id, gsis_id, …` | The player's **NFL team that week** and **active/inactive status**. Includes `sleeper_id` + `espn_id`, so it joins straight to our players. |
-| **Sleeper schedule** (undocumented): `https://api.sleeper.app/schedule/nfl/regular/{season}` | `week, home, away, date, status` per game | **Live-season** cross-check and game status. Undocumented, so it's a fallback, not the source of truth. |
-| **dynastyprocess ID crosswalk**: `https://github.com/dynastyprocess/data/raw/master/files/db_playerids.csv` | `sleeper_id, espn_id, gsis_id, yahoo_id, …` | Seeds `player_id_map`, mainly for matching ESPN player IDs. |
+| Source                                                                                                                               | What it gives                                                                                  | Use                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **nflverse `games.csv`**: `https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv`                                 | every NFL game since 1999: `season, game_type, week, gameday, away_team, home_team, scores, …` | **Primary schedule.** A bye = an NFL team with no game in a REG week. One file, all history.                                                |
+| **nflverse weekly rosters**: `https://github.com/nflverse/nflverse-data/releases/download/weekly_rosters/roster_weekly_{season}.csv` | per season and week: `team, position, status, sleeper_id, espn_id, gsis_id, …`                 | The player's **NFL team that week** and **active/inactive status**. Includes `sleeper_id` + `espn_id`, so it joins straight to our players. |
+| **Sleeper schedule** (undocumented): `https://api.sleeper.app/schedule/nfl/regular/{season}`                                         | `week, home, away, date, status` per game                                                      | **Live-season** cross-check and game status. Undocumented, so it's a fallback, not the source of truth.                                     |
+| **dynastyprocess ID crosswalk**: `https://github.com/dynastyprocess/data/raw/master/files/db_playerids.csv`                          | `sleeper_id, espn_id, gsis_id, yahoo_id, …`                                                    | Seeds `player_id_map`, mainly for matching ESPN player IDs.                                                                                 |
 
 **How it flows**
+
 1. `nfl_game` ← `games.csv`. `nfl_team_week` is derived as 32 teams × weeks, with `is_bye` = no game that week.
 2. `nfl_player_week` ← weekly rosters, keyed through `player_id_map`.
 3. `player_week.nfl_team` comes from `nfl_player_week`. For weeks it's missing, fall back to the `team` field on Sleeper's per-week projections/stats payload, which we already fetch. `player_week.nfl_game_id` comes from `nfl_team_week`, so a null game means that player was on bye.
 4. Team defenses (`DEF` / `D/ST`) map to their NFL team directly.
 
 **Caveats**
+
 - Old seasons in weekly rosters are thinner. Inactive status is reliable from the early 2000s on, which covers all our seasons.
 - Team abbreviations changed over time (`OAK`→`LV`, `SD`→`LAC`, `STL`→`LA`, `WAS` naming). We need a small alias table so all sources agree.
 
@@ -468,6 +487,7 @@ None of the fantasy APIs give a clean historical "which NFL team was this player
 Today, config is a hand-edited Mongo document. In the rewrite, **config is Postgres tables edited through a password-protected admin UI**, and every change is audited.
 
 **Auth**
+
 - **Library:** [better-auth](https://www.better-auth.com) with its Drizzle adapter, email + password, and the admin plugin for roles. That way we don't hand-roll password hashing or sessions.
 - **Sessions:** server-side session tables, stored in httpOnly + Secure + SameSite=Lax cookies.
 - **Requests:** an Origin check on mutating requests, and rate limiting on login.
@@ -478,28 +498,28 @@ Today, config is a hand-edited Mongo document. In the rewrite, **config is Postg
 
 **Roles**
 
-| Role | Can |
-|---|---|
+| Role    | Can                                                                             |
+| ------- | ------------------------------------------------------------------------------- |
 | `owner` | everything below, plus invite, disable and remove admins and change their roles |
-| `admin` | edit config, fix data, run syncs and recomputes |
+| `admin` | edit config, fix data, run syncs and recomputes                                 |
 
 There's room to scope an admin to specific leagues later (`admin_user_league`) without changing the model.
 
 **What the admin UI manages**
 
-| Area | Config |
-|---|---|
-| Site | name, short name, changelog / announcements (moves out of `utils/changelog.ts`) |
-| Leagues | name, slug, type, color, display order |
-| League seasons | add a season (source + external ID), enable/disable, override `has_*` data flags |
-| Managers | names and avatars, linked identities (Sleeper user IDs, ESPN SWIDs), merge duplicate managers |
-| Franchises | season-to-franchise mapping (dynasty), franchise names |
-| Results | final placement overrides, bracket / `game_type` corrections, score overrides (with a required reason) |
-| Thresholds | `league_threshold` values (High Scorer's / Benchwarmer's / Smartypants …) |
-| Players | unmatched-player queue (ESPN / nflverse IDs without a match), manual ID mappings |
-| Records | show/hide, order, featured, per-league enable |
-| Data jobs | trigger `live` / `daily` / `finalize` / `nfl-reference` / recompute; view `sync_run` history and logs |
-| Admins (owner only) | invite, reset password, disable, change role |
+| Area                | Config                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| Site                | name, short name, changelog / announcements (moves out of `utils/changelog.ts`)                        |
+| Leagues             | name, slug, type, color, display order                                                                 |
+| League seasons      | add a season (source + external ID), enable/disable, override `has_*` data flags                       |
+| Managers            | names and avatars, linked identities (Sleeper user IDs, ESPN SWIDs), merge duplicate managers          |
+| Franchises          | season-to-franchise mapping (dynasty), franchise names                                                 |
+| Results             | final placement overrides, bracket / `game_type` corrections, score overrides (with a required reason) |
+| Thresholds          | `league_threshold` values (High Scorer's / Benchwarmer's / Smartypants …)                              |
+| Players             | unmatched-player queue (ESPN / nflverse IDs without a match), manual ID mappings                       |
+| Records             | show/hide, order, featured, per-league enable                                                          |
+| Data jobs           | trigger `live` / `daily` / `finalize` / `nfl-reference` / recompute; view `sync_run` history and logs  |
+| Admins (owner only) | invite, reset password, disable, change role                                                           |
 
 **Corrections must survive re-ingest.** Manual fixes don't edit ingested rows directly. They go in an `override` table that the normalize step applies, so pulling a season from Sleeper or ESPN again never wipes a correction.
 
@@ -527,16 +547,17 @@ Files: `docker-compose.yml` and `.env.example` at the repo root, `infra/` (multi
 
 **Containers (one machine)**
 
-| Service | Image | Role |
-|---|---|---|
-| `db` | `postgres:18-alpine` | data. Port bound to `127.0.0.1` only, for local psql / GUI access |
-| `migrate` | `Dockerfile` target `migrate` | runs Drizzle migrations once, then exits. `api` and `ingest` wait for it to succeed |
-| `api` | target `api` | Fastify API on :8000, internal only, with a `/healthz` check |
-| `ingest` | target `ingest` | pg-boss worker and scheduler: live / daily / finalize / nfl-reference jobs |
-| `web` | target `web` (Caddy) | serves the built SPA, proxies `/api/*` to `api` on the same origin (no CORS, simple auth cookies). Plain HTTP on `WEB_PORT`: **TLS is terminated by an external reverse proxy** (homelab proxy, Cloudflare Tunnel, …). Caddy trusts `X-Forwarded-*` from private ranges, and the API runs with `TRUST_PROXY`, so secure cookies and client IPs work. |
-| `backup` | target `backup` (`postgres:18-alpine` + aws-cli) | daily `pg_dump -Fc` to `./backups` with 14-day retention. **Optional S3 copy** when `S3_BUCKET` is set; works with any S3-compatible store via `S3_ENDPOINT_URL`, and remote retention uses a bucket lifecycle rule. `docker compose run --rm backup once` takes an on-demand backup. |
+| Service   | Image                                            | Role                                                                                                                                                                                                                                                                                                                                                 |
+| --------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `db`      | `postgres:18-alpine`                             | data. Port bound to `127.0.0.1` only, for local psql / GUI access                                                                                                                                                                                                                                                                                    |
+| `migrate` | `Dockerfile` target `migrate`                    | runs Drizzle migrations once, then exits. `api` and `ingest` wait for it to succeed                                                                                                                                                                                                                                                                  |
+| `api`     | target `api`                                     | Fastify API on :8000, internal only, with a `/healthz` check                                                                                                                                                                                                                                                                                         |
+| `ingest`  | target `ingest`                                  | pg-boss worker and scheduler: live / daily / finalize / nfl-reference jobs                                                                                                                                                                                                                                                                           |
+| `web`     | target `web` (Caddy)                             | serves the built SPA, proxies `/api/*` to `api` on the same origin (no CORS, simple auth cookies). Plain HTTP on `WEB_PORT`: **TLS is terminated by an external reverse proxy** (homelab proxy, Cloudflare Tunnel, …). Caddy trusts `X-Forwarded-*` from private ranges, and the API runs with `TRUST_PROXY`, so secure cookies and client IPs work. |
+| `backup`  | target `backup` (`postgres:18-alpine` + aws-cli) | daily `pg_dump -Fc` to `./backups` with 14-day retention. **Optional S3 copy** when `S3_BUCKET` is set; works with any S3-compatible store via `S3_ENDPOINT_URL`, and remote retention uses a bucket lifecycle rule. `docker compose run --rm backup once` takes an on-demand backup.                                                                |
 
 **Migrations (Drizzle)**
+
 - **Source of truth:** the schema is TypeScript in `packages/db/src/schema`.
 - **Creating a migration:** `pnpm db:generate` (drizzle-kit) writes a SQL migration to `packages/db/migrations`, and that file gets committed and code-reviewed.
 - **Things drizzle-kit can't express** (the `rec_*` views, gaps-and-islands helper functions, extensions): write them as custom migrations (`drizzle-kit generate --custom`). That keeps everything in one ordered migration history.
@@ -550,6 +571,7 @@ Files: `docker-compose.yml` and `.env.example` at the repo root, `infra/` (multi
 **Not hosting-specific.** Nothing assumes a homelab or a VPS: any Docker host with an HTTPS reverse proxy in front of `WEB_PORT` works.
 
 **Build and deploy**
+
 - **CI** (`ci.yml`, every PR and push): lint, typecheck, migrations applied to an empty Postgres, `drizzle-kit check`, unit + integration tests.
 - **Release** (`release.yml`, push to `main` or a `v*` tag): builds each target and pushes `ghcr.io/zeknikz/rfp-{migrate,api,ingest,backup,web}`. Tags are the git SHA, `latest` on main, and semver on tags.
 - **Deploying:** set `RFP_TAG` in `.env`, then `docker compose pull && docker compose up -d`. `migrate` runs first automatically. Rolling back = set the previous SHA tag and run the same command. Note that migrations aren't rolled back, which is why destructive changes take two deploys.
@@ -557,6 +579,7 @@ Files: `docker-compose.yml` and `.env.example` at the repo root, `infra/` (multi
 **Local development:** only Postgres runs in Docker (`docker compose up -d db`). The apps run on the host with `pnpm dev`: Vite dev server, API and worker under `tsx watch`, and Vite proxying `/api` so it matches production's same-origin setup.
 
 **Monitoring**
+
 - **Uptime:** UptimeRobot's free plan (personal use, 5-minute checks) against `https://<domain>/api/healthz`. On a homelab, self-hosted Uptime Kuma is an alternative.
 - **Health checks:** `/healthz` reports DB connectivity plus the last successful `finalize` / `daily` run, so a stuck worker shows up as down.
 - **Job history:** sync job logs are in the admin UI.
@@ -570,6 +593,7 @@ Files: `docker-compose.yml` and `.env.example` at the repo root, `infra/` (multi
 The goal is **the same look and feel** with the internals rebuilt. Someone who uses the current site should feel at home on the new one.
 
 **Keep (the look and feel)**
+
 - Mantine. Upgrade to the current major version, but keep the default Mantine look rather than a new design system.
 - `AppShell` layout: 60px header, 250px navbar, burger + collapsible navbar on mobile.
 - Brand header: logo (blue / red variant chosen by the league's `color`) + site name in **Bebas Neue**, with the league name in the league color.
@@ -581,6 +605,7 @@ The goal is **the same look and feel** with the internals rebuilt. Someone who u
 - Blog post cards on Home.
 
 **Fix / clean up**
+
 - **Data loading:** no global "load everything" step and no full-page loading overlay. Each table fetches its own data with TanStack Query and shows a skeleton while loading, plus proper empty and error states. Remove "Reload all data" and the refresh button, since data now lives on the server.
 - **Filter state:** filters live in URL search params, so any record view is a shareable link. Changing a filter resets to page 1.
 - **Version history:** one modal instance (it's currently rendered in both `App` and `Layout`). Its content comes from the API, managed in the admin UI (§3.9).
@@ -631,16 +656,35 @@ The goal is **the same look and feel** with the internals rebuilt. Someone who u
 The navbar's season select only changes the `:season` segment on season pages. Records pages use their own `seasons` filter.
 
 **Home page:**
+
 - In season: current standings, this week's matchups (live) and recent transactions, then blog posts.
 - Off-season: last season's final results (podium + toilet bowl), then blog posts.
 
 **Dropped:** the Math Test page.
+
+#### 3.11.1 Frontend as built (M5)
+
+Stack: Vite 8, React 19, Mantine 9, React Router 8 (data router, every page lazy-loaded), TanStack Query 5, Phosphor icons, zod schemas for every API response (`apps/web/src/api/schemas.ts`; `pnpm --filter @rfp/web check:contract` parses every endpoint of a running API with them).
+
+Differences from the plan above, and decisions the plan left open:
+
+- **Filter params are prefixed per section.** One records page holds several sections, each with its own record picker and filters, so URL params are `?single-week-scores.rec=blowout&single-week-scores.scope=playoffs&single-week-scores.seasons=2024&single-week-scores.page=2` (section slug + dot + the API's own filter name). Defaults are omitted from the URL; changing a filter drops that section's `page`. The heatmap uses the prefix `matchups.`.
+- **Season picker** (navbar) shows only where a season applies: season pages (`/:league/:season/...`) and Home (`/:league?season=2025`). Records pages and franchise profiles have their own `seasons` filter, so the picker is hidden there. Options list newest first.
+- **Home** follows the selected season: in season it shows standings, this week's matchups (refreshed every minute, "live" badge) and the latest 8 transactions; a completed season shows its podium and last place. The compact panels use the M4 season endpoints; the full pages are M7.
+- **Filter controls come from the catalog.** Each record lists its filters; presets are hidden; a control with more than 6 options, or any control below the `sm` breakpoint, becomes a select. The weeks filter is two number inputs, team/opponent are searchable selects of franchises (current manager + current team name). Defaults chosen by the server (e.g. "exclude zero-point weeks" on lowest-player records) are shown as the control state.
+- **Franchise labels without a season** (heatmap rows/columns, trophy cabinet, franchise page header) use the franchise's current manager (owner decision).
+- **Trophies page** (the legacy site had it disabled): season filter, champions/podium/last place per season, a trophy cabinet by manager, the three clubs (paged lists) and the season awards table. "Best lineup IQ of the season" is a tie among all perfect lineups in most seasons, so it shows a count instead of 90 teams.
+- **Version history** loads `react-markdown` only when first opened (separate 40 kB chunk).
+- **Page titles** come from route `handle.title`; a page whose title depends on data (franchise profile) refines it with `usePageTitle`.
+- `/:league/:season/:page` and `/:league/picks` resolve to a "Soon" placeholder so pasted links to unbuilt pages aren't 404s; they're replaced in M7.
+- Tooling: `pnpm --filter @rfp/web screenshots` (every page, light/dark, desktop/mobile, into the git-ignored `docs/screenshots/m5/`) and `pnpm --filter @rfp/web smoke` (browser test of URL-backed filters, paging, the version-history modal and no sideways page scroll at 390 px). Both need the dev server (`pnpm --filter @rfp/web dev`) and the API running; set `PW_CHROMIUM` to an installed Chromium to avoid downloading Playwright's.
 
 ---
 
 ## 4. Record catalog
 
 Legend:
+
 - **Grain:** see §3.3.
 - **Filters:** `Sn` = seasons, `Sc` = scope, `Pos` = positions, `Slot` = starter/bench/IR/taxi, `NZ` = exclude zeroes, `1/S` = one per season.
 - **Active:** `inc` = partial season included, `flag` = included but marked in progress, `cmp` = completed seasons only.
@@ -648,67 +692,67 @@ Legend:
 
 ### 4.1 Trophies
 
-| Trophy | Definition | Needs |
-|---|---|---|
-| Winners Circle | `final_place = 1` | final placements |
-| Podium Finishers | `final_place in (2, 3)` | final placements |
-| Losers Circle | `final_place = team_count` | final placements |
+| Trophy             | Definition                                                                                     | Needs              |
+| ------------------ | ---------------------------------------------------------------------------------------------- | ------------------ |
+| Winners Circle     | `final_place = 1`                                                                              | final placements   |
+| Podium Finishers   | `final_place in (2, 3)`                                                                        | final placements   |
+| Losers Circle      | `final_place = team_count`                                                                     | final placements   |
 | High Scorer's Club | any counted team-week with `points > league_threshold.high_scorer` (redraft 190 / dynasty 200) | `league_threshold` |
-| Benchwarmer's Club | any counted team-week with `points < league_threshold.benchwarmer` (redraft 65 / dynasty 90) | `league_threshold` |
+| Benchwarmer's Club | any counted team-week with `points < league_threshold.benchwarmer` (redraft 65 / dynasty 90)   | `league_threshold` |
 
 Trophies are a derived `trophy` table (`kind`, `team_season_id`, `team_week_id?`, `value`), rebuilt during `finalize`. The trophy case and the threshold clubs read from it.
 
 ### 4.2 Overall records (single event)
 
-| Record | Grain | Filters | Active | Needs |
-|---|---|---|---|---|
-| Highest / lowest score | team_week | Sn Sc | inc | — |
-| Largest blowout / narrowest win | team_week (winner side) | Sn Sc | inc | — |
-| Highest / lowest potential points (with actual points) | team_week | Sn Sc | inc | player_week (all rostered), position snapshot |
-| Highest $ on a single waiver claim | transaction_item | Sn | inc | FAAB bids (`has_faab`) |
-| Highest $ on a single draft pick | draft_pick | Sn | inc | auction amounts (`has_auction_draft`) |
-| Player highest score / non-zero lowest score / benched highest / roster lowest | player_week | Sn Sc Pos Slot NZ | inc | player_week incl. BN/IR, slot + position snapshot |
-| Most moved player | player × (season or all-time) | Sn | inc | transactions incl. drops, status |
-| Broadest trade (# teams) / largest trade (# players) | transaction | Sn | inc | trade items |
-| Biggest benchwarmer (most bench points, season) | player_season (per team) | Sn Pos | flag | player_week BN |
-| Best score that didn't count (team) + best player on it | team_week `counts = false` | Sn | inc | `team_week` rows for no-game weeks |
+| Record                                                                         | Grain                         | Filters           | Active | Needs                                             |
+| ------------------------------------------------------------------------------ | ----------------------------- | ----------------- | ------ | ------------------------------------------------- |
+| Highest / lowest score                                                         | team_week                     | Sn Sc             | inc    | —                                                 |
+| Largest blowout / narrowest win                                                | team_week (winner side)       | Sn Sc             | inc    | —                                                 |
+| Highest / lowest potential points (with actual points)                         | team_week                     | Sn Sc             | inc    | player_week (all rostered), position snapshot     |
+| Highest $ on a single waiver claim                                             | transaction_item              | Sn                | inc    | FAAB bids (`has_faab`)                            |
+| Highest $ on a single draft pick                                               | draft_pick                    | Sn                | inc    | auction amounts (`has_auction_draft`)             |
+| Player highest score / non-zero lowest score / benched highest / roster lowest | player_week                   | Sn Sc Pos Slot NZ | inc    | player_week incl. BN/IR, slot + position snapshot |
+| Most moved player                                                              | player × (season or all-time) | Sn                | inc    | transactions incl. drops, status                  |
+| Broadest trade (# teams) / largest trade (# players)                           | transaction                   | Sn                | inc    | trade items                                       |
+| Biggest benchwarmer (most bench points, season)                                | player_season (per team)      | Sn Pos            | flag   | player_week BN                                    |
+| Best score that didn't count (team) + best player on it                        | team_week `counts = false`    | Sn                | inc    | `team_week` rows for no-game weeks                |
 
 The player records are six records (roster, starters only and bench only, each highest and lowest); the slot is fixed by the record, and position / `NZ` are filters (owner decision, §3.5.1).
 
 ### 4.3 Single-season records (season is a column; `1/S` toggles "season max")
 
-| Record | Grain | Filters | Active | Columns |
-|---|---|---|---|---|
-| Highest / lowest PF, highest / lowest PA | team_season | Sc 1/S | highest: flag, lowest: cmp | team/manager, season, points |
-| Most wins / most losses | team_season | Sc median 1/S | most wins: flag, most losses: flag | record W-L-T, points |
-| Highest / lowest win % | team_season | Sc median 1/S | cmp | win %, record W-L-T |
-| Highest / lowest lineup IQ | team_season | Sc 1/S | cmp | IQ, PF, potential PF |
-| Player highest season score | player_season | Sc Pos 1/S | flag | player, season, position, team(s); best and worst game (week + manager), PPG, PPG excl. zeroes |
-| Most / fewest trades | team_season | 1/S | most: flag, fewest: cmp | trades |
-| Most / fewest waiver claims | team_season | 1/S | most: flag, fewest: cmp | claims |
-| Most / least $ on waiver claims | team_season | 1/S | most: flag, least: cmp | claims, total $ (`has_faab`) |
-| Highest / lowest % of drafted players kept to season's end | team_season | 1/S | cmp | % (`player_tenure`) |
+| Record                                                     | Grain         | Filters       | Active                             | Columns                                                                                        |
+| ---------------------------------------------------------- | ------------- | ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Highest / lowest PF, highest / lowest PA                   | team_season   | Sc 1/S        | highest: flag, lowest: cmp         | team/manager, season, points                                                                   |
+| Most wins / most losses                                    | team_season   | Sc median 1/S | most wins: flag, most losses: flag | record W-L-T, points                                                                           |
+| Highest / lowest win %                                     | team_season   | Sc median 1/S | cmp                                | win %, record W-L-T                                                                            |
+| Highest / lowest lineup IQ                                 | team_season   | Sc 1/S        | cmp                                | IQ, PF, potential PF                                                                           |
+| Player highest season score                                | player_season | Sc Pos 1/S    | flag                               | player, season, position, team(s); best and worst game (week + manager), PPG, PPG excl. zeroes |
+| Most / fewest trades                                       | team_season   | 1/S           | most: flag, fewest: cmp            | trades                                                                                         |
+| Most / fewest waiver claims                                | team_season   | 1/S           | most: flag, fewest: cmp            | claims                                                                                         |
+| Most / least $ on waiver claims                            | team_season   | 1/S           | most: flag, least: cmp             | claims, total $ (`has_faab`)                                                                   |
+| Highest / lowest % of drafted players kept to season's end | team_season   | 1/S           | cmp                                | % (`player_tenure`)                                                                            |
 
 `player_season` is per **(player, team season)** by default, so a player who was traded shows up for each team. A "whole league" toggle sums across teams, and the team column then lists every team he played for.
 
 ### 4.4 Manager (franchise) records
 
-| Record | Grain | Filters | Active | Notes |
-|---|---|---|---|---|
-| W/L: years, W, L, T, win %, longest W/L streak (+ seasons) | franchise_career | Sn Sc median | inc | streaks per season; ties list every holding season |
-| Placements: playoff and toilet bowl appearances, highest, lowest and average placement (+ seasons) | franchise_career | Sn | cmp | |
-| Transactions: # trades, # waiver claims, $ spent | franchise_career | Sn Sc | inc | Sc uses the transaction week's game type for that team (§3.4) |
-| Scoring: highest and lowest score (+ week), PF, PA, games, avg PF, avg PA | franchise_career | Sn Sc | inc | |
-| Lineups: perfect lineups, missed points, lineup IQ | franchise_career | Sn Sc | inc | perfect = optimal − actual < 0.01 |
-
+| Record                                                                                             | Grain            | Filters      | Active | Notes                                                         |
+| -------------------------------------------------------------------------------------------------- | ---------------- | ------------ | ------ | ------------------------------------------------------------- |
+| W/L: years, W, L, T, win %, longest W/L streak (+ seasons)                                         | franchise_career | Sn Sc median | inc    | streaks per season; ties list every holding season            |
+| Placements: playoff and toilet bowl appearances, highest, lowest and average placement (+ seasons) | franchise_career | Sn           | cmp    |                                                               |
+| Transactions: # trades, # waiver claims, $ spent                                                   | franchise_career | Sn Sc        | inc    | Sc uses the transaction week's game type for that team (§3.4) |
+| Scoring: highest and lowest score (+ week), PF, PA, games, avg PF, avg PA                          | franchise_career | Sn Sc        | inc    |                                                               |
+| Lineups: perfect lineups, missed points, lineup IQ                                                 | franchise_career | Sn Sc        | inc    | perfect = optimal − actual < 0.01                             |
 
 ### 4.5 Additional records (accepted)
 
 All accepted. They're grouped by data cost. Everything in the first group runs on data the schema above already has.
 
 **No new data**
+
 - **Unluckiest loss:** lost while having the 2nd-highest (or Nth-highest) score of the week. And its mirror, **luckiest win**: won with a bottom-3 score.
-- **Should've won:** losses where your *optimal* lineup would have beaten the opponent's actual score. Counted per franchise, plus the single worst one ("left X points on the bench in a 2-point loss").
+- **Should've won:** losses where your _optimal_ lineup would have beaten the opponent's actual score. Counted per franchise, plus the single worst one ("left X points on the bench in a 2-point loss").
 - **Coulda been a contender:** playoff eliminations that a perfect lineup would have survived.
 - **All-play record and luck:** season all-play win %, plus luck = actual wins − all-play expected wins, for both luckiest and unluckiest seasons.
 - **Schedule swap:** your record with another franchise's schedule. Gives a "best possible record" and "worst possible record" per season.
@@ -725,7 +769,8 @@ All accepted. They're grouped by data cost. Everything in the first group runs o
 - **Heartbreaker clubs:** losing a playoff game by < 1 point, losing to the median with a 2nd-place weekly score.
 
 **Needs `player_tenure` / transactions (already planned)**
-- **Best waiver pickup:** points scored *as a starter* for the team after acquiring the player, rest of season.
+
+- **Best waiver pickup:** points scored _as a starter_ for the team after acquiring the player, rest of season.
 - **Trade winner:** for each side, starter points the acquired players scored for their new team over the rest of the season. Gives "most lopsided trade" and "best trade".
 - **Journeyman:** player rostered by the most different franchises, in a season or all-time.
 - **Loyalty:** longest continuous stint for one player on one franchise (dynasty especially).
@@ -734,11 +779,13 @@ All accepted. They're grouped by data cost. Everything in the first group runs o
 - **Most FAAB per point / best $ value pickup.**
 
 **Needs draft data (already planned)**
+
 - **Draft steal / bust:** season points vs. draft position, overall and by round.
 - **Auction value:** points per $, plus most $ spent on the worst finisher.
 - **Best and worst draft class:** total starter points from a team's draft picks.
 
 **Needs NFL reference data (§3.8)**
+
 - **Asleep at the wheel:** most starters on an NFL bye or inactive, per week, season and career. Also the single worst week, and points lost to it (the best eligible bench replacement's points).
 - **Bye-week blunders that cost a game:** losses where swapping the bye/inactive starters for bench players would have won.
 - **Bye-week survivor:** highest team score in a week with the most of its starters' NFL teams on bye. Also a "heaviest bye week survived" count.
@@ -750,21 +797,22 @@ All accepted. They're grouped by data cost. Everything in the first group runs o
 
 The scraper must fill the same canonical tables Sleeper does. For each ESPN season we need:
 
-| Data | Needed for |
-|---|---|
-| League settings: roster slots, bench/IR sizes, scoring settings, regular-season weeks, playoff teams, playoff start week, median setting, losers bracket on/off | game types, optimal lineups, projections |
-| Teams + owners (SWIDs) + team names/avatars + divisions | manager identity, franchises |
-| Weekly matchups with both teams' points, **plus every team's score in weeks it had no game** (playoff byes, eliminated teams) | everything; "scores that didn't count" |
+| Data                                                                                                                                                                     | Needed for                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| League settings: roster slots, bench/IR sizes, scoring settings, regular-season weeks, playoff teams, playoff start week, median setting, losers bracket on/off          | game types, optimal lineups, projections                                  |
+| Teams + owners (SWIDs) + team names/avatars + divisions                                                                                                                  | manager identity, franchises                                              |
+| Weekly matchups with both teams' points, **plus every team's score in weeks it had no game** (playoff byes, eliminated teams)                                            | everything; "scores that didn't count"                                    |
 | Per-week box scores: **every rostered player** (starters, bench, IR), lineup slot, actual points, projected points, the player's position / eligible positions that week | potential points, lineup IQ, player records, benchwarmer, `player_tenure` |
-| Playoff bracket: winners and losers bracket games, **including placement games**, and the placement each one decides | scopes, placements |
-| Final standings / placements | placement records, trophies |
-| Transactions: trades (players, picks, FAAB), waivers with FAAB bids and **status (won / failed)**, free-agent adds, drops, each with week + timestamp | transaction records, most moved, tenure |
-| Draft: picks, order, auction amounts, keepers | draft records, retention % |
-| Team names / avatars as of that season | display |
+| Playoff bracket: winners and losers bracket games, **including placement games**, and the placement each one decides                                                     | scopes, placements                                                        |
+| Final standings / placements                                                                                                                                             | placement records, trophies                                               |
+| Transactions: trades (players, picks, FAAB), waivers with FAAB bids and **status (won / failed)**, free-agent adds, drops, each with week + timestamp                    | transaction records, most moved, tenure                                   |
+| Draft: picks, order, auction amounts, keepers                                                                                                                            | draft records, retention %                                                |
+| Team names / avatars as of that season                                                                                                                                   | display                                                                   |
 
 **Where it runs:** on your desktop, not the server, as `pnpm scrape:espn` in `apps/scraper`. It isn't containerized.
 
 **Flow**
+
 1. Playwright opens a **headed** browser on ESPN's login page and **you log in by hand** (including any 2FA or captcha). The script waits until it sees the `espn_s2` / `SWID` cookies. Nothing about ESPN credentials is stored in `.env`.
 2. A persistent browser profile (`.espn-profile/`, git-ignored) keeps you logged in between runs. Delete it to force a fresh login.
 3. It reads ESPN's JSON views using those cookies: `mSettings`, `mTeam`, `mRoster`, `mMatchupScore`, `mBoxscore` per `scoringPeriodId`, `mTransactions2`, `mDraftDetail`, plus `leagueHistory` for older seasons. That's much sturdier than scraping the page.
@@ -791,16 +839,16 @@ Check per season for gaps in older years.
 
 - **What Sleeper returns in playoff weeks for teams with no bracket game.** `matchup_id` is `null` and the entry carries a real `points` value. Idle teams must never be grouped into a game (`pairWeek` pairs only ids shared by exactly two teams). Those weeks are stored as `team_week` rows with `counts = false`, so "scores that didn't count" works for Sleeper. Sleeper also serves matchups for weeks after the season (e.g. week 18: all `matchup_id: null`, with scores); ingest stops at `last_week` (the playoff start plus the bracket's rounds, minus 1).
 - **Sleeper's `p` field and the bracket shape.** Verified on 2022-2025 (all `playoff_round_type = 0`, one round per week, round `r` is played in week `playoff_week_start + r - 1`; `t1`/`t2` are roster ids once known).
-  - The *winners* bracket also contains consolation games among teams eliminated in round 1. `p` appears only on the games that decide a place: `p:1` the final, `p:3` the semifinal losers, `p:5` the round-1 losers, and so on. Games without `p` have no placement at stake (the loser simply takes the next open place).
-  - The *losers* bracket is a consolation bracket for the teams that missed the playoffs, played for **last place**: the **lower** scorer is Sleeper's "winner" (`w`) and advances. `p:1` is the game that decides last place, so the lower scorer takes place `N`, the higher `N - 1`; `p:3` decides `N - 2` / `N - 3`, and so on. This reproduces the legacy hand-entered placements for 2024 redraft exactly. `derivePlacements` (core) implements it.
+  - The _winners_ bracket also contains consolation games among teams eliminated in round 1. `p` appears only on the games that decide a place: `p:1` the final, `p:3` the semifinal losers, `p:5` the round-1 losers, and so on. Games without `p` have no placement at stake (the loser simply takes the next open place).
+  - The _losers_ bracket is a consolation bracket for the teams that missed the playoffs, played for **last place**: the **lower** scorer is Sleeper's "winner" (`w`) and advances. `p:1` is the game that decides last place, so the lower scorer takes place `N`, the higher `N - 1`; `p:3` decides `N - 2` / `N - 3`, and so on. This reproduces the legacy hand-entered placements for 2024 redraft exactly. `derivePlacements` (core) implements it.
   - `matchup.bracket` / `bracket_round` / `placement_at_stake` / `is_championship` come from this. Every Sleeper playoff-week game in the five seasons we hold matched a bracket entry (no `game_type = 'none'` games from Sleeper), so scopes work from the brackets alone.
-- **Bracket placements vs the legacy hand-entered placements.** They agreed for 2024 redraft and dynasty and differed by one adjacent pair in three seasons (2022 redraft 7th/8th, 2023 redraft 5th/6th, 2023 dynasty 5th/6th). The owner confirmed the hand-entered values were wrong, so **the brackets win for every Sleeper season**. The legacy values are kept as *inactive* `final_place` overrides for reference. An *active* override (an admin's, or the imported ones for the ESPN seasons, which have no brackets) still beats the brackets.
+- **Bracket placements vs the legacy hand-entered placements.** They agreed for 2024 redraft and dynasty and differed by one adjacent pair in three seasons (2022 redraft 7th/8th, 2023 redraft 5th/6th, 2023 dynasty 5th/6th). The owner confirmed the hand-entered values were wrong, so **the brackets win for every Sleeper season**. The legacy values are kept as _inactive_ `final_place` overrides for reference. An _active_ override (an admin's, or the imported ones for the ESPN seasons, which have no brackets) still beats the brackets.
 - **ESPN seasons in the Mongo cache (2020, 2021).** Only weekly matchup scores per team, plus the configured final placements and playoff-qualified teams. No player data (so no lineup/potential/bench records), no projections, no transactions, no draft, no brackets, no median setting, and no scores for teams without a game. 2020 has 9 teams, so one team is missing from every week's schedule (its score is unknown). Consequence: their playoff-week games have no bracket entry, so they are `game_type = 'none'` (doc §2) until the ESPN scraper (§5) brings brackets (decided: the brackets will be scraped, not inferred). All `has_*` flags are false for these seasons.
-- **Sleeper re-serves past weeks with the *current* scoring, and `finalize`.** Re-fetching a past week can therefore change numbers. `finalize` re-fetches the season (`force`), normalizes with upserts (matchup and team-week ids stay stable) and re-derives; derived tables are wiped and refilled in one transaction, so it is safe to re-run. Verified: two forced re-runs left every derived row identical.
+- **Sleeper re-serves past weeks with the _current_ scoring, and `finalize`.** Re-fetching a past week can therefore change numbers. `finalize` re-fetches the season (`force`), normalizes with upserts (matchup and team-week ids stay stable) and re-derives; derived tables are wiped and refilled in one transaction, so it is safe to re-run. Verified: two forced re-runs left every derived row identical.
 - **Why Sleeper's own roster totals differ from the served matchup points (dynasty 2023 and 2025).** Investigated with Sleeper's stats endpoint (`GET /v1/stats/nfl/regular/{season}/{week}`: raw stat lines per player).
-  - Recomputing every rostered player's points from those stats and the league's *current* scoring settings reproduces the served matchup points exactly (0 differences over all rostered player-weeks, 2023 weeks 1-14). So the matchup numbers are correct for today's scoring.
-  - **Dynasty 2023 (explained, and fixed in the data):** Sleeper's roster totals (`fpts`) were 14-22 PF higher per team. The gap tracks the starting quarterbacks' interceptions: the league played weeks 1-13 with `pass_int = -1` and changed it to **-2 from week 14** (the current setting). Sleeper keeps the standings it computed at the time but serves old matchups under today's scoring. Re-scoring weeks 1-13 at -1 reproduces Sleeper's official W-L **and PF for all 10 teams exactly**. Two week-12 games flip as a result: *Purdy fly for a white guy* beats *Team ZekNikZ* (122.86-121.52, served 117.86-118.52) and *breeces pieces* beats *The Jackson 31* (189.38-188.44, served 188.38-188.44).
-  - **Dynasty 2025:** Sleeper's totals are 0-3.5 PF higher per team, with no W-L difference; PF and PA both net +19.0, so the differences sit in specific games. No single scoring stat (or pair or triple) fits the gaps and there are no commissioner adjustments. The owner checked the three candidate games on the Sleeper site (weeks 5, 7 and 14 against *Running Back Heaven*) and found nothing. It stays an accepted, unexplained discrepancy that cannot change any result; records use the served points.
+  - Recomputing every rostered player's points from those stats and the league's _current_ scoring settings reproduces the served matchup points exactly (0 differences over all rostered player-weeks, 2023 weeks 1-14). So the matchup numbers are correct for today's scoring.
+  - **Dynasty 2023 (explained, and fixed in the data):** Sleeper's roster totals (`fpts`) were 14-22 PF higher per team. The gap tracks the starting quarterbacks' interceptions: the league played weeks 1-13 with `pass_int = -1` and changed it to **-2 from week 14** (the current setting). Sleeper keeps the standings it computed at the time but serves old matchups under today's scoring. Re-scoring weeks 1-13 at -1 reproduces Sleeper's official W-L **and PF for all 10 teams exactly**. Two week-12 games flip as a result: _Purdy fly for a white guy_ beats _Team ZekNikZ_ (122.86-121.52, served 117.86-118.52) and _breeces pieces_ beats _The Jackson 31_ (189.38-188.44, served 188.38-188.44).
+  - **Dynasty 2025:** Sleeper's totals are 0-3.5 PF higher per team, with no W-L difference; PF and PA both net +19.0, so the differences sit in specific games. No single scoring stat (or pair or triple) fits the gaps and there are no commissioner adjustments. The owner checked the three candidate games on the Sleeper site (weeks 5, 7 and 14 against _Running Back Heaven_) and found nothing. It stays an accepted, unexplained discrepancy that cannot change any result; records use the served points.
   - **As-played scoring (owner decision, 2026-10-06):** a season's standings and every record use the scoring that applied when it was played. `league_season.scoring_overrides` holds rules (`{ stat, points, fromWeek?, toWeek? }`); during normalize, player, starter and team points are re-scored from Sleeper's raw stats (`GET /v1/stats/nfl/regular/{season}/{week}`, cached in `raw_payload`) by the per-player delta (units x (as-played - current points per unit)). Only dynasty 2023 has a rule (`pass_int` = -1, weeks 1-13); it is seeded by `migrate:mongo` and editable in the admin UI (M6). Seasons without rules are unchanged.
 - **Per-week player position and eligibility.** Sleeper has no per-week position or eligibility. The snapshot keeps nflverse's position for that week unless it conflicts with Sleeper's fantasy view (found in real data: nflverse lists a running back as a DB through an ID collision, and a QB who is TE-eligible on Sleeper); then Sleeper's position wins. Eligibility is the union of both plus the slot a starter actually filled. The legacy used today's position only. Result: no team-week anywhere has an actual lineup better than its computed optimum.
 - **`REC_FLEX` is WR/TE, not RB/WR.** The legacy mapped it as RB/WR (and IDP positions loosely). Real lineups settle it: across the league's history the `REC_FLEX` starters are 111 TEs and 59 WRs and no RBs. `SLOT_ELIGIBILITY` in core uses WR/TE.
