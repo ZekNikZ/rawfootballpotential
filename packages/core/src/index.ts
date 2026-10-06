@@ -10,3 +10,4 @@ export * from "./tenure";
 export * from "./retention";
 export * from "./transactions";
 export * from "./display";
+export * from "./placements";

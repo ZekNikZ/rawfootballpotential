@@ -8,9 +8,26 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "build": "tsdown",
-    "dev": "tsx watch src/worker.ts"
+    "dev": "tsx watch src/worker.ts",
+    "ingest": "tsx src/cli.ts",
+    "migrate:mongo": "tsx src/cli.ts migrate-mongo"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "dependencies": {
+    "@rfp/core": "workspace:*",
+    "@rfp/db": "workspace:*",
+    "csv-parse": "^7.0.3",
+    "csv-stringify": "^6.9.0",
+    "pg": "^8.23.1",
+    "pg-boss": "^12.36.0",
+    "pino": "^10.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "mongodb": "^7.7.0",
+    "pino-pretty": "^13.2.0"
+  }
 }

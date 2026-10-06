@@ -17,7 +17,9 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @rfp/db db:generate",
     "db:migrate": "pnpm --filter @rfp/db db:migrate",
-    "db:check": "pnpm --filter @rfp/db db:check"
+    "db:check": "pnpm --filter @rfp/db db:check",
+    "migrate:mongo": "pnpm --filter @rfp/ingest migrate:mongo",
+    "ingest": "pnpm --filter @rfp/ingest ingest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
