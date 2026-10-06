@@ -4,6 +4,10 @@ import { buildApp } from "../src/app";
 import { parseFeed } from "../src/info/blog";
 import { createWorld, type World } from "./helpers";
 
+// Responses are parsed JSON; tests assert on their shape, so they are deliberately untyped.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Json = any;
+
 let w: World;
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -15,7 +19,7 @@ afterAll(async () => {
   await w?.close();
 });
 
-const get = async <T = any>(url: string) => {
+const get = async <T = Json>(url: string) => {
   const res = await app.inject({ method: "GET", url });
   return {
     status: res.statusCode,
@@ -29,11 +33,11 @@ describe("records over HTTP", () => {
     const { status, body } = await get("/api/leagues/fx/records");
     expect(status).toBe(200);
     expect(body.records.length).toBeGreaterThan(50);
-    const faab = body.records.find((r: any) => r.id === "waiver.faab-high");
+    const faab = body.records.find((r: Json) => r.id === "waiver.faab-high");
     expect(faab).toMatchObject({ availableFrom: 2030, requires: expect.arrayContaining(["faab"]) });
-    expect(body.records.find((r: any) => r.id === "draft.price-high").availableFrom).toBeNull();
+    expect(body.records.find((r: Json) => r.id === "draft.price-high").availableFrom).toBeNull();
     // the UI builds its filter controls from this list
-    expect(body.records.find((r: any) => r.id === "score.high").filters).toEqual(
+    expect(body.records.find((r: Json) => r.id === "score.high").filters).toEqual(
       expect.arrayContaining(["seasons", "scope", "weeks", "onePer"])
     );
   });
@@ -85,7 +89,7 @@ describe("head-to-head, trophies and franchise profile", () => {
     const { body } = await get("/api/leagues/fx/h2h");
     const id = (name: string) =>
       Number(
-        Object.entries(body.entities.franchises).find(([, f]: any) => f.teamName === name)![0]
+        Object.entries(body.entities.franchises).find(([, f]: Json) => f.teamName === name)![0]
       );
     const [t1, t2, t4] = [id("Team 1"), id("Team 2"), id("Team 4")];
     expect(body.matrix[t1][t4]).toEqual({ w: 2, l: 2, t: 0, games: 4 });
@@ -104,8 +108,8 @@ describe("head-to-head, trophies and franchise profile", () => {
 
   it("trophy case (doc §4.1) with correct season totals (doc §1.4 bug 3)", async () => {
     const { body } = await get("/api/leagues/fx/trophies");
-    const t = body.trophies as any[];
-    const name = (e: any) => body.entities.teamSeasons[e.teamSeasonId].name;
+    const t = body.trophies as Json[];
+    const name = (e: Json) => body.entities.teamSeasons[e.teamSeasonId].name;
     const of = (type: string, season?: number) =>
       t.filter((e) => e.type === type && (season === undefined || e.season === season));
 
@@ -155,13 +159,13 @@ describe("head-to-head, trophies and franchise profile", () => {
     const list = await get("/api/leagues/fx/franchises");
     const t1 = Number(
       Object.entries(list.body.entities.franchises).find(
-        ([, f]: any) => f.teamName === "Team 1"
+        ([, f]: Json) => f.teamName === "Team 1"
       )![0]
     );
     const { status, body } = await get(`/api/leagues/fx/franchises/${t1}`);
     expect(status).toBe(200);
     expect(
-      body.seasons.map((s: any) => [
+      body.seasons.map((s: Json) => [
         s.season,
         s.finalPlace,
         s.record.wins,
@@ -174,9 +178,9 @@ describe("head-to-head, trophies and franchise profile", () => {
       [2031, 3, 6, 2, 0, 545],
     ]);
     expect(body.entities.managers[body.seasons[0].managerId].name).toBe("Manager 1");
-    const wins = body.records.find((r: any) => r.id === "career.wins");
+    const wins = body.records.find((r: Json) => r.id === "career.wins");
     expect(wins).toMatchObject({ rank: 1, of: 6 });
-    expect(body.trophies.some((e: any) => e.type === "placement" && e.value === 2)).toBe(true);
+    expect(body.trophies.some((e: Json) => e.type === "placement" && e.value === 2)).toBe(true);
     expect((await get("/api/leagues/fx/franchises/99999")).status).toBe(404);
   });
 });
@@ -184,11 +188,11 @@ describe("head-to-head, trophies and franchise profile", () => {
 describe("season info pages (may include live data)", () => {
   const sid = () => w.fixture.seasonIds[2030]!;
 
-  it("standings after any week", async () => {
+  it("standings after Json week", async () => {
     const { body } = await get(`/api/seasons/${sid()}/standings?week=3`);
     expect(body.weeks).toEqual([1, 2, 3, 4, 5]);
     expect(
-      body.rows.map((r: any) => [
+      body.rows.map((r: Json) => [
         r.rank,
         body.entities.teamSeasons[r.team_season_id].name,
         r.wins,
@@ -209,16 +213,16 @@ describe("season info pages (may include live data)", () => {
 
   it("matchups: games with scores, the bracket round, idle teams and lineups", async () => {
     const wk4 = (await get(`/api/seasons/${sid()}/matchups?week=4`)).body;
-    expect(wk4.games.map((g: any) => [g.gameType, g.bracket, g.counts])).toEqual([
+    expect(wk4.games.map((g: Json) => [g.gameType, g.bracket, g.counts])).toEqual([
       ["playoffs", "winners", true],
       ["playoffs", "winners", true],
       ["none", null, false],
     ]);
     const wk5 = (await get(`/api/seasons/${sid()}/matchups?week=5&players=1`)).body;
-    expect(wk5.games.find((g: any) => g.isChampionship)).toMatchObject({ placementAtStake: 1 });
-    expect(wk5.idle.map((t: any) => t.points).sort()).toEqual([60, 70]);
+    expect(wk5.games.find((g: Json) => g.isChampionship)).toMatchObject({ placementAtStake: 1 });
+    expect(wk5.idle.map((t: Json) => t.points).sort()).toEqual([60, 70]);
     const team = wk5.games[0].teams[0];
-    expect(team.lineup.filter((p: any) => p.slotKind === "starter").length).toBe(3);
+    expect(team.lineup.filter((p: Json) => p.slotKind === "starter").length).toBe(3);
     expect(team.lineup.length).toBe(4);
   });
 
@@ -227,9 +231,9 @@ describe("season info pages (may include live data)", () => {
     expect(t.teams.length).toBe(6);
     const tx = (await get(`/api/seasons/${sid()}/transactions`)).body;
     expect(tx.total).toBe(3);
-    expect(tx.transactions.map((x: any) => x.status)).toEqual(["complete", "failed", "complete"]); // newest first; the two week-2 claims share a timestamp, so newest id first;
+    expect(tx.transactions.map((x: Json) => x.status)).toEqual(["complete", "failed", "complete"]); // newest first; the two week-2 claims share a timestamp, so newest id first;
     expect((await get(`/api/seasons/${sid()}/transactions?type=trade`)).body.total).toBe(1);
-    const failed = tx.transactions.find((x: any) => x.status === "failed");
+    const failed = tx.transactions.find((x: Json) => x.status === "failed");
     expect(failed.failureReason).toBe("Player was claimed by another team.");
     expect(
       (await get(`/api/seasons/${w.fixture.seasonIds[2031]}/draft`)).body.drafts[0].picks.length
@@ -249,7 +253,7 @@ describe("site, health and blog", () => {
   it("lists leagues with seasons and data flags", async () => {
     const { body } = await get("/api/leagues");
     expect(body.leagues[0]).toMatchObject({ slug: "fx", type: "redraft" });
-    expect(body.leagues[0].seasons.map((s: any) => s.year)).toEqual([2030, 2031]);
+    expect(body.leagues[0].seasons.map((s: Json) => s.year)).toEqual([2030, 2031]);
     expect(body.leagues[0].seasons[1].data).toMatchObject({
       playerData: true,
       draft: true,
