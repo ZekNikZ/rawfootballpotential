@@ -21,6 +21,7 @@ import {
   type Db,
 } from "@rfp/db";
 import {
+  asleepAtWheel,
   buildGameResults,
   buildTenures,
   derivePlacements,
@@ -32,13 +33,14 @@ import {
   type LineupPlayer,
   type PlacementGame,
   type RosterEvent,
+  type WeekPlayer,
 } from "@rfp/core";
 import { and, asc, eq, inArray, isNull, or, sql } from "@rfp/db";
 import { log } from "../lib/log";
 import { teamSeasonOverrideKey } from "../sleeper/games";
 
 /** Bump when derive logic changes; ingest recomputes seasons whose data_version.derive_version is behind. */
-export const DERIVE_VERSION = 1;
+export const DERIVE_VERSION = 2;
 
 const chunk = <T>(arr: readonly T[], size: number): T[][] => {
   const out: T[][] = [];
@@ -133,6 +135,7 @@ export async function deriveSeason(db: Db, leagueSeasonId: number): Promise<Deri
   // ---- Optimal lineups from player_week (every rostered player, that week's position snapshot) ----
   const completeTw = tw.filter((t) => complete.has(t.week));
   const pwByTw = new Map<number, LineupPlayer[]>();
+  const weekPlayersByTw = new Map<number, WeekPlayer[]>();
   const pwMeta = new Map<
     number,
     {
@@ -157,6 +160,20 @@ export async function deriveSeason(db: Db, leagueSeasonId: number): Promise<Deri
         eligiblePositions: r.eligiblePositions,
       });
       pwByTw.set(r.teamWeekId, list);
+      const wp = weekPlayersByTw.get(r.teamWeekId) ?? [];
+      wp.push({
+        id: r.playerId,
+        points: r.points ?? 0,
+        position: r.position,
+        eligiblePositions: r.eligiblePositions,
+        slot: r.slot,
+        slotKind: r.slotKind,
+        // A known NFL team with no game that week is on bye. A player with points did play: nflverse has no row for
+        // a game that was cancelled mid-way (BUF-CIN, 2022 week 17), and a bye player always scores 0.
+        onBye: r.nflTeam !== null && r.nflGameId === null && (r.points ?? 0) === 0,
+        nflStatus: r.nflStatus,
+      });
+      weekPlayersByTw.set(r.teamWeekId, wp);
       const meta = pwMeta.get(r.teamWeekId) ?? {
         bench: 0,
         ir: 0,
@@ -202,6 +219,7 @@ export async function deriveSeason(db: Db, leagueSeasonId: number): Promise<Deri
         optimal = actual;
       }
     }
+    const asleep = players ? asleepAtWheel(weekPlayersByTw.get(t.id) ?? []) : null;
     const s = weekStatByTw.get(t.id);
     const wk = weekMedian.get(t.week);
     statsRows.push({
@@ -221,6 +239,9 @@ export async function deriveSeason(db: Db, leagueSeasonId: number): Promise<Deri
       allplayT: s?.allPlay.t ?? null,
       topPlayerShare:
         meta && meta.starterTotal > 0 ? round3(meta.maxStarter / meta.starterTotal) : null,
+      asleepStarters: asleep?.deadStarters ?? null,
+      byeStarters: asleep?.byeStarters ?? null,
+      asleepPointsLost: asleep?.pointsLost ?? null,
     });
   }
 

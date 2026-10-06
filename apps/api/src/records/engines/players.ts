@@ -17,7 +17,7 @@ const strList = (values: readonly string[]): SQL =>
   );
 
 /** Filters on rec_player_week rows (alias `pw`) shared by the player engines. */
-function playerFilters(ctx: RunContext): SQL {
+export function playerFilters(ctx: RunContext): SQL {
   const { q } = ctx;
   return sql`
     ${seasonCond(sql`pw.league_season_id`, ctx.seasonIds)}

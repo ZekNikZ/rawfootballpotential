@@ -32,6 +32,32 @@ import {
   mostMovedRecord,
   tradeRecord,
 } from "./engines/transactions";
+import {
+  allPlayRecord,
+  draftClassRecord,
+  scheduleSwapRecord,
+  seedFinishRecord,
+  trajectoryRecord,
+  weeklyCountsRecord,
+} from "./engines/season-extra";
+import {
+  careerMarginsRecord,
+  careerRegretRecord,
+  careerRunsRecord,
+  careerWeeklyRecord,
+  rivalryRecord,
+} from "./engines/career-extra";
+import {
+  dropRegretRecord,
+  draftValueRecord,
+  journeymanRecord,
+  loyaltyRecord,
+  nflStackRecord,
+  pickupRecord,
+  playerProjectionRecord,
+  tradeValueRecord,
+} from "./engines/player-extra";
+import { extraTeamWeekRecord } from "./engines/team-week-extra";
 import { resolveRows, type Entities, type ResolvedRow } from "./entities";
 import { minGames } from "./engines/season-base";
 
@@ -55,6 +81,26 @@ const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
   draftPrice: draftPriceRecord,
   mostMoved: mostMovedRecord,
   trade: tradeRecord,
+  extraTeamWeek: extraTeamWeekRecord,
+  playerProjection: playerProjectionRecord,
+  nflStack: nflStackRecord,
+  allPlay: allPlayRecord,
+  scheduleSwap: scheduleSwapRecord,
+  weeklyCounts: weeklyCountsRecord,
+  seedFinish: seedFinishRecord,
+  trajectory: trajectoryRecord,
+  draftClass: draftClassRecord,
+  pickup: pickupRecord,
+  dropRegret: dropRegretRecord,
+  tradeValue: tradeValueRecord,
+  journeyman: journeymanRecord,
+  loyalty: loyaltyRecord,
+  draftValue: draftValueRecord,
+  careerRegret: careerRegretRecord,
+  careerMargins: careerMarginsRecord,
+  careerWeekly: careerWeeklyRecord,
+  careerRuns: careerRunsRecord,
+  rivalry: rivalryRecord,
 };
 
 const REQUIREMENT_FLAG: Record<Requirement, keyof typeof leagueSeason.$inferSelect> = {

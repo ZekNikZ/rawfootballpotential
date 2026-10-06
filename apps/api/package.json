@@ -11,6 +11,8 @@
     "dev": "tsx watch src/server.ts",
     "parity": "tsx scripts/parity/run.ts",
     "prewarm": "tsx scripts/prewarm.ts",
+    "show-record": "tsx scripts/show-record.ts",
+    "sweep-records": "tsx scripts/sweep-records.ts",
     "admin:create-owner": "tsx scripts/create-owner.ts"
   },
   "files": [

@@ -168,6 +168,8 @@ export async function resolveRows(
     else if (r.refs.franchiseId) refs.managerId = currentManager(r.refs.franchiseId);
     if (r.refs.opponentTeamSeasonId)
       refs.opponentManagerId = managerOf(r.refs.opponentTeamSeasonId, r.refs.week);
+    else if (r.refs.opponentFranchiseId)
+      refs.opponentManagerId = currentManager(r.refs.opponentFranchiseId);
     return { rank: r.rank, values: { ...r.data, value: r.value }, refs, inProgress: r.inProgress };
   });
   return { rows: resolved, entities };

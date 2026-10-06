@@ -40,6 +40,12 @@ export const teamWeekStats = pgTable("team_week_stats", {
   allplayT: integer(),
   /** Largest single-player share of the team's starter points. */
   topPlayerShare: pts(),
+  /** Starters on an NFL bye or inactive that week (doc 4.5). null without player data. */
+  asleepStarters: integer(),
+  /** Of those, starters whose NFL team was on bye. */
+  byeStarters: integer(),
+  /** Points the best eligible live bench players would have added in the dead starters' slots. */
+  asleepPointsLost: pts(),
 });
 
 /**

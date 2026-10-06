@@ -1,3 +1,4 @@
+import { EXTRA_RECORDS } from "./catalog-extra";
 import type { ActivePolicy, ColumnDef, FilterKey, RecordDef, Requirement } from "./types";
 
 // Column building blocks ------------------------------------------------------------------------------------
@@ -988,6 +989,7 @@ export const RECORD_CATALOG: readonly RecordDef[] = [
   ...lineups,
   ...scoring,
   ...careerTx,
+  ...EXTRA_RECORDS,
 ];
 
 const byId = new Map(RECORD_CATALOG.map((r) => [r.id, r]));

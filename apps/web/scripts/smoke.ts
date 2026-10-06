@@ -58,8 +58,12 @@ const check = (ok: boolean, what: string) => {
   await page.getByRole("button", { name: "Next week" }).click();
   await page.waitForURL(/\/matchups\/17$/);
   check(true, "next-week button moves to week 17");
+  // Week 16's games stay on screen until week 17's arrive (and remount); expanding one before then would be lost.
+  await page.getByText("Championship").first().waitFor();
   await page.getByRole("button", { name: "Show lineups" }).first().click();
-  check(await page.getByText("Starters").first().isVisible(), "a game's lineups expand");
+  const starters = page.getByText("Starters").first();
+  await starters.waitFor({ state: "visible", timeout: 5000 }).catch(() => undefined);
+  check(await starters.isVisible(), "a game's lineups expand");
   await page.getByRole("button", { name: "Previous week" }).click();
   await page.waitForURL(/\/matchups\/16$/);
 

@@ -190,7 +190,8 @@ player_id_map       player_id, sleeper_id, espn_id, gsis_id, ...  -- dynastyproc
 ```
 team_week_stats     team_week_id, optimal_points, bench_points, ir_points, projected_points,
                     lineup_iq, is_perfect, week_median, week_mean, week_rank, week_zscore,
-                    allplay_w, allplay_l, allplay_t, top_player_share
+                    allplay_w, allplay_l, allplay_t, top_player_share,
+                    asleep_starters, bye_starters, asleep_points_lost   (M8, §3.11.3)
 game_result         team_season_id, franchise_id, league_season_id, week, seq,
                     kind (h2h|median), opponent_team_season_id?, result (W|L|T),
                     game_type, points_for, points_against
@@ -703,6 +704,36 @@ All six pages are live and the nav no longer shows "Soon" items (the capability 
 - `/:league/standings` (and `matchups`, `teams`, `teams/rosters`, `transactions`, `draft`) redirect to the latest season.
 - Seasons without a kind of data (the 2020 / 2021 ESPN years have no transactions, drafts or lineups) say so in place of an empty page. `check:contract` now parses every season's responses for these endpoints.
 
+#### 3.11.3 Additional records as built (M8)
+
+All of §4.5 is in the catalog: 66 records in 17 sections (137 records in all), each with a one-line description shown under the picker. They need no new API route, no new column type and no change to the web app: the catalog drives the pages. The only schema change is three columns on `team_week_stats` (below), which bumps `DERIVE_VERSION` to 2; a server that takes this release must run `derive` for every season once (the worker does it on its own, because `data_version.derive_version` is behind) and apply migration `0004`.
+
+**New derived columns** (`team_week_stats`, filled by derive from `player_week`): `asleep_starters` (starters on a bye or not active), `bye_starters` (the part of that on a bye) and `asleep_points_lost` (what the best live bench players eligible for the dead slots would have scored, live starters left in place; core `asleepAtWheel`, never negative).
+
+**Definitions that §4.5 left open** (the owner can overrule any of these; each is one line in the catalog or one SQL expression):
+
+- **Dead starter.** A starter whose NFL team had no game that week _and who scored 0_, or whose nflverse roster status is not `ACT`. The "scored 0" part exists because nflverse has no row for a cancelled game (BUF-CIN, 2022 week 17, stopped after a quarter): those players have no game but did score. A missing status counts as active.
+- **Unluckiest loss / luckiest win.** Ranked by the weekly score rank (1 = highest, ties share a rank), then by the score (a higher losing score is unluckier, a lower winning score luckier). "Bottom 3" is simply the top of the luckiest list. A head-to-head loss with the top score can't happen, so the list starts at rank 2.
+- **Should've won.** A loss whose optimal lineup beats the opponent's _actual_ score (a tie is not a win). Ranked by points left on the bench. **Coulda been a contender.** The team's first playoff loss of the season (its elimination from the title race), when the same test holds. Career versions count them, with the share of the team's losses.
+- **All-play luck.** Expected wins = all-play win % x games; luck = actual wins (ties half) minus expected. Regular season, head-to-head wins only, 8-game minimum (the `minGames` filter lowers it).
+- **Schedule swap.** Regular season only. Each of your weekly scores is played against the opponent that another team faced that week (skipped when that opponent was you). Best and worst by win %; the schedule's owner is shown.
+- **Top / lowest scorer weeks.** The week's highest (lowest) score among the teams with a counted game; ties count for every tied team.
+- **One-man show.** `top_player_share`: the best starter's share of starter points. **Boom / bust.** Team: actual score minus the starters' projections (projections exist from 2022). Player: starters only, bye and inactive starters left out. **Biggest upset:** a win with the largest projected deficit. **Era-adjusted:** the weekly z-score.
+- **Close games and blowouts.** Margin under 5 (strict) and over 50, head-to-head wins and losses; four career records.
+- **Rivalries.** Franchise pairs, head-to-head games in the chosen scope. Most-played, most lopsided (win % with at least 6 games) and the longest win streak (a tie ends a streak), all across seasons. The first team listed is the one with more wins.
+- **Seed vs. finish and champions.** Regular-season scope. "Worst record to make the playoffs" and "best record to miss them" use win % (median games per the median filter). Worst champion / best non-champion rank regular-season PF and show all-play %. Seeds are what Sleeper reports.
+- **Trajectory.** Most weeks in first place (regular season) by a team that didn't win the title. Biggest fall: first place after the last regular-season week (or after any week in the weeks filter) and the worst finish.
+- **Droughts and streaks.** Runs of consecutive completed seasons: without a title, with a playoff trip, with a toilet bowl game. Every franchise is listed, with a run of 0 if it never did.
+- **Best waiver pickup / best $ value / FAAB per point.** Successful waiver claims only (not free agents). Starter points are the player's points as a starter for the claiming team from the claim week to the end of that stint (`player_tenure`). $ value uses bids of at least $1; "$ per point" counts a claim that scored under one point as one.
+- **Drop regret.** Starter points scored for other teams after a drop, rest of that season only. **Trade winner.** Starter points the players a side received scored for it until the stint ended; "best trade" ranks sides, "most lopsided" ranks trades (best side minus worst side, only trades where at least two sides received players).
+- **Journeyman** (all-time: distinct franchises; season: distinct teams in one season), **loyalty** (consecutive league weeks with one franchise, counting across seasons, so the last week of 2024 and the first of 2025 are adjacent) and **boomerang** (the longest gap between two stints of one player on one franchise).
+- **Draft steal / bust.** Within one draft, QB / RB / WR / TE only: the pick's place in draft order minus where the player's season points (any team, any slot) ranked among those picks. "By round" became **best pick of each round** (one row per round). **Auction value:** season points per dollar (price of at least $1) and its reverse, dollars per point. **Draft class:** starter points a team got from the players it drafted that season, while it had them.
+- **NFL game stack.** Starter points from players in one NFL game (needs `nfl_game_id`). **Bye-week survivor:** the highest score with at least two starters on a bye. **Heaviest bye week survived:** the most starters on a bye in a game the team won.
+
+**Not built (needs an owner decision).** "Losing to the median with a 2nd-place weekly score" is contradictory: a 2nd-highest score is above the median, so it can't lose to it. If the intent was "lost the head-to-head but won the median", it is the unluckiest-loss list restricted to median weeks.
+
+**Verification.** `apps/api/test/records-extra.test.ts` checks 92 cases against the fixture leagues with every expected value worked out by hand (luck, all-play, schedule swap, champions, rivalries and streaks, draft value, pickups, loyalty) and runs every new record under four filter sets. A second fixture world is hand-edited (bye, inactive, cancelled game, a big bench score) and re-derived to check the bye and regret records. On the dev data, asleep-at-the-wheel (one team-week by hand), drop regret and trade value (against separate SQL) matched. `pnpm --filter @rfp/api sweep-records` runs every record with seven filter sets against the dev database (1,918 runs, none failing, the slowest 450 ms); `show-record <id>` prints one record's top rows.
+
 ## 4. Record catalog
 
 Legend:
@@ -769,7 +800,7 @@ The player records are six records (roster, starters only and bench only, each h
 
 ### 4.5 Additional records (accepted)
 
-All accepted. They're grouped by data cost. Everything in the first group runs on data the schema above already has.
+All accepted, and all built in M8 (§3.11.3 says how each is defined). They're grouped by data cost. Everything in the first group runs on data the schema above already has.
 
 **No new data**
 
