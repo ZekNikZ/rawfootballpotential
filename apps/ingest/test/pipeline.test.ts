@@ -6,8 +6,11 @@ import { SleeperClient } from "../src/sleeper/client";
 import { teamWeekOverrideKey } from "../src/sleeper/games";
 import { syncPlayers } from "../src/sleeper/players";
 import { bootstrapSleeperSeason, syncSleeperSeason } from "../src/sleeper/sync";
-import { LEAGUE_ID, route } from "./fixture-league";
-import { createTempDb } from "./temp-db";
+import { FIXTURE_2030, fixtureRoute } from "../src/testing/fixture-league";
+import { createTempDb } from "../src/testing/temp-db";
+
+const LEAGUE_ID = FIXTURE_2030.leagueId;
+const route = fixtureRoute([FIXTURE_2030]);
 
 let db: Db;
 let close: () => Promise<void>;

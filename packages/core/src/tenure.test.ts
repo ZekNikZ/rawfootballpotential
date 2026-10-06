@@ -56,6 +56,18 @@ describe("buildTenures", () => {
     expect(res[0]).toMatchObject({ toWeek: 6, leftVia: null });
   });
 
+  it("a week-1 roster player who was drafted is a draft stint, not 'initial'", () => {
+    const res = buildTenures({
+      ...base,
+      initialPlayers: ["a", "z"],
+      events: [{ playerId: "a", week: 1, kind: "add", via: "draft" }],
+    });
+    expect(res.map((r) => [r.playerId, r.acquiredVia])).toEqual([
+      ["a", "draft"],
+      ["z", "initial"],
+    ]);
+  });
+
   it("players present without an add event start as 'initial'", () => {
     expect(buildTenures({ ...base, initialPlayers: ["z"], events: [] })[0]?.acquiredVia).toBe(
       "initial"

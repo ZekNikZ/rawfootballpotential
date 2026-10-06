@@ -41,8 +41,13 @@ export function buildTenures(input: TenureInput): Tenure[] {
   const open = new Map<Id, { fromWeek: number; via: AcquiredVia }>();
   const out: Tenure[] = [];
 
+  // A player who also has an add event at or before the first week (the draft, a pre-season claim) was acquired
+  // that way, not "initial": the roster snapshot only fills in players nothing else explains.
+  const explained = new Set<Id>(
+    input.events.filter((e) => e.kind === "add" && e.week <= input.firstWeek).map((e) => e.playerId)
+  );
   for (const p of input.initialPlayers ?? [])
-    open.set(p, { fromWeek: input.firstWeek, via: "initial" });
+    if (!explained.has(p)) open.set(p, { fromWeek: input.firstWeek, via: "initial" });
 
   const events = input.events
     .map((e, i) => ({ e, i }))

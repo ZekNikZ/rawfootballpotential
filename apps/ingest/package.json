@@ -29,5 +29,9 @@
     "mongodb": "^7.7.0",
     "pg": "^8.23.1",
     "pino-pretty": "^13.2.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   }
 }

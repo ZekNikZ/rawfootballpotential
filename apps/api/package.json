@@ -12,5 +12,17 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "dependencies": {
+    "@rfp/core": "workspace:*",
+    "@rfp/db": "workspace:*",
+    "fast-xml-parser": "^5.11.2",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@rfp/ingest": "workspace:*",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
+  }
 }
