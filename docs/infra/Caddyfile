@@ -1,0 +1,36 @@
+# Serves the SPA and proxies /api to the backend on the same origin
+# (no CORS; admin session cookies just work).
+# TLS is terminated by the external reverse proxy; Caddy only speaks plain HTTP here.
+{
+	auto_https off
+	servers {
+		# Trust X-Forwarded-For/Proto from the upstream proxy (private networks / Docker).
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		# Vite emits content-hashed files under /assets: cache forever.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		# index.html must always revalidate so new deploys are picked up.
+		@html path / /index.html
+		header @html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

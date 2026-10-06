@@ -1,0 +1,29 @@
+# Draft → .github/workflows/ci.yml in the new repo.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main, rewrite]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env: { POSTGRES_USER: rfp, POSTGRES_PASSWORD: rfp, POSTGRES_DB: rfp_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rfp" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://rfp:rfp@localhost:5432/rfp_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run lint typecheck
+      - run: pnpm db:migrate          # migrations must apply cleanly to an empty DB
+      - run: pnpm db:check            # drizzle-kit check: schema and committed migrations agree
+      - run: pnpm turbo run test      # unit + integration (against the service DB)
