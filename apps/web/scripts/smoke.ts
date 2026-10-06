@@ -41,7 +41,11 @@ const check = (ok: boolean, what: string) => {
   const url = page.url();
   await page.reload({ waitUntil: "networkidle" });
   check(page.url() === url, "URL state survives a reload");
-  const selected = await section.getByRole("radio", { checked: true }).first().innerText().catch(() => "");
+  const selected = await section
+    .getByRole("radio", { checked: true })
+    .first()
+    .innerText()
+    .catch(() => "");
   check(true, `restored control state (${selected.trim() || "season select"})`);
 
   // record picker changes the record and keeps the filter
@@ -54,11 +58,17 @@ const check = (ok: boolean, what: string) => {
   const fresh = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const p2 = await fresh.newPage();
   await p2.goto(`${base}/redraft`, { waitUntil: "networkidle" });
-  check(await p2.getByRole("dialog").isVisible(), "version history opens automatically on a new version");
+  check(
+    await p2.getByRole("dialog").isVisible(),
+    "version history opens automatically on a new version"
+  );
   await p2.keyboard.press("Escape");
   await p2.waitForTimeout(400);
   await p2.reload({ waitUntil: "networkidle" });
-  check(!(await p2.getByRole("dialog").isVisible()), "version history stays closed after being dismissed");
+  check(
+    !(await p2.getByRole("dialog").isVisible()),
+    "version history stays closed after being dismissed"
+  );
   await fresh.close();
 }
 
@@ -78,7 +88,9 @@ const check = (ok: boolean, what: string) => {
     "/redraft/franchises/5",
   ]) {
     await page.goto(base + path, { waitUntil: "networkidle" });
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
     check(overflow <= 0, `no horizontal page scroll on ${path} (overflow ${overflow}px)`);
   }
   await ctx.close();
