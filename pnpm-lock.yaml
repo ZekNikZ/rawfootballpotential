@@ -61,9 +61,6 @@ importers:
       csv-stringify:
         specifier: ^6.9.0
         version: 6.9.0
-      pg:
-        specifier: ^8.23.1
-        version: 8.23.1
       pg-boss:
         specifier: ^12.36.0
         version: 12.36.0(@opentelemetry/api@1.9.1)
@@ -80,6 +77,9 @@ importers:
       mongodb:
         specifier: ^7.7.0
         version: 7.7.0
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
       pino-pretty:
         specifier: ^13.2.0
         version: 13.2.0

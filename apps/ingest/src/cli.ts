@@ -11,6 +11,7 @@ import { syncPlayers } from "./sleeper/players";
 import { seasonRollover } from "./sleeper/rollover";
 import { syncNflReference } from "./nfl/reference";
 import { buildReport, formatReport } from "./report";
+import { createHandlers, type JobName } from "./jobs/handlers";
 
 const HELP = `usage: pnpm ingest <command> [options]
 
@@ -22,6 +23,7 @@ commands
   derive [--season ...]         recompute derived tables
   nfl-reference [--seasons 2022,2023] [--force]
   all [--force]                 players, rollover, sync + nfl-reference + derive for every season
+  job <name> [--season ...]     run a scheduled job now (live|daily|finalize|nfl-reference|season-rollover|recompute)
   report                        sanity report per season
 `;
 
@@ -29,6 +31,7 @@ async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const { values } = parseArgs({
     args: rest,
+    allowPositionals: true,
     options: {
       season: { type: "string" },
       seasons: { type: "string" },
@@ -83,15 +86,33 @@ async function main() {
       }
       case "all": {
         await syncPlayers(db, client, values.force ? hours(0) : hours(20));
-        await seasonRollover(db, client);
-        for (const s of await listSeasons(db, "all"))
-          await runSeasonPipeline(db, client, s, {
-            mode: "full",
-            force: values.force,
-            derive: false,
-          });
+        // Sync, then look for seasons Sleeper created since the newest one; repeat until nothing new appears.
+        const done = new Set<number>();
+        for (;;) {
+          const pending = (await listSeasons(db, "all")).filter((s) => !done.has(s.id));
+          for (const s of pending) {
+            await runSeasonPipeline(db, client, s, {
+              mode: "full",
+              force: values.force,
+              derive: false,
+            });
+            done.add(s.id);
+          }
+          if ((await seasonRollover(db, client)).length === 0) break;
+        }
         await syncNflReference(db, { force: values.force });
         for (const s of await listSeasons(db, "all")) await deriveSeason(db, s.id);
+        break;
+      }
+      case "job": {
+        const name = rest[0] as JobName;
+        const handlers = createHandlers({ db, client });
+        if (!handlers[name]) throw new Error(`unknown job ${String(name)}`);
+        const target = values.season ? (await listSeasons(db, values.season))[0] : undefined;
+        await handlers[name]({
+          ...(target ? { leagueSeasonId: target.id } : {}),
+          triggeredBy: "cli",
+        });
         break;
       }
       case "report":

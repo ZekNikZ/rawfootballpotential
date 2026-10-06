@@ -381,6 +381,16 @@ apps/web          React + Vite + TanStack Query; URL search params own filter st
 - **Pipeline order:** raw → normalize → derive → bump that season's `data_version` → pre-warm cache.
 - **Web:** each record table fetches its own ~25 rows when it's shown. Nothing loads the whole league.
 
+#### 3.6.1 Ingest as built (M3)
+
+- **Entry points** (`apps/ingest`, run with `pnpm ingest <command>`): `migrate-mongo`, `players`, `rollover`, `sync`, `derive`, `nfl-reference`, `job <name>`, `all`, `report`. The same code backs the pg-boss worker (`src/worker.ts`).
+- **Raw cache:** every Sleeper, nflverse and crosswalk response goes through `RawStore` and is stored in `raw_payload` (history kept). Completed seasons are served from the cache forever (`FOREVER`); the active season uses short freshness windows; `players/nfl` is fetched at most once per 20 hours. Calls are spaced to about 8 per second. nflverse weekly rosters are stored trimmed to the 11 columns we use (the full file is ~15 MB per season).
+- **Job schedule** (cron in `TZ`, default America/New_York): `live` every 5 minutes in game windows (Thu night, Sat, Sun, Mon night); `daily` 05:00; `nfl-reference` 05:30; `season-rollover` 07:00; `finalize` Tuesday 06:00 and a Wednesday re-run. On startup the worker recomputes seasons whose `data_version.derive_version` is behind `DERIVE_VERSION`. Every run is recorded in `sync_run`.
+- **Season rollover** has no Sleeper endpoint to ask, so it asks each owner of the newest season for their leagues in the next year and matches `previous_league_id`.
+- **Standings tie-break:** record (ties count half), then points for. That is Sleeper's default order; there is no further tie-break.
+- **Overrides applied so far:** `team_week.points` (`ls:{league_season_id}:r:{roster}:w:{week}`) during normalize, and `team_season.final_place` (`ls:{id}:r:{roster}`) during derive. `migrate:mongo` stores the legacy hand-entered placements as `final_place` overrides.
+- **Trophies:** only the five kinds in §4.1 are produced. The legacy "Smartypants" (lineup IQ > 0.999) trophy is not in §4.1; its threshold is stored (`league_threshold.smartypants`) in case it is wanted back.
+
 ### 3.7 Active (current) season support
 
 The active season goes through the same tables as history. "Current" is just a season whose `status` isn't `complete` and whose weeks aren't all `complete`. There's no separate live schema to keep in sync.
@@ -758,12 +768,15 @@ Check per season for gaps in older years.
 6. ESPN data contract audit + Playwright scraper.
 7. The new records (§4).
 
-## 7. Open items to check during build
+## 7. Open items (answered during M3, 2026-10-05, from real data)
 
-- What Sleeper returns in playoff weeks for teams with no bracket game (`matchup_id` null?). The answer decides the `game_type = 'none'` handling.
-- How Sleeper's `p` field and the losers bracket behave across seasons, including how losers-bracket placements map onto final placements.
-- Whether ESPN's historical seasons have full per-player box scores and projections.
-- Whether ESPN box scores include bench and IR players for older seasons. Without them, potential points and bench records don't work for those seasons, and `has_player_data` covers it.
-- Whether Sleeper returns points for teams with no playoff game. If not, those weeks can't support "scores that didn't count".
-- How stat corrections show up after a week is finalized. `finalize` must be safe to re-run.
-- Whether the existing Mongo ESPN data has bench / IR / transactions / draft. That decides how much the scraper has to re-collect versus what we can migrate.
+- **What Sleeper returns in playoff weeks for teams with no bracket game.** `matchup_id` is `null` and the entry carries a real `points` value. Idle teams must never be grouped into a game (`pairWeek` pairs only ids shared by exactly two teams). Those weeks are stored as `team_week` rows with `counts = false`, so "scores that didn't count" works for Sleeper. Sleeper also serves matchups for weeks after the season (e.g. week 18: all `matchup_id: null`, with scores); ingest stops at `last_week` (the playoff start plus the bracket's rounds, minus 1).
+- **Sleeper's `p` field and the bracket shape.** Verified on 2022-2025 (all `playoff_round_type = 0`, one round per week, round `r` is played in week `playoff_week_start + r - 1`; `t1`/`t2` are roster ids once known).
+  - The *winners* bracket also contains consolation games among teams eliminated in round 1. `p` appears only on the games that decide a place: `p:1` the final, `p:3` the semifinal losers, `p:5` the round-1 losers, and so on. Games without `p` have no placement at stake (the loser simply takes the next open place).
+  - The *losers* bracket is a consolation bracket for the teams that missed the playoffs, played for **last place**: the **lower** scorer is Sleeper's "winner" (`w`) and advances. `p:1` is the game that decides last place, so the lower scorer takes place `N`, the higher `N - 1`; `p:3` decides `N - 2` / `N - 3`, and so on. This reproduces the legacy hand-entered placements for 2024 redraft exactly. `derivePlacements` (core) implements it.
+  - `matchup.bracket` / `bracket_round` / `placement_at_stake` / `is_championship` come from this. Every Sleeper playoff-week game in the five seasons we hold matched a bracket entry (no `game_type = 'none'` games from Sleeper), so scopes work from the brackets alone.
+- **Bracket placements vs the legacy hand-entered placements.** They agree for 2024 redraft and 2024 dynasty (2025 has no hand-entered values, so it uses the brackets). They **disagree** in three seasons, each time on one pair of adjacent places: 2022 redraft (7th/8th), 2023 redraft (5th/6th) and 2023 dynasty (5th/6th). The legacy value is kept (it is stored as a `final_place` override, applied after the brackets), and the report lists the pairs. Open question for the owner; see the M3 report.
+- **ESPN seasons in the Mongo cache (2020, 2021).** Only weekly matchup scores per team, plus the configured final placements and playoff-qualified teams. No player data (so no lineup/potential/bench records), no projections, no transactions, no draft, no brackets, no median setting, and no scores for teams without a game. 2020 has 9 teams, so one team is missing from every week's schedule (its score is unknown). Consequence: their playoff-week games have no bracket entry, so they are `game_type = 'none'` (doc §2) until the ESPN scraper (§5) brings brackets, or an admin corrects them. All `has_*` flags are false for these seasons.
+- **Sleeper stat corrections and `finalize`.** Sleeper serves recomputed points for past weeks, so a re-fetch can change numbers. `finalize` re-fetches the season (`force`), normalizes with upserts (matchup and team-week ids stay stable) and re-derives; derived tables are wiped and refilled in one transaction, so it is safe to re-run. Verified: two forced re-runs left every derived row identical. One difference we could not explain: Sleeper's own roster totals (`fpts`) differ from the sum of the served matchup points in dynasty 2023 (about +14 to +22 PF per team, with a few flipped games) and dynasty 2025 (+1 to +3.5 PF). The legacy site used the matchup points too, so records follow those. All other seasons match Sleeper's standings exactly (W-L-T and PF, medians included).
+- **Per-week player position and eligibility.** Sleeper has no per-week position. The snapshot is nflverse's position for that week, kept together with the dump's `fantasy_positions` when they agree, and the slot a starter actually filled is always added as evidence. If nflverse's position conflicts with the lineup (a starter in FLEX whose nflverse position can't play FLEX), the dump's position wins. Result: no team-week anywhere has an actual lineup better than its computed optimum.
+- **IR / taxi history.** Sleeper's matchup payload lists every rostered player but no IR/taxi split, so historical non-starters are `bench`. IR and taxi (`slot_kind`) exist only for the live roster (`roster_current`).

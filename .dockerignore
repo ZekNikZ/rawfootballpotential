@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.git
+legacy
+.env
+.env.*
+!.env.example
+**/dist
+.turbo
+backups
+.espn-profile
+docs

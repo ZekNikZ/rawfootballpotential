@@ -119,10 +119,8 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
     }).map((c) => [String(c.matchupId), c])
   );
 
-  // 2. Rebuild this season's matchup rows for the synced weeks (team_week.matchup_id is re-linked below).
-  await db
-    .delete(matchup)
-    .where(and(eq(matchup.leagueSeasonId, input.leagueSeasonId), inArray(matchup.week, weeks)));
+  // 2. Upsert this season's matchup rows for the synced weeks (ids stay stable, so derived rows keyed on them
+  // survive until derive runs again); matchups that vanished from the source are removed.
   const matchupRows: (typeof matchup.$inferInsert)[] = [];
   for (const g of weekGames) {
     const c = classes.get(String(g.matchupId))!;
@@ -140,12 +138,30 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
   }
   const matchupIds = new Map<string, number>();
   for (const batch of chunk(matchupRows, 1000)) {
-    const inserted = await db
+    const upserted = await db
       .insert(matchup)
       .values(batch)
+      .onConflictDoUpdate({
+        target: [matchup.leagueSeasonId, matchup.week, matchup.externalMatchupId],
+        set: {
+          gameType: sql`excluded.game_type`,
+          bracket: sql`excluded.bracket`,
+          bracketRound: sql`excluded.bracket_round`,
+          placementAtStake: sql`excluded.placement_at_stake`,
+          isChampionship: sql`excluded.is_championship`,
+        },
+      })
       .returning({ id: matchup.id, week: matchup.week, ext: matchup.externalMatchupId });
-    for (const m of inserted) matchupIds.set(`${m.week}:${m.ext}`, m.id);
+    for (const m of upserted) matchupIds.set(`${m.week}:${m.ext}`, m.id);
   }
+  const keep = new Set(matchupIds.values());
+  const existing = await db
+    .select({ id: matchup.id })
+    .from(matchup)
+    .where(and(eq(matchup.leagueSeasonId, input.leagueSeasonId), inArray(matchup.week, weeks)));
+  const stale = existing.map((m) => m.id).filter((id) => !keep.has(id));
+  for (const batch of chunk(stale, 1000))
+    await db.delete(matchup).where(inArray(matchup.id, batch));
 
   // 3. team_week rows.
   const teamWeekRows: (typeof teamWeek.$inferInsert)[] = [];

@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1
 # One multi-target Dockerfile for the whole monorepo. Targets: migrate, api, ingest, backup, web.
 # (The ESPN scraper is not containerized; it runs headed on a desktop. See docs §5.)
-# Draft. Lives at infra/Dockerfile in the new repo (build context = repo root).
+# Build context = repo root.
 #
-# Requires in the repo root .npmrc:  inject-workspace-packages=true   (for `pnpm deploy`)
 # Each deployable package lists its runtime files in package.json "files" (e.g. db: ["dist", "migrations"]).
 
 ARG NODE_VERSION=24
@@ -15,15 +14,15 @@ RUN corepack enable
 WORKDIR /repo
 
 FROM base AS build
-COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
 RUN pnpm turbo run build
 # Prune each deployable to its production dependency closure.
-RUN pnpm deploy --filter=@rfp/db     --prod /out/db \
- && pnpm deploy --filter=@rfp/api    --prod /out/api \
- && pnpm deploy --filter=@rfp/ingest --prod /out/ingest
+RUN pnpm deploy --legacy --filter=@rfp/db     --prod /out/db \
+ && pnpm deploy --legacy --filter=@rfp/api    --prod /out/api \
+ && pnpm deploy --legacy --filter=@rfp/ingest --prod /out/ingest
 
 # ---------- node runtime ----------
 FROM node:${NODE_VERSION}-alpine AS runtime

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { createDb, type Db } from "../src/client";
-import { runMigrations } from "../src/migrate";
+import { runMigrations } from "../src/migrator";
 import * as s from "../src/schema";
 import { createTempDatabase } from "./helpers";
 
