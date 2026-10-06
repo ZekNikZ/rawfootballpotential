@@ -17,10 +17,10 @@ type Res = Awaited<ReturnType<World["run"]>>;
 const label = (res: Res, r: Res["rows"][number]) =>
   `${r.values.player ?? ""}|${w.team(res, r)}|${r.values.season ?? ""}`;
 
-describe("player records", () => {
-  it("highest score by a starter; lowest non-zero; benched highest", async () => {
-    const high = await w.run("player.high", { limit: 6 });
-    expect(high.rows.map((r) => [r.rank, r.values.player, r.values.value])).toEqual([
+describe("player records (roster / starters only / bench only, each highest and lowest)", () => {
+  it("highest score by a starter, by anyone on the roster, and by a benched player", async () => {
+    const starters = await w.run("player.starter.high", { limit: 6 });
+    expect(starters.rows.map((r) => [r.rank, r.values.player, r.values.value])).toEqual([
       [1, "Player q3", 70],
       [2, "Player q1", 65],
       [2, "Player q3", 65],
@@ -28,32 +28,46 @@ describe("player records", () => {
       [2, "Player q3", 65],
       [6, "Player q3", 62.5],
     ]);
-    const low = await w.run("player.low-nonzero", { limit: 3 });
-    expect(low.rows.map((r) => [r.rank, r.values.value])).toEqual([
-      [1, 12],
-      [1, 12],
-      [1, 12],
-    ]);
-    const bench = await w.run("player.bench-high", { limit: 3 });
+    const roster = await w.run("player.roster.high", { limit: 1 });
+    expect(roster.rows[0]?.values).toMatchObject({ value: 70, slot: "QB" }); // the roster record shows the slot
+    const bench = await w.run("player.bench.high", { limit: 3 });
     expect(bench.rows.map((r) => [r.rank, r.values.player, r.values.value])).toEqual([
       [1, "Player x3", 35],
       [2, "Player x3", 33],
       [3, "Player x3", 32],
     ]);
-    expect(bench.params.slots).toEqual(["bench"]); // the preset is part of the record, not a user filter
+    expect(bench.params.slots).toEqual(["bench"]); // the slot is the record, not a filter
   });
 
-  it("position filter uses that week's position; presets cannot be overridden", async () => {
-    const rb = await w.run("player.high", { positions: "RB", limit: 1 });
+  it("lowest records exclude zero-point weeks by default, and the user can turn that off", async () => {
+    const starters = await w.run("player.starter.low", { limit: 3 });
+    expect(starters.params.excludeZero).toBe(true);
+    expect(starters.rows.map((r) => [r.rank, r.values.value])).toEqual([
+      [1, 12],
+      [1, 12],
+      [1, 12],
+    ]);
+    // Bench RBs score 0 on even weeks (20 counted team-weeks): zeroes only appear when asked for.
+    const withZero = await w.run("player.bench.low", { excludeZero: "false", limit: 50 });
+    expect(withZero.params.excludeZero).toBe(false);
+    expect(withZero.rows.filter((r) => r.rank === 1).length).toBe(20);
+    expect(withZero.rows[0]?.values.value).toBe(0);
+    const bench = await w.run("player.bench.low", { limit: 1 });
+    expect(bench.rows[0]?.values).toMatchObject({ player: "Player x2", value: 19 });
+    expect((await w.run("player.roster.low", { limit: 1 })).rows[0]?.values.value).toBe(12);
+  });
+
+  it("position filter uses that week's position; the slot of a starters/bench record cannot be overridden", async () => {
+    const rb = await w.run("player.starter.high", { positions: "RB", limit: 1 });
     expect(rb.rows[0]?.values).toMatchObject({ player: "Player r3", position: "RB", points: 42 });
-    const overridden = await w.run("player.bench-high", { slots: "starter", limit: 1 });
+    const rbRoster = await w.run("player.roster.high", { positions: "RB", limit: 1 });
+    expect(rbRoster.rows[0]?.values.value).toBe(42); // bench RBs (x) top out at 35
+    const overridden = await w.run("player.bench.high", { slots: "starter", limit: 1 });
     expect(overridden.params.slots).toEqual(["bench"]);
-  });
-
-  it("zero-point rows can be excluded or kept", async () => {
-    const roster = await w.run("player.roster-low", { limit: 1 });
-    expect(roster.rows[0]?.values.value).toBe(12);
-    expect(roster.params.excludeZero).toBe(true);
+    // the roster record has no slot filter at all
+    expect(
+      (await w.run("player.roster.high", { slots: "bench", limit: 1 })).params.slots
+    ).toBeUndefined();
   });
 
   it("player season: weeks rostered, summed with the season's scoring; combineTeams sums across teams", async () => {

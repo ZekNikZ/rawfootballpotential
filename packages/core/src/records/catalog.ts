@@ -256,96 +256,47 @@ const potential: RecordDef[] = [
   ),
 ];
 
+// One highest and one lowest record each for the whole roster, starters only and bench only. Position, week,
+// franchise and non-zero are user filters; the lowest records exclude zero-point weeks unless asked not to.
+const PLAYER_WEEK_FILTERS: FilterKey[] = PLAYER_FILTERS.filter((f) => f !== "slots");
+function playerWeekRecord(
+  id: string,
+  title: string,
+  direction: "asc" | "desc",
+  slots?: ("starter" | "bench")[]
+): RecordDef {
+  return rec(
+    id,
+    title,
+    {
+      category: "overall",
+      section: "Player Performances",
+      grain: "player_week",
+      engine: "playerWeek",
+      filters: PLAYER_WEEK_FILTERS,
+      requires: req("playerData"),
+      ...(slots ? { preset: { slots } } : {}),
+      ...(direction === "asc" ? { defaults: { excludeZero: true } } : {}),
+    },
+    "points",
+    direction,
+    [
+      c("player", "Player", "player"),
+      TEAM,
+      WEEK,
+      c("position", "Pos", "text"),
+      ...(slots ? [] : [c("slot", "Slot", "text")]),
+      c("points", "Points", "points"),
+    ]
+  );
+}
 const players: RecordDef[] = [
-  rec(
-    "player.high",
-    "Player highest score",
-    {
-      category: "overall",
-      section: "Player Performances",
-      grain: "player_week",
-      engine: "playerWeek",
-      filters: PLAYER_FILTERS,
-      requires: req("playerData"),
-      preset: { slots: ["starter"] },
-    },
-    "points",
-    "desc",
-    [
-      c("player", "Player", "player"),
-      TEAM,
-      WEEK,
-      c("position", "Pos", "text"),
-      c("points", "Points", "points"),
-    ]
-  ),
-  rec(
-    "player.low-nonzero",
-    "Player lowest non-zero score",
-    {
-      category: "overall",
-      section: "Player Performances",
-      grain: "player_week",
-      engine: "playerWeek",
-      filters: PLAYER_FILTERS,
-      requires: req("playerData"),
-      preset: { slots: ["starter"], excludeZero: true },
-    },
-    "points",
-    "asc",
-    [
-      c("player", "Player", "player"),
-      TEAM,
-      WEEK,
-      c("position", "Pos", "text"),
-      c("points", "Points", "points"),
-    ]
-  ),
-  rec(
-    "player.bench-high",
-    "Highest scoring benched player",
-    {
-      category: "overall",
-      section: "Player Performances",
-      grain: "player_week",
-      engine: "playerWeek",
-      filters: PLAYER_FILTERS,
-      requires: req("playerData"),
-      preset: { slots: ["bench"] },
-    },
-    "points",
-    "desc",
-    [
-      c("player", "Player", "player"),
-      TEAM,
-      WEEK,
-      c("position", "Pos", "text"),
-      c("points", "Points", "points"),
-    ]
-  ),
-  rec(
-    "player.roster-low",
-    "Lowest scoring rostered player",
-    {
-      category: "overall",
-      section: "Player Performances",
-      grain: "player_week",
-      engine: "playerWeek",
-      filters: PLAYER_FILTERS,
-      requires: req("playerData"),
-      preset: { excludeZero: true },
-    },
-    "points",
-    "asc",
-    [
-      c("player", "Player", "player"),
-      TEAM,
-      WEEK,
-      c("position", "Pos", "text"),
-      c("slot", "Slot", "text"),
-      c("points", "Points", "points"),
-    ]
-  ),
+  playerWeekRecord("player.roster.high", "Highest scoring rostered player", "desc"),
+  playerWeekRecord("player.roster.low", "Lowest scoring rostered player", "asc"),
+  playerWeekRecord("player.starter.high", "Highest scoring starter", "desc", ["starter"]),
+  playerWeekRecord("player.starter.low", "Lowest scoring starter", "asc", ["starter"]),
+  playerWeekRecord("player.bench.high", "Highest scoring benched player", "desc", ["bench"]),
+  playerWeekRecord("player.bench.low", "Lowest scoring benched player", "asc", ["bench"]),
 ];
 
 const transactions: RecordDef[] = [

@@ -105,7 +105,7 @@ export class RecordError extends Error {
 
 /** Validate a raw query string against the record: defaults, presets applied, unsupported filters reset. */
 export function normalizeForRecord(def: RecordDef, raw: Record<string, unknown>): RecordQuery {
-  const parsed = recordQuerySchema.safeParse(raw);
+  const parsed = recordQuerySchema.safeParse({ ...(def.defaults ?? {}), ...raw });
   if (!parsed.success)
     throw new RecordError(
       400,

@@ -99,6 +99,8 @@ export interface RecordDef {
   displayAll?: boolean;
   /** Presets baked into the record (e.g. player "benched highest" = bench slot); the user can't change these. */
   preset?: Partial<Record<FilterKey, unknown>>;
+  /** Filter values used when the request does not set them (unlike `preset`, the user can change these). */
+  defaults?: Partial<Record<FilterKey, unknown>>;
   /** Minimum games to qualify (ratio records), enforced in SQL and reported. */
   qualifier?: { minGames: number };
   /** Transaction types that count for this record (doc §2: decided per record, not a user filter). */
