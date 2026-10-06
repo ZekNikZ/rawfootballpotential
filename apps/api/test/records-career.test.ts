@@ -1,3 +1,4 @@
+import { sql } from "@rfp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createWorld, type World } from "./helpers";
 
@@ -156,5 +157,39 @@ describe("career lineups and scoring", () => {
   it("scope filters PF to the regular season", async () => {
     const pf = byTeam(await w.run("career.pf", { scope: "regular" }));
     expect(pf["Team 3"]?.values).toMatchObject({ pf: 100 + 120 + 90 + 140 + 95 + 125, games: 6 });
+  });
+});
+
+describe("a franchise that changed hands (doc §2: current manager in general, the old one only for that year)", () => {
+  it("career rows show the current manager, or the season's manager when the filter selects one season", async () => {
+    const q = async (text: string) =>
+      (await w.db.execute<Record<string, number>>(sql.raw(text))).rows;
+    const [{ id: m5 }] = (await q("select id from manager where name = 'Manager 5'")) as [
+      { id: number },
+    ];
+    const [{ id: ts31 }] = (await q(
+      "select ts.id from team_season ts join league_season ls on ls.id = ts.league_season_id where ls.year = 2031 and ts.name = 'Team 1'"
+    )) as [{ id: number }];
+    await w.db.execute(
+      sql.raw(
+        `update team_season_manager set manager_id = ${m5} where team_season_id = ${ts31} and role = 'primary'`
+      )
+    );
+    try {
+      const managerOf = async (query: Record<string, unknown>) => {
+        const res = await w.run("career.wins", query);
+        const row = res.rows.find((r) => w.team(res, r).startsWith("Team 1"))!;
+        return res.entities.managers[row.refs.managerId!]?.name;
+      };
+      expect(await managerOf({})).toBe("Manager 5"); // all seasons: the franchise's current manager
+      expect(await managerOf({ seasons: "2031" })).toBe("Manager 5");
+      expect(await managerOf({ seasons: "2030" })).toBe("Manager 1"); // only that year: the manager of that year
+    } finally {
+      await w.db.execute(
+        sql.raw(
+          `update team_season_manager set manager_id = (select id from manager where name = 'Manager 1') where team_season_id = ${ts31} and role = 'primary'`
+        )
+      );
+    }
   });
 });

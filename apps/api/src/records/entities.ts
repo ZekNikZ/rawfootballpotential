@@ -42,8 +42,34 @@ type ManagerRow = {
  */
 export async function resolveRows(
   db: Db,
-  rows: readonly RankedRow[]
+  input: readonly RankedRow[],
+  opts: { singleYear?: number } = {}
 ): Promise<{ rows: ResolvedRow[]; entities: Entities }> {
+  // A franchise-level row (a career total) covers one season when the filter selects a single year: show that
+  // season's team and manager, not the franchise's current ones (owner decision).
+  let rows = input;
+  if (opts.singleYear !== undefined) {
+    const ids = [
+      ...new Set(
+        input
+          .filter((r) => r.refs.franchiseId && !r.refs.teamSeasonId)
+          .map((r) => r.refs.franchiseId!)
+      ),
+    ];
+    if (ids.length) {
+      const found = await db.execute<{ id: number; franchise_id: number }>(sql`
+        select ts.id, ts.franchise_id from team_season ts join league_season ls on ls.id = ts.league_season_id
+        where ls.year = ${opts.singleYear} and ts.franchise_id in (${inList(ids)})`);
+      const byFranchise = new Map(found.rows.map((r) => [r.franchise_id, r.id]));
+      rows = input.map((r) => {
+        const id =
+          r.refs.franchiseId && !r.refs.teamSeasonId
+            ? byFranchise.get(r.refs.franchiseId)
+            : undefined;
+        return id === undefined ? r : { ...r, refs: { ...r.refs, teamSeasonId: id } };
+      });
+    }
+  }
   const teamSeasonIds = new Set<number>();
   const franchiseIds = new Set<number>();
   for (const r of rows) {

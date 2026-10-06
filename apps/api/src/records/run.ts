@@ -208,7 +208,11 @@ export async function runRecord(
     eligible.seasonIds.length === 0
       ? []
       : await ENGINES[def.engine]!({ db, leagueId, def, q, seasonIds: eligible.seasonIds });
-  const { rows, entities } = await resolveRows(db, ranked);
+  const { rows, entities } = await resolveRows(
+    db,
+    ranked,
+    eligible.years.length === 1 ? { singleYear: eligible.years[0]! } : {}
+  );
   const response: RecordResponse = {
     meta: {
       id: def.id,
