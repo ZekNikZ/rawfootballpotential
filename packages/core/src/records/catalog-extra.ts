@@ -112,6 +112,24 @@ const luckAndRegret: RecordDef[] = [
     "A team's first playoff loss, when a perfect lineup would have survived it."
   ),
   rec(
+    "median.won-h2h-lost",
+    "Won the game, lost the median",
+    gameBase("Luck and Regret"),
+    "gap",
+    "asc",
+    [TEAM, WEEK, OPPONENT, SCORE, c("median", "Median", "points"), c("gap", "Vs median", "points")],
+    "Won the head-to-head but finished below the week's median (median leagues). Ranked by the gap to the median."
+  ),
+  rec(
+    "median.lost-h2h-won",
+    "Lost the game, won the median",
+    gameBase("Luck and Regret"),
+    "gap",
+    "desc",
+    [TEAM, WEEK, OPPONENT, SCORE, c("median", "Median", "points"), c("gap", "Vs median", "points")],
+    "Lost the head-to-head but finished above the week's median (median leagues). Ranked by the gap to the median."
+  ),
+  rec(
     "heartbreak.playoff-loss",
     "Closest playoff loss",
     gameBase("Luck and Regret", {

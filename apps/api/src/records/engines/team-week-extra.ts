@@ -38,6 +38,17 @@ const SPECS: Record<string, Spec> = {
     where: sql`tw.result = 'L' and tw.optimal_points > tw.opp_points`,
     data: sql`jsonb_build_object('left', (tw.optimal_points - tw.points)::float8, 'potential', tw.optimal_points::float8)`,
   },
+  // Median leagues: the head-to-head and the median game went opposite ways. Ranked by the gap to the median.
+  "median.won-h2h-lost": {
+    value: sql`(tw.points - tw.week_med)`,
+    where: sql`tw.result = 'W' and tw.median_result = 'L'`,
+    data: sql`jsonb_build_object('median', tw.week_med::float8, 'gap', (tw.points - tw.week_med)::float8)`,
+  },
+  "median.lost-h2h-won": {
+    value: sql`(tw.points - tw.week_med)`,
+    where: sql`tw.result = 'L' and tw.median_result = 'W'`,
+    data: sql`jsonb_build_object('median', tw.week_med::float8, 'gap', (tw.points - tw.week_med)::float8)`,
+  },
   // The first playoff loss of a team's season is its elimination from the title race.
   "contender.eliminated": {
     value: sql`(tw.optimal_points - tw.points)`,
@@ -118,6 +129,7 @@ export function teamWeekBase(ctx: RunContext): SQL {
         otw.points as opp_points,
         ots.franchise_id as opp_franchise_id,
         os.projected_points as opp_projected,
+        mg.result as median_result, mg.points_against as week_med,
         s.asleep_starters, s.bye_starters, s.asleep_points_lost,
         (tw.week = min(tw.week) filter (where tw.result = 'L' and tw.game_type = 'playoffs')
                      over (partition by tw.team_season_id)) as first_playoff_loss
@@ -126,6 +138,7 @@ export function teamWeekBase(ctx: RunContext): SQL {
       left join team_season ots on ots.id = tw.opponent_team_season_id
       left join team_week_stats os on os.team_week_id = otw.id
       left join team_week_stats s on s.team_week_id = tw.team_week_id
+      left join rec_game_result mg on mg.team_season_id = tw.team_season_id and mg.week = tw.week and mg.kind = 'median'
       where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
     )`;
 }

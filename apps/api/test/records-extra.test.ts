@@ -53,6 +53,21 @@ describe("luck and regret", () => {
     expect(team4?.values).toMatchObject({ count: 1, losses: 4 });
   });
 
+  it("median splits: won the game but not the median, and the reverse", async () => {
+    // Medians 2030: wk 2 92.5, wk 3 97.5. Team 5 won wk 2 with 70 (22.5 under), Team 6 won wk 3 with 95 (2.5 under);
+    // Team 2 (wk 2, 95) and Team 4 (wk 3, 100) lost their games but beat the median by 2.5.
+    const a = await w.run("median.won-h2h-lost", { seasons: "2030" });
+    expect(rows(a, "week", "gap")).toEqual([
+      [1, "Team 5", 2, -22.5],
+      [2, "Team 6", 3, -2.5],
+    ]);
+    const b = await w.run("median.lost-h2h-won", { seasons: "2030" });
+    expect(rows(b, "week", "gap")).toEqual([
+      [1, "Team 2", 2, 2.5],
+      [1, "Team 4", 3, 2.5],
+    ]);
+  });
+
   it("closest playoff loss only looks at playoff games", async () => {
     const res = await w.run("heartbreak.playoff-loss", { limit: 3 });
     expect(res.params.scope).toBe("playoffs");
@@ -284,7 +299,7 @@ describe("pickups and tenure", () => {
 
 describe("every additional record runs under the filters it supports", () => {
   const extra = RECORD_CATALOG.filter((d) =>
-    /^(luck|shouldve|contender|heartbreak|projection|oneman|era|asleep|bye|nfl|season\.(allplay|luck|schedule|top|bottom)|seed|champ|trajectory|draft\.(class|steal|bust|best)|pickup|drop-regret|trade\.(best|lopsided)|journeyman|loyalty|boomerang|auction|rivalry|career\.(shouldve|contender|blunders|close|blowout|top|bottom|asleep)|drought|streak)/.test(
+    /^(luck|median|shouldve|contender|heartbreak|projection|oneman|era|asleep|bye|nfl|season\.(allplay|luck|schedule|top|bottom)|seed|champ|trajectory|draft\.(class|steal|bust|best)|pickup|drop-regret|trade\.(best|lopsided)|journeyman|loyalty|boomerang|auction|rivalry|career\.(shouldve|contender|blunders|close|blowout|top|bottom|asleep)|drought|streak)/.test(
       d.id
     )
   );
