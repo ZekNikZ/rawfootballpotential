@@ -8,7 +8,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "build": "tsdown",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "parity": "tsx scripts/parity/run.ts"
   },
   "files": [
     "dist"
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@rfp/ingest": "workspace:*",
     "@types/pg": "^8.23.1",
+    "mongodb": "^7.7.0",
     "pg": "^8.23.1"
   }
 }
