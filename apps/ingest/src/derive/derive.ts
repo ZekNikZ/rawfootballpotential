@@ -276,7 +276,8 @@ export async function deriveSeason(db: Db, leagueSeasonId: number): Promise<Deri
   }
 
   // ---- Final placements from brackets where nothing else has set them ----
-  // final_place = admin/config override, else what the brackets imply (only once the season is over).
+  // final_place = an active override (an admin's, or imported for seasons without brackets), else what the
+  // brackets imply (only once the season is over).
   const placementUpdates = new Map<number, number>();
   const seasonDone = season.status === "complete" && complete.has(season.lastWeek);
   const placementOverrides = new Map<string, number>();

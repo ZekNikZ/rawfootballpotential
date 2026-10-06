@@ -47,7 +47,7 @@ redraft 2026 [sleeper, in_season]
   teams 14; weeks 4/17 complete; placements set 0/14
   games by type: regular 98
   team-weeks: 196 counted, 0 not counted
-  players per team-week: min 13 / avg 14.6 / max 16 (2854 rows; 1841 without NFL team)
+  players per team-week: min 13 / avg 14.6 / max 16 (2854 rows; 2043 without NFL team)
   unmatched players: 0; transactions 81 complete / 49 failed; draft picks 196
 dynasty 2023 [sleeper, complete]
   teams 10; weeks 17/17 complete; placements set 10/10
@@ -92,6 +92,6 @@ dynasty 2026 [sleeper, in_season]
   teams 10; weeks 4/17 complete; placements set 0/10
   games by type: regular 70
   team-weeks: 140 counted, 0 not counted
-  players per team-week: min 31 / avg 33 / max 35 (4626 rows; 3002 without NFL team)
+  players per team-week: min 31 / avg 33 / max 35 (4626 rows; 3329 without NFL team)
   unmatched players: 0; transactions 125 complete / 17 failed; draft picks 40
 ```

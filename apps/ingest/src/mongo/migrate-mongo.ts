@@ -222,7 +222,7 @@ export async function migrateFromMongo(
           summary.seasons.sleeper++;
           for (const [legacyTeamId, place] of Object.entries(y.finalPlacements ?? {})) {
             const roster = legacyTeamId.split("-").at(-1)!;
-            await putPlacement(db, seasonId, roster, place, summary);
+            await putPlacement(db, seasonId, roster, place, false, summary);
           }
         } else {
           const doc = espnDocs.get(y.leagueId);
@@ -241,7 +241,7 @@ export async function migrateFromMongo(
           for (const [legacyTeamId, place] of Object.entries(
             y.finalPlacements ?? doc.teamData.finalPlacements ?? {}
           )) {
-            await putPlacement(db, seasonId, legacyTeamId, place, summary);
+            await putPlacement(db, seasonId, legacyTeamId, place, true, summary);
           }
         }
       }
@@ -286,11 +286,17 @@ async function putSiteConfig(db: Db, key: string, value: unknown) {
     .onConflictDoUpdate({ target: siteConfig.key, set: { value, updatedAt: new Date() } });
 }
 
+/**
+ * Legacy hand-entered placements. For Sleeper seasons the brackets are authoritative (the owner confirmed the
+ * hand-entered values had errors), so those are stored inactive for reference; ESPN seasons have no brackets,
+ * so theirs stay active.
+ */
 async function putPlacement(
   db: Db,
   leagueSeasonId: number,
   externalRosterId: string,
   place: number,
+  active: boolean,
   summary: MongoMigrationSummary
 ) {
   const entityId = teamSeasonOverrideKey(leagueSeasonId, externalRosterId);
@@ -309,8 +315,10 @@ async function putPlacement(
     entityId,
     field: "final_place",
     value: place,
-    reason: "Imported from the legacy config (hand-entered final placements)",
-    active: true,
+    reason: active
+      ? "Imported from the legacy config (hand-entered; this season has no bracket data)"
+      : "Imported from the legacy config (hand-entered; superseded by the bracket results)",
+    active,
   };
   if (existing) await db.update(override).set(row).where(eq(override.id, existing.id));
   else await db.insert(override).values(row);
