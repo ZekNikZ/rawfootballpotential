@@ -235,7 +235,7 @@ The schema lives in `packages/db/src/schema/` (44 tables, 9 `rec_*` views). Diff
 - **Views** (custom migration `0001_rec_views`): `rec_team_week_all` (complete weeks, final rows, enabled seasons; includes no-game weeks), `rec_team_week` (counted only), `rec_game_result`, `rec_matchup`, `rec_player_week`, `rec_team_season`, `rec_transaction` (successful, `week <= last_completed_week`), `rec_transaction_item`, `rec_draft_pick` (completed drafts).
 - **Not tables:** pg-boss keeps its own `pgboss` schema; drizzle only manages `public`.
 
-**Toolchain versions (checked at install, 2026-10-05):** TypeScript 6.0 (7.0 is out, but typescript-eslint's range stops below 6.1), drizzle-orm 0.45 / drizzle-kit 0.31 (1.0 is still RC), Node 22.18 on the dev machine (images use Node 24).
+**Toolchain versions (checked at install, 2026-10-05):** TypeScript 6.0 (7.0 is out, but typescript-eslint's range stops below 6.1), drizzle-orm 0.45 / drizzle-kit 0.31 (1.0 is still RC), Node 24 everywhere.
 
 ### 3.3 Record engine: metric × grain × direction
 

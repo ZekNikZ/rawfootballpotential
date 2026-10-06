@@ -24,4 +24,4 @@ pnpm install
 pnpm dev                    # web (Vite), api and ingest under tsx watch
 ```
 
-Checks: `pnpm turbo run lint typecheck test` (and `pnpm format:check`). Requires Node 22.18+ (images use Node 24).
+Checks: `pnpm turbo run lint typecheck test` (and `pnpm format:check`). Requires Node 24 (see `.nvmrc`).
