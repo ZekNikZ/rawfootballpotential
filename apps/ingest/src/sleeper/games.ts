@@ -51,6 +51,13 @@ export const teamWeekOverrideKey = (
   week: number
 ) => `ls:${leagueSeasonId}:r:${rosterId}:w:${week}`;
 
+/** Game-type corrections: `override` rows (entity 'matchup', field 'game_type') re-type a game after classification. */
+export const matchupOverrideKey = (
+  leagueSeasonId: number,
+  week: number,
+  externalMatchupId: number
+) => `ls:${leagueSeasonId}:w:${week}:m:${externalMatchupId}`;
+
 export const teamSeasonOverrideKey = (leagueSeasonId: number, externalRosterId: string) =>
   `ls:${leagueSeasonId}:r:${externalRosterId}`;
 
@@ -67,6 +74,19 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
       and(eq(override.entity, "team_week"), eq(override.field, "points"), eq(override.active, true))
     );
   for (const o of overrideRows) if (typeof o.value === "number") overrides.set(o.entityId, o.value);
+  const gameTypeOverrides = new Map<string, GameType>();
+  const typeRows = await db
+    .select()
+    .from(override)
+    .where(
+      and(
+        eq(override.entity, "matchup"),
+        eq(override.field, "game_type"),
+        eq(override.active, true)
+      )
+    );
+  for (const o of typeRows)
+    if (typeof o.value === "string") gameTypeOverrides.set(o.entityId, o.value as GameType);
 
   // Players for the whole sync, resolved once.
   const allSleeperIds = new Set<string>();
@@ -122,19 +142,25 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
   // 2. Upsert this season's matchup rows for the synced weeks (ids stay stable, so derived rows keyed on them
   // survive until derive runs again); matchups that vanished from the source are removed.
   const matchupRows: (typeof matchup.$inferInsert)[] = [];
+  const effectiveType = new Map<string, GameType>(); // `${week}:${matchup_id}` -> game type after corrections
   for (const g of weekGames) {
     const c = classes.get(String(g.matchupId))!;
+    const externalMatchupId = Number(String(g.matchupId).split(":")[1]);
+    const gameType =
+      gameTypeOverrides.get(matchupOverrideKey(input.leagueSeasonId, g.week, externalMatchupId)) ??
+      (c.gameType as GameType);
+    effectiveType.set(String(g.matchupId), gameType);
     matchupRows.push({
       leagueSeasonId: input.leagueSeasonId,
       week: g.week,
-      externalMatchupId: Number(String(g.matchupId).split(":")[1]),
-      gameType: c.gameType as GameType,
+      externalMatchupId,
+      gameType,
       bracket: c.bracket,
       bracketRound: c.bracketRound,
       placementAtStake: c.placementAtStake,
       isChampionship: c.isChampionship,
     });
-    stats.gamesByType[c.gameType] = (stats.gamesByType[c.gameType] ?? 0) + 1;
+    stats.gamesByType[gameType] = (stats.gamesByType[gameType] ?? 0) + 1;
   }
   const matchupIds = new Map<string, number>();
   for (const batch of chunk(matchupRows, 1000)) {
@@ -194,7 +220,8 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
         matchupId,
         opponentTeamSeasonId:
           oppRoster !== undefined ? (input.teamSeasonByRoster.get(oppRoster) ?? null) : null,
-        counts: matchupId !== null && cls !== undefined && cls.gameType !== "none",
+        counts:
+          matchupId !== null && cls !== undefined && effectiveType.get(String(key)) !== "none",
         points: round3(overridden ?? ingested),
         pointsOverridden: overridden !== undefined || e.custom_points != null,
         isFinal: input.completeWeeks.has(week),

@@ -67,6 +67,29 @@ const leagueRoutes: RouteObject[] = [
   { path: "*", handle: { title: "Not found" }, ...lazyPage(() => import("../pages/NotFound")) },
 ];
 
+// The admin area is its own lazy chunk: public visitors never download it.
+const adminRoutes: RouteObject[] = [
+  { path: "login", ...lazyPage(() => import("../admin/Login")) },
+  { path: "accept", ...lazyPage(() => import("../admin/Accept")) },
+  {
+    ...lazyPage(() => import("../admin/AdminShell")),
+    children: [
+      { index: true, ...lazyPage(() => import("../admin/Overview")) },
+      { path: "site", ...lazyPage(() => import("../admin/SitePage")) },
+      { path: "leagues", ...lazyPage(() => import("../admin/LeaguesPage")) },
+      { path: "people", ...lazyPage(() => import("../admin/PeoplePage")) },
+      { path: "corrections", ...lazyPage(() => import("../admin/CorrectionsPage")) },
+      { path: "thresholds", ...lazyPage(() => import("../admin/ThresholdsPage")) },
+      { path: "players", ...lazyPage(() => import("../admin/PlayersPage")) },
+      { path: "records", ...lazyPage(() => import("../admin/RecordSettingsPage")) },
+      { path: "jobs", ...lazyPage(() => import("../admin/JobsPage")) },
+      { path: "import", ...lazyPage(() => import("../admin/ImportPage")) },
+      { path: "users", ...lazyPage(() => import("../admin/UsersPage")) },
+      { path: "audit", ...lazyPage(() => import("../admin/AuditPage")) },
+    ],
+  },
+];
+
 export const routes: RouteObject[] = [
   {
     path: "/",
@@ -80,6 +103,7 @@ export const routes: RouteObject[] = [
           </Suspense>
         ),
       },
+      { path: "admin", children: adminRoutes },
       {
         path: ":league",
         element: (

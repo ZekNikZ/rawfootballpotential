@@ -9,6 +9,20 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  /** better-auth signing secret (`openssl rand -base64 32`). Admin features are off without it. */
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  /** Public origin the site is served from: invite links, cookies, CSRF checks. */
+  PUBLIC_URL: z.string().url().default("http://localhost:5173"),
+  /** Extra origins allowed to make admin writes (comma separated), e.g. a dev server. */
+  EXTRA_ORIGINS: z
+    .string()
+    .default("")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
   /** The RFP blog's RSS feed (Wix). Fetched server-side and cached. */
   BLOG_FEED_URL: z
     .string()

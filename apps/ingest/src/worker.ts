@@ -24,6 +24,7 @@ const SCHEDULES: Record<JobName, string[]> = {
   "nfl-reference": ["30 5 * * *"],
   "season-rollover": ["0 7 * * *"],
   recompute: [],
+  "add-season": [],
 };
 
 async function main() {

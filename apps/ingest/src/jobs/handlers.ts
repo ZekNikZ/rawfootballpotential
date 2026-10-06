@@ -8,9 +8,10 @@ import { listSeasons, runSeasonPipeline, type SeasonRef } from "../pipeline";
 import type { SleeperClient } from "../sleeper/client";
 import { syncPlayers } from "../sleeper/players";
 import { seasonRollover } from "../sleeper/rollover";
+import { bootstrapSleeperSeason } from "../sleeper/sync";
 
 export type JobName =
-  "live" | "daily" | "finalize" | "nfl-reference" | "season-rollover" | "recompute";
+  "live" | "daily" | "finalize" | "nfl-reference" | "season-rollover" | "recompute" | "add-season";
 
 type SyncKind = (typeof syncRun.$inferInsert)["kind"];
 type SeasonStatus = (typeof leagueSeason.$inferSelect)["status"];
@@ -22,10 +23,16 @@ export const JOB_KIND: Record<JobName, SyncKind> = {
   "nfl-reference": "nfl_reference",
   "season-rollover": "season_rollover",
   recompute: "recompute",
+  "add-season": "backfill",
 };
 
 export const jobPayload = z.object({
   leagueSeasonId: z.number().int().optional(),
+  /** recompute: re-run normalize from the cached raw data first (admin corrections apply there), then derive. */
+  renormalize: z.boolean().optional(),
+  /** add-season: the league to add the Sleeper season to. */
+  leagueId: z.number().int().optional(),
+  externalId: z.string().optional(),
   /** Admin-triggered runs set this to the admin's user id. */
   triggeredBy: z.string().optional(),
 });
@@ -161,10 +168,31 @@ export function createHandlers(
           ? (await listSeasons(db, "all")).filter((s) => s.id === payload.leagueSeasonId)
           : await staleSeasons(db);
         for (const s of seasons) {
-          await deriveSeason(db, s.id);
+          if (payload.renormalize && s.source === "sleeper")
+            await runSeasonPipeline(db, client, s, { mode: "full" });
+          else await deriveSeason(db, s.id);
           await changed(s.id);
         }
         return { seasons: seasons.map((s) => s.id) };
+      }),
+
+    // An admin added a Sleeper league season: bootstrap it, then ingest everything.
+    "add-season": (payload) =>
+      tracked(db, "backfill", payload, async () => {
+        if (payload.leagueId === undefined || !payload.externalId)
+          throw new Error("add-season needs leagueId and externalId");
+        const id = await bootstrapSleeperSeason(db, client, {
+          leagueId: payload.leagueId,
+          externalId: payload.externalId,
+        });
+        const s = (await listSeasons(db, "all")).find((x) => x.id === id);
+        if (s) {
+          await runSeasonPipeline(db, client, s, { mode: "full", derive: false });
+          await syncNflReference(db, { seasons: [s.year] });
+          await deriveSeason(db, s.id);
+          await changed(s.id);
+        }
+        return { leagueSeasonId: id };
       }),
   };
 }

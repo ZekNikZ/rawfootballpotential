@@ -80,6 +80,9 @@ export const adminInvite = pgTable("admin_invite", {
   tokenHash: text().notNull().unique(),
   email: text(),
   role: adminRole().notNull().default("admin"),
+  /** 'invite' creates an account; 'reset' sets a new password for `userId`. */
+  purpose: text().notNull().default("invite"),
+  userId: text().references(() => adminUser.id, { onDelete: "cascade" }),
   createdBy: text().references(() => adminUser.id, { onDelete: "set null" }),
   expiresAt: ts().notNull(),
   usedAt: ts(),
