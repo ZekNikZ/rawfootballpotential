@@ -24,6 +24,6 @@ jobs:
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run lint typecheck
-      - run: pnpm db:migrate          # migrations must apply cleanly to an empty DB
-      - run: pnpm db:check            # drizzle-kit check: schema and committed migrations agree
-      - run: pnpm turbo run test      # unit + integration (against the service DB)
+      - run: pnpm db:migrate # migrations must apply cleanly to an empty DB
+      - run: pnpm db:check # drizzle-kit check: schema and committed migrations agree
+      - run: pnpm turbo run test # unit + integration (against the service DB)

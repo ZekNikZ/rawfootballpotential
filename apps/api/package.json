@@ -1,0 +1,16 @@
+{
+  "name": "@rfp/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsdown",
+    "dev": "tsx watch src/server.ts"
+  },
+  "files": [
+    "dist"
+  ]
+}

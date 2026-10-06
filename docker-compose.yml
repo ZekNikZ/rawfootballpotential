@@ -1,6 +1,4 @@
 # RFP: single-machine stack (web + api + ingest worker + Postgres + backups).
-# Draft for the new monorepo; moves to the repo root when the project is scaffolded.
-#
 #   cp .env.example .env
 #   docker compose pull && docker compose up -d     # deploy images built by GitHub Actions (GHCR)
 #   docker compose up -d --build                     # or build locally

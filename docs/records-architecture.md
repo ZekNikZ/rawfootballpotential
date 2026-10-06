@@ -472,7 +472,7 @@ audit_log           id, user_id, action, entity, entity_id, before jsonb, after 
 
 ### 3.10 Infrastructure
 
-Draft files are in [`docs/infra/`](infra/): `docker-compose.yml`, a multi-target `Dockerfile`, `Caddyfile`, `backup.sh`, `.env.example` and `github-workflows/` (CI + image release). They move to the repo root / `.github/workflows/` when the project is scaffolded on the **`rewrite` branch** of this repo. The current site keeps running from `main` until cutover.
+Files: `docker-compose.yml` and `.env.example` at the repo root, `infra/` (multi-target `Dockerfile`, `Caddyfile`, `backup.sh`) and `.github/workflows/` (CI + image release), all on the **`rewrite` branch** of this repo. The current site keeps running from `main` until cutover.
 
 **Containers (one machine)**
 

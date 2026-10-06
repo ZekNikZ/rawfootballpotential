@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 
 .env
+# rewrite
+.turbo
+*.tsbuildinfo
+coverage
+backups
+.espn-profile
+.env.*
+!.env.example
