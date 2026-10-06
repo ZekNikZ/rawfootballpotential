@@ -1,5 +1,7 @@
 import { recordCache, sql, dataVersion, eq } from "@rfp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { RECORD_CATALOG } from "@rfp/core";
+import { prewarmLeague } from "../src/records/prewarm";
 import { runRecord } from "../src/records/run";
 import { createWorld, type World } from "./helpers";
 
@@ -202,6 +204,21 @@ describe("career transactions", () => {
 });
 
 describe("response cache keyed by data_version (doc §3.1)", () => {
+  it("pre-warm runs every record once and a second pass is served entirely from the cache", async () => {
+    await w.db.execute(sql`delete from record_cache`);
+    const n = await prewarmLeague(w.db, w.leagueId);
+    const count = async () =>
+      Number(
+        (await w.db.execute<{ n: string }>(sql`select count(*) n from record_cache`)).rows[0]?.n
+      );
+    expect(n).toBe(RECORD_CATALOG.length);
+    const rows = await count();
+    expect(rows).toBe(RECORD_CATALOG.length);
+    await prewarmLeague(w.db, w.leagueId);
+    expect(await count()).toBe(rows);
+    await w.db.execute(sql`delete from record_cache`);
+  });
+
   it("serves repeat queries from the cache and invalidates when a season's data_version changes", async () => {
     const count = async () =>
       Number(

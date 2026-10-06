@@ -1,6 +1,6 @@
 import { leagueSeason, and, eq, sql } from "@rfp/db";
 import type { Db } from "@rfp/db";
-import { medianCond, scopeCond, seasonCond, inList, type RankedRow } from "../records/context";
+import { scopeCond, seasonCond, inList, type RankedRow } from "../records/context";
 import { resolveRows, type Entities } from "../records/entities";
 import { recordQuerySchema, selectSeasons, type MedianMode, type Scope } from "@rfp/core";
 
@@ -95,7 +95,7 @@ export async function headToHead(
       from rec_game_result gr
       where gr.kind = 'median' and ${seasonCond(sql`gr.league_season_id`, ids)}
         and ${scopeCond(sql`gr.game_type`, query.scope)}
-        and ${medianCond(sql`gr.kind`, sql`gr.median_enabled`, query.median === "only" ? "only" : "default")}
+        and ${query.median === "default" ? sql`gr.median_enabled` : sql`true`}
       group by 1, 2`);
     for (const r of med.rows) bump(r.f, "median", r.result, Number(r.n));
   }
@@ -123,6 +123,11 @@ export type TrophyType =
   | "season-points-against"
   | "season-high-iq";
 
+export interface TrophyRow extends TrophyEntry {
+  managerId: number | null;
+  opponentManagerId: number | null;
+}
+
 export interface TrophyEntry {
   type: TrophyType;
   season: number;
@@ -147,12 +152,13 @@ export async function trophyCase(db: Db, leagueId: number, query: { season?: num
   ).filter((s) => s.status === "complete");
   const ids = seasons.map((s) => s.id);
   const entries: TrophyEntry[] = [];
+  const empty: TrophyRow[] = [];
   if (ids.length === 0)
     return {
-      trophies: entries,
+      trophies: empty,
       entities: await franchiseEntities(db, []),
       availableFrom: null,
-      seasonsIncluded: [],
+      seasonsIncluded: [] as number[],
     };
 
   type Row = {

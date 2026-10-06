@@ -9,7 +9,8 @@
     "test": "vitest run --passWithNoTests",
     "build": "tsdown",
     "dev": "tsx watch src/server.ts",
-    "parity": "tsx scripts/parity/run.ts"
+    "parity": "tsx scripts/parity/run.ts",
+    "prewarm": "tsx scripts/prewarm.ts"
   },
   "files": [
     "dist"

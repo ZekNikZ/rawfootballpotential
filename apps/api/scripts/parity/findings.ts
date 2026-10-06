@@ -1,0 +1,22 @@
+/** The "what the comparison found" section of the parity report: causes, grouped. Each is verified in the tables. */
+export const FINDINGS: string[] = [
+  "## What the comparison found",
+  "",
+  "Differences are grouped by cause. Each is **verified** against the data (see the tables), not just labelled.",
+  "",
+  "**Data differences** (the corrected-data run removes these; the old site would show them):",
+  "- **Fake games between idle teams** (doc §1.4 bug 7 confirmed): in playoff weeks Sleeper returns a null `matchup_id` for idle teams and the legacy grouped exactly two of them into a game. They contributed scores and wins/losses to records.",
+  "- **ESPN 2020/2021 playoff-week games** have no bracket data, so they are `game_type = none` and leave every scope (doc §2) until the scraper brings brackets.",
+  "- **As-played scoring** (dynasty 2023, interceptions -1 in weeks 1-13): the legacy used today's scoring; two week-12 games change winner.",
+  "- **Final placements** (three seasons): the brackets replace the hand-entered values (owner decision).",
+  "",
+  "**Logic differences** (these remain on corrected data):",
+  "- **Streaks** (doc §1.4 bug 5 confirmed): the legacy default streak ignores median results; the new default includes the season's median games. With medians excluded, streaks and win/loss totals are identical.",
+  "- **Lineups** (doc §1.4 bug 8): an exact optimum with each week's position snapshot instead of a greedy fill with today's positions. Also found: the legacy maps `REC_FLEX` as RB/WR but it is WR/TE, which changes potential points in the dynasty league, and nflverse/Sleeper position conflicts (a running back listed as a DB) needed handling.",
+  '- **Commissioner score overrides** (2022 week 5, one team): the legacy bench, ratio and "perfect lineup" use the overridden team total; the new values use what the lineup scored.',
+  "- **Perfect lineup** is optimal minus actual below 0.01 (§4.4); the legacy accepted any ratio above 0.999.",
+  "- **Toilet bowl appearances** mean playing in the losers bracket (§2); the legacy counted every team that missed the playoffs.",
+  "- **Trophies** (doc §1.4 bug 3 confirmed): season points for / against were summed from only the winner's (loser's own) score; the club and superlative trophies now consider every counted team-week and give ties to all.",
+  "- **A dynasty franchise that changed hands** (one roster, two owners): records follow the franchise and show its current manager (§2); the legacy split it by person.",
+  "",
+];

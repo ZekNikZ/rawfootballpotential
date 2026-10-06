@@ -9,7 +9,8 @@ interface Spec {
   where?: SQL;
 }
 
-const teamwide = sql`(tw.points + coalesce(tw.bench_points, 0) + coalesce(tw.ir_points, 0))`;
+// Everything every rostered player scored that week (not tw.points, which a commissioner override can change).
+const teamwide = sql`(select sum(pw.points) from player_week pw where pw.team_week_id = tw.team_week_id)`;
 const bench = sql`(coalesce(tw.bench_points, 0) + coalesce(tw.ir_points, 0))`;
 const hasPlayers = sql`tw.optimal_points is not null`;
 

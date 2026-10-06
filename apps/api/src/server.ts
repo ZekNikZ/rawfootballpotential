@@ -1,12 +1,16 @@
 import { createDb } from "@rfp/db";
 import { buildApp } from "./app";
 import { loadConfig } from "./config";
+import { watchDataVersion } from "./records/prewarm";
 
 const config = loadConfig();
 const { db, pool } = createDb(config.DATABASE_URL, { max: 10 });
 const app = buildApp({ db, config, logger: { level: config.LOG_LEVEL } });
 
+const stopWatching = watchDataVersion(db, app.log);
+
 const shutdown = async () => {
+  stopWatching();
   await app.close();
   await pool.end();
   process.exit(0);

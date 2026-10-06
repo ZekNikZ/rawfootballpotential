@@ -389,9 +389,15 @@ export async function fillPlayerWeeks(
       select t.*,
              case when t.dump_pos = 'DEF' then null::text else coalesce(npw.nfl_team, near.nfl_team) end as roster_team,
              npw.status as roster_status,
-             -- the lineup is evidence: if a starter's flex slot rejects nflverse's position but accepts the dump's, keep the dump's
+             -- nflverse's position is kept unless it conflicts with Sleeper's fantasy view (an ID collision, e.g. an RB
+             -- listed as a DB, or a player Sleeper counts at another position, e.g. a QB who is TE-eligible), or the
+             -- lineup contradicts it (a starter's flex slot rejects nflverse's position but accepts the dump's)
              case when sa.accepted is not null and t.slot_kind = 'starter' and not (npw.position = any(sa.accepted)) and t.dump_pos = any(sa.accepted)
-                  then null else npw.position end as roster_pos
+                  then null
+                  when npw.position is not null and t.dump_pos is not null and npw.position <> t.dump_pos
+                       and not (npw.position = any(coalesce(t.fantasy_positions, '{}'::text[])))
+                  then null
+                  else npw.position end as roster_pos
       from target t
       left join slot_accept sa on sa.slot = t.slot
       left join nfl_player_week npw on npw.season = ${season} and npw.week = t.week and npw.player_id = t.player_id
@@ -416,8 +422,9 @@ export async function fillPlayerWeeks(
           select coalesce(array_agg(distinct e), '{}'::text[]) from unnest(
             array_remove(
               array[coalesce(x.roster_pos, x.dump_pos)]
-              || case when x.roster_pos is null or x.roster_pos = x.dump_pos or x.roster_pos = any(coalesce(x.fantasy_positions, '{}'::text[]))
-                      then coalesce(x.fantasy_positions, '{}'::text[]) else '{}'::text[] end
+              -- eligibility is the union of what nflverse and Sleeper say (Sleeper has no per-week eligibility)
+              || coalesce(x.fantasy_positions, '{}'::text[])
+              || case when x.dump_pos is null then '{}'::text[] else array[x.dump_pos] end
               || case when x.slot_kind = 'starter' and x.slot in ('QB','RB','WR','TE','K','DEF','DL','LB','DB') then array[x.slot] else '{}'::text[] end,
               null)
           ) as e

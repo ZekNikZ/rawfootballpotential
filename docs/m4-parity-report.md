@@ -8,9 +8,28 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 - **As the old site would show it** (Layer 0): raw legacy data.
 - **On corrected data** (Layer 1): the same legacy generators, but fed corrected data: no fake games between idle teams, no ESPN playoff-week games (no bracket data exists for them), as-played scoring (dynasty 2023 interceptions at -1 for weeks 1-13), and the bracket-derived final placements. What remains in Layer 1 is a difference in logic.
 
+## What the comparison found
+
+Differences are grouped by cause. Each is **verified** against the data (see the tables), not just labelled.
+
+**Data differences** (the corrected-data run removes these; the old site would show them):
+- **Fake games between idle teams** (doc §1.4 bug 7 confirmed): in playoff weeks Sleeper returns a null `matchup_id` for idle teams and the legacy grouped exactly two of them into a game. They contributed scores and wins/losses to records.
+- **ESPN 2020/2021 playoff-week games** have no bracket data, so they are `game_type = none` and leave every scope (doc §2) until the scraper brings brackets.
+- **As-played scoring** (dynasty 2023, interceptions -1 in weeks 1-13): the legacy used today's scoring; two week-12 games change winner.
+- **Final placements** (three seasons): the brackets replace the hand-entered values (owner decision).
+
+**Logic differences** (these remain on corrected data):
+- **Streaks** (doc §1.4 bug 5 confirmed): the legacy default streak ignores median results; the new default includes the season's median games. With medians excluded, streaks and win/loss totals are identical.
+- **Lineups** (doc §1.4 bug 8): an exact optimum with each week's position snapshot instead of a greedy fill with today's positions. Also found: the legacy maps `REC_FLEX` as RB/WR but it is WR/TE, which changes potential points in the dynasty league, and nflverse/Sleeper position conflicts (a running back listed as a DB) needed handling.
+- **Commissioner score overrides** (2022 week 5, one team): the legacy bench, ratio and "perfect lineup" use the overridden team total; the new values use what the lineup scored.
+- **Perfect lineup** is optimal minus actual below 0.01 (§4.4); the legacy accepted any ratio above 0.999.
+- **Toilet bowl appearances** mean playing in the losers bracket (§2); the legacy counted every team that missed the playoffs.
+- **Trophies** (doc §1.4 bug 3 confirmed): season points for / against were summed from only the winner's (loser's own) score; the club and superlative trophies now consider every counted team-week and give ties to all.
+- **A dynasty franchise that changed hands** (one roster, two owners): records follow the franchise and show its current manager (§2); the legacy split it by person.
+
 ## Verdict
 
-**98 unexplained differences remain**: see the UNEXPLAINED lines below.
+**Every difference is explained** by a §1.4 bug, a §2 decision or a documented data correction; none is unexplained.
 
 | Comparison | Differs as the old site shows it | Differs on corrected data |
 |---|---:|---:|
@@ -20,30 +39,34 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 | Redraft: Narrowest win | 29 | 0 |
 | Redraft: Highest scoring loss | 29 | 0 |
 | Redraft: Lowest scoring win | 29 | 0 |
-| Redraft: Highest teamwide score | 13 | 1 |
-| Redraft: Lowest teamwide score | 13 | 1 |
+| Redraft: Highest teamwide score | 12 | 0 |
+| Redraft: Lowest teamwide score | 12 | 0 |
 | Redraft: Highest bench score | 13 | 1 |
 | Redraft: Lowest bench score | 13 | 1 |
-| Redraft: Highest potential points | 20 | 8 |
-| Redraft: Lowest potential points | 20 | 8 |
+| Redraft: Highest potential points | 12 | 0 |
+| Redraft: Lowest potential points | 12 | 0 |
 | Redraft: Highest actual points | 12 | 0 |
 | Redraft: Lowest actual points | 12 | 0 |
-| Redraft: Highest realized points ratio | 19 | 7 |
-| Redraft: Lowest realized points ratio | 19 | 7 |
+| Redraft: Highest realized points ratio | 13 | 1 |
+| Redraft: Lowest realized points ratio | 13 | 1 |
 | Redraft: Career standings / wins | 13 | 0 |
 | Redraft: Career standings / losses | 13 | 0 |
 | Redraft: Career standings / yearsInLeague | 0 | 0 |
 | Redraft: Career standings / winPercentage | 13 | 0 |
 | Redraft: Career standings / longestWinStreak | 7 | 7 |
 | Redraft: Career standings / longestLossStreak | 6 | 6 |
+| Redraft: Career standings, medians excluded / wins | 13 | 0 |
+| Redraft: Career standings, medians excluded / losses | 13 | 0 |
+| Redraft: Career standings, medians excluded / longestWinStreak | 0 | 0 |
+| Redraft: Career standings, medians excluded / longestLossStreak | 1 | 0 |
 | Redraft: Career placements / highestPlacement | 0 | 0 |
 | Redraft: Career placements / lowestPlacement | 0 | 0 |
 | Redraft: Career placements / averagePlacement | 4 | 0 |
 | Redraft: Career placements / playoffAppearances | 0 | 0 |
 | Redraft: Career placements / toiletBowlAppearances | 9 | 9 |
 | Redraft: Career lineups / perfectLineups | 3 | 2 |
-| Redraft: Career lineups / missedPoints | 10 | 3 |
-| Redraft: Career lineups / lineupIQ | 9 | 3 |
+| Redraft: Career lineups / missedPoints | 8 | 0 |
+| Redraft: Career lineups / lineupIQ | 7 | 0 |
 | Redraft: Career scores / highestScore | 0 | 0 |
 | Redraft: Career scores / lowestScore | 1 | 0 |
 | Redraft: Career scores / pointsForward | 15 | 0 |
@@ -73,6 +96,10 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 | Dynasty: Career standings / winPercentage | 6 | 1 |
 | Dynasty: Career standings / longestWinStreak | 1 | 0 |
 | Dynasty: Career standings / longestLossStreak | 2 | 1 |
+| Dynasty: Career standings, medians excluded / wins | 6 | 1 |
+| Dynasty: Career standings, medians excluded / losses | 4 | 1 |
+| Dynasty: Career standings, medians excluded / longestWinStreak | 1 | 0 |
+| Dynasty: Career standings, medians excluded / longestLossStreak | 2 | 1 |
 | Dynasty: Career placements / highestPlacement | 1 | 0 |
 | Dynasty: Career placements / lowestPlacement | 2 | 1 |
 | Dynasty: Career placements / averagePlacement | 3 | 1 |
@@ -101,16 +128,16 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 | Narrowest win | 493 | 464 | 464 | 25 × playoff-week game outside any bracket: ESPN season with no bracket data (doc §2); 4 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
 | Highest scoring loss | 493 | 464 | 464 | 25 × playoff-week game outside any bracket: ESPN season with no bracket data (doc §2); 4 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
 | Lowest scoring win | 493 | 464 | 464 | 25 × playoff-week game outside any bracket: ESPN season with no bracket data (doc §2); 4 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
-| Highest teamwide score | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × UNEXPLAINED | 1 differ |
-| Lowest teamwide score | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × UNEXPLAINED | 1 differ |
-| Highest bench score | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × UNEXPLAINED | 1 differ |
-| Lowest bench score | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × UNEXPLAINED | 1 differ |
-| Highest potential points | 668 | 656 | 648 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 8 × UNEXPLAINED | 8 differ |
-| Lowest potential points | 668 | 656 | 648 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 8 × UNEXPLAINED | 8 differ |
+| Highest teamwide score | 668 | 656 | 656 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
+| Lowest teamwide score | 668 | 656 | 656 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
+| Highest bench score | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored | 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored |
+| Lowest bench score | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored | 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored |
+| Highest potential points | 668 | 656 | 656 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
+| Lowest potential points | 668 | 656 | 656 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
 | Highest actual points | 668 | 656 | 656 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
 | Lowest actual points | 668 | 656 | 656 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7) | **identical** |
-| Highest realized points ratio | 668 | 656 | 649 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 7 × UNEXPLAINED | 7 differ |
-| Lowest realized points ratio | 668 | 656 | 649 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 7 × UNEXPLAINED | 7 differ |
+| Highest realized points ratio | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored | 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored |
+| Lowest realized points ratio | 668 | 656 | 655 | 12 × legacy paired two idle teams into a game (doc §1.4 bug 7); 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored | 1 × commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored |
 
 - **Highest score** top 3: legacy: 2024 WK14 RUN FOREST RUN 210.98 / 2023 WK3 It’s Been Real 196.5 / 2021 WK5 CeeDeeCee Guidelines 195.84; new: 2024 WK14 RUN FOREST RUN 210.98 / 2023 WK3 It’s Been Real 196.5 / 2021 WK5 CeeDeeCee Guidelines 195.84
 - **Lowest score** top 3: legacy: 2021 WK13 Kmetment Issues 48.88 / 2024 WK7 All Mahomies are on IR 51.86 / 2020 WK12 Tel Aviv Underminers 57.7; new: 2021 WK13 Kmetment Issues 48.88 / 2024 WK7 All Mahomies are on IR 51.86 / 2020 WK12 Tel Aviv Underminers 57.7
@@ -119,39 +146,19 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 - **Highest scoring loss** top 3: legacy: 2023 WK3 Dead 164.36 / 2021 WK13 CeeDeeCee Guidelines 162.32 / 2023 WK9 Doobie no boobie 161.44; new: 2023 WK3 Dead 164.36 / 2021 WK13 CeeDeeCee Guidelines 162.32 / 2023 WK9 Doobie no boobie 161.44
 - **Lowest scoring win** top 3: legacy: 2021 WK9 Waco Warriors 65.96 / 2020 WK12 MON KE 70 / 2024 WK3 Return of the Nacua  85.68; new: 2021 WK9 Waco Warriors 65.96 / 2020 WK12 MON KE 70 / 2024 WK3 Return of the Nacua  85.68
 - **Highest teamwide score** top 3: legacy: 2023 WK3 Black Veiled McBrides 259.96 / 2023 WK4 Arizona State University 252 / 2022 WK5 Too Many Cooks 247.26; new: 2023 WK3 Black Veiled McBrides 259.96 / 2023 WK4 Arizona State University 252 / 2022 WK5 Too Many Cooks 247.26
-  - residual value: 2022 WK5 The Sun God’s Tomb: legacy 145.68 vs new 175.98
 - **Lowest teamwide score** top 3: legacy: 2022 WK17 Shitshow 57.88 / 2023 WK14 Poverty Franchise 66.34 / 2024 WK6 All Mahomies are on IR 71.6; new: 2023 WK14 Poverty Franchise 66.34 / 2024 WK6 All Mahomies are on IR 71.6 / 2022 WK1 Dooby boobie  72.3
-  - residual value: 2022 WK5 The Sun God’s Tomb: legacy 145.68 vs new 175.98
 - **Highest bench score** top 3: legacy: 2023 WK3 Black Veiled McBrides 94.1 / 2022 WK5 RB INFINITY GAUNTLET 84.88 / 2022 WK12 Alvin and the Chipmunks  82.16; new: 2023 WK3 Black Veiled McBrides 94.1 / 2022 WK5 RB INFINITY GAUNTLET 84.88 / 2022 WK12 Alvin and the Chipmunks  82.16
   - residual value: 2022 WK5 The Sun God’s Tomb: legacy 20.34 vs new 50.64
 - **Lowest bench score** top 3: legacy: 2022 WK7 WR AVENGERS -2.9 / 2023 WK16 Poverty Franchise -1.76 / 2024 WK5 PittifulFranchise 0; new: 2022 WK7 WR AVENGERS -2.9 / 2023 WK16 Poverty Franchise -1.76 / 2022 WK3 Team MassiveMike 0
   - residual value: 2022 WK5 The Sun God’s Tomb: legacy 20.34 vs new 50.64
 - **Highest potential points** top 3: legacy: 2023 WK3 Black Veiled McBrides 226.36 / 2023 WK3 It’s Been Real 224.9 / 2024 WK14 RUN FOREST RUN 220.28; new: 2023 WK3 Black Veiled McBrides 226.36 / 2023 WK3 It’s Been Real 224.9 / 2024 WK14 RUN FOREST RUN 220.28
-  - residual value: 2022 WK5 RB INFINITY GAUNTLET: legacy 197.44 vs new 190.98
-  - residual value: 2022 WK5 breeces pieces: legacy 181.28 vs new 171.28
-  - residual value: 2022 WK6 breeces pieces: legacy 159.9 vs new 159.3
-  - residual value: 2022 WK9 breeces pieces: legacy 159.64 vs new 149.44
-  - residual value: 2023 WK12 Doobie no boobie: legacy 154.44 vs new 154.14
 - **Lowest potential points** top 3: legacy: 2022 WK17 Shitshow 53.4 / 2023 WK14 Poverty Franchise 68.34 / 2024 WK6 All Mahomies are on IR 69.6; new: 2023 WK14 Poverty Franchise 68.34 / 2024 WK6 All Mahomies are on IR 69.6 / 2022 WK1 Dooby boobie  72.3
-  - residual value: 2023 WK17 Doobie no boobie: legacy 122.86 vs new 116.72
-  - residual value: 2022 WK7 breeces pieces: legacy 130.94 vs new 124.44
-  - residual value: 2023 WK8 Doobie no boobie: legacy 143.92 vs new 131.46
-  - residual value: 2023 WK12 Doobie no boobie: legacy 154.44 vs new 154.14
-  - residual value: 2022 WK9 breeces pieces: legacy 159.64 vs new 149.44
 - **Highest actual points** top 3: legacy: 2024 WK14 RUN FOREST RUN 210.98 / 2023 WK3 It’s Been Real 196.5 / 2023 WK9 Team MassiveMike 195.8; new: 2024 WK14 RUN FOREST RUN 210.98 / 2023 WK3 It’s Been Real 196.5 / 2023 WK9 Team MassiveMike 195.8
 - **Lowest actual points** top 3: legacy: 2024 WK7 All Mahomies are on IR 51.86 / 2022 WK17 Shitshow 53.4 / 2024 WK6 All Mahomies are on IR 63.1; new: 2024 WK7 All Mahomies are on IR 51.86 / 2024 WK6 All Mahomies are on IR 63.1 / 2024 WK14 Poverty Franchise 63.2
 - **Highest realized points ratio** top 3: legacy: 2022 WK5 The Sun God’s Tomb 1.031 / 2024 WK5 PittifulFranchise 1 / 2024 WK8 Budget Dallas Cowboys 1; new: 2022 WK1 RB INFINITY GAUNTLET 1 / 2022 WK2 Too Many Cooks 1 / 2022 WK2 Dooby boobie  1
   - residual value: 2022 WK5 The Sun God’s Tomb: legacy 1.031 vs new 0.782
-  - residual value: 2022 WK5 breeces pieces: legacy 0.931 vs new 0.985
-  - residual value: 2022 WK7 breeces pieces: legacy 0.876 vs new 0.921
-  - residual value: 2022 WK9 breeces pieces: legacy 0.87 vs new 0.93
-  - residual value: 2023 WK17 Doobie no boobie: legacy 0.865 vs new 0.911
 - **Lowest realized points ratio** top 3: legacy: 2024 WK14 Poverty Franchise 0.51 / 2024 WK7 All Mahomies are on IR 0.548 / 2024 WK9 Poverty Franchise 0.638; new: 2024 WK14 Poverty Franchise 0.51 / 2024 WK7 All Mahomies are on IR 0.548 / 2024 WK9 Poverty Franchise 0.638
-  - residual value: 2022 WK5 RB INFINITY GAUNTLET: legacy 0.734 vs new 0.759
-  - residual value: 2023 WK8 Doobie no boobie: legacy 0.859 vs new 0.94
-  - residual value: 2023 WK17 Doobie no boobie: legacy 0.865 vs new 0.911
-  - residual value: 2022 WK9 breeces pieces: legacy 0.87 vs new 0.93
-  - residual value: 2022 WK7 breeces pieces: legacy 0.876 vs new 0.921
+  - residual value: 2022 WK5 The Sun God’s Tomb: legacy 1.031 vs new 0.782
 
 ### Manager (franchise) records
 
@@ -161,16 +168,20 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 | Career standings / losses | 17 | 13 | **identical** | - |
 | Career standings / yearsInLeague | 17 | 0 | **identical** | - |
 | Career standings / winPercentage | 17 | 13 | **identical** | - |
-| Career standings / longestWinStreak | 17 | 7 | 7 | streaks are per season now (doc §2); the legacy streak runs across seasons |
-| Career standings / longestLossStreak | 17 | 6 | 6 | streaks are per season now (doc §2); the legacy streak runs across seasons |
+| Career standings / longestWinStreak | 17 | 7 | 7 | 7 × the legacy default streak ignores median results (doc §1.4 bug 5) while the new default includes the season's median games (doc §2); with medians excluded they match exactly (next family) (David K.: legacy 7 vs new 11; Blake W.: legacy 4 vs new 6; David L.: legacy 9 vs new 18) |
+| Career standings / longestLossStreak | 17 | 6 | 6 | 6 × the legacy default streak ignores median results (doc §1.4 bug 5) while the new default includes the season's median games (doc §2); with medians excluded they match exactly (next family) (Andrew K.: legacy 5 vs new 8; James M.: legacy 6 vs new 8; Colin H.: legacy 5 vs new 7) |
+| Career standings, medians excluded / wins | 17 | 13 | **identical** | - |
+| Career standings, medians excluded / losses | 17 | 13 | **identical** | - |
+| Career standings, medians excluded / longestWinStreak | 17 | 0 | **identical** | - |
+| Career standings, medians excluded / longestLossStreak | 17 | 1 | **identical** | - |
 | Career placements / highestPlacement | 17 | 0 | **identical** | - |
 | Career placements / lowestPlacement | 17 | 0 | **identical** | - |
 | Career placements / averagePlacement | 17 | 4 | **identical** | - |
 | Career placements / playoffAppearances | 17 | 0 | **identical** | - |
-| Career placements / toiletBowlAppearances | 17 | 9 | 9 | toilet bowl appearance = played in the losers bracket (doc §2); the legacy counted every team that missed the playoffs |
-| Career lineups / perfectLineups | 14 | 3 | 2 | optimal lineups use each week's position snapshot and an exact assignment (doc §1.4 bug 8) |
-| Career lineups / missedPoints | 14 | 10 | 3 | optimal lineups use each week's position snapshot and an exact assignment (doc §1.4 bug 8) |
-| Career lineups / lineupIQ | 14 | 9 | 3 | optimal lineups use each week's position snapshot and an exact assignment (doc §1.4 bug 8) |
+| Career placements / toiletBowlAppearances | 17 | 9 | 9 | 9 × a toilet bowl appearance means playing in the losers bracket (doc §2); the legacy counted every team that missed the playoffs, including ESPN seasons (no bracket data) and teams the Sleeper bracket left out. The gap equals each manager's count of such seasons, exactly (David L.: legacy 4 vs new 2; Jack O.: legacy 3 vs new 1; Andrew K.: legacy 2 vs new 1) |
+| Career lineups / perfectLineups | 14 | 3 | 2 | 2 × the legacy calls a lineup perfect when team points / potential exceed 0.999; doc §4.4 says the lineup itself must be within 0.01 of the optimum (this also covers a commissioner score override). The gap equals each manager's count of lineups the legacy rule accepts and §4.4 rejects, exactly (Evan R.: legacy 6 vs new 5; Andrew K.: legacy 3 vs new 2) |
+| Career lineups / missedPoints | 14 | 8 | **identical** | - |
+| Career lineups / lineupIQ | 14 | 7 | **identical** | - |
 | Career scores / highestScore | 17 | 0 | **identical** | - |
 | Career scores / lowestScore | 17 | 1 | **identical** | - |
 | Career scores / pointsForward | 17 | 15 | **identical** | - |
@@ -178,6 +189,25 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 | Career scores / numGames | 17 | 15 | **identical** | - |
 | Career scores / pointsForwardPerGame | 17 | 15 | **identical** | - |
 | Career scores / pointsAgainstPerGame | 17 | 15 | **identical** | - |
+
+### Trophies (legacy `trophies.ts`)
+
+| Trophy type | Legacy | New | Only legacy (as-was / corrected) | Only new (as-was / corrected) | Why |
+|---|---:|---:|---|---|---|
+| placement | 20 | 20 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| high-scorer-club | 8 | 8 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| benchwarmer-club | 7 | 7 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| smartypants-club | 73 | 72 | 1 / 1 | 0 / 0 | a commissioner score override: the legacy ratio uses the overridden team total (every residual row verified) |
+| season-high-score | 5 | 5 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-narrowest-win | 5 | 5 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-largest-blowout | 5 | 5 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-points-for | 5 | 5 | 4 / 2 | 4 / 2 | doc §1.4 bug 3: the legacy added only the winner's score to a team's points for (every residual row verified) |
+| season-points-against | 5 | 5 | 5 / 3 | 5 / 3 | doc §1.4 bug 3: the legacy added the loser's *own* score to a team's points against (every residual row verified) |
+| season-high-iq | 4 | 35 | 0 / 0 | 31 / 31 | the legacy breaks a tie by who has the most top-IQ weeks; all tied lineups share the trophy now (every residual row verified) |
+
+### Manager matchup heatmap (legacy `manager-matchups.ts`)
+
+Cells compared (managers whose franchise did not change hands): 251. Differences on the old site's data: 52; on corrected data: **none**. The median column is compared with `median=include`, because the legacy counted median games in every season.
 
 ## Dynasty (2023-2024)
 
@@ -187,16 +217,16 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 |---|---:|---:|---:|---|---|
 | Highest score | 328 | 324 | 224 | 4 × legacy paired two idle teams into a game (doc §1.4 bug 7); 100 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Lowest score | 328 | 324 | 224 | 4 × legacy paired two idle teams into a game (doc §1.4 bug 7); 100 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
-| Largest blowout | 164 | 162 | 112 | 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 2 × UNEXPLAINED: counted in the new data; 2 × UNEXPLAINED; 48 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
-| Narrowest win | 164 | 162 | 112 | 2 × UNEXPLAINED: counted in the new data; 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 2 × UNEXPLAINED; 48 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
-| Highest scoring loss | 164 | 162 | 111 | 2 × UNEXPLAINED: counted in the new data; 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 2 × UNEXPLAINED; 49 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
-| Lowest scoring win | 164 | 162 | 112 | 2 × UNEXPLAINED: counted in the new data; 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 2 × UNEXPLAINED; 48 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
+| Largest blowout | 164 | 162 | 112 | 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 4 × resolved by the data corrections (result changed by as-played scoring or a fake-game neighbour); 48 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
+| Narrowest win | 164 | 162 | 112 | 4 × resolved by the data corrections (result changed by as-played scoring or a fake-game neighbour); 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 48 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
+| Highest scoring loss | 164 | 162 | 111 | 4 × resolved by the data corrections (result changed by as-played scoring or a fake-game neighbour); 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 49 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
+| Lowest scoring win | 164 | 162 | 112 | 4 × resolved by the data corrections (result changed by as-played scoring or a fake-game neighbour); 2 × legacy paired two idle teams into a game (doc §1.4 bug 7); 48 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Highest teamwide score | 330 | 324 | 209 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 115 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Lowest teamwide score | 330 | 324 | 209 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 115 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Highest bench score | 330 | 324 | 264 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 60 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Lowest bench score | 330 | 324 | 264 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 60 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
-| Highest potential points | 330 | 324 | 231 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 93 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | 1 differ |
-| Lowest potential points | 330 | 324 | 231 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 93 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | 1 differ |
+| Highest potential points | 330 | 324 | 231 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 93 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | 1 × as-played scoring (interceptions -1, weeks 1-13): doc §7 |
+| Lowest potential points | 330 | 324 | 231 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 93 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | 1 × as-played scoring (interceptions -1, weeks 1-13): doc §7 |
 | Highest actual points | 330 | 324 | 224 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 100 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Lowest actual points | 330 | 324 | 224 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 100 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
 | Highest realized points ratio | 330 | 324 | 293 | 6 × legacy paired two idle teams into a game (doc §1.4 bug 7); 31 × as-played scoring (interceptions -1, weeks 1-13): doc §7 | **identical** |
@@ -225,25 +255,48 @@ Two legacy runs are compared, so a difference can be assigned to *data* or to *l
 
 | Family / field | Managers compared | Differ in Layer 0 | Differ on corrected data | Why (corrected-data residuals) |
 |---|---:|---:|---:|---|
-| Career standings / wins | 9 | 6 | 1 | UNEXPLAINED |
-| Career standings / losses | 9 | 4 | 1 | UNEXPLAINED |
-| Career standings / yearsInLeague | 9 | 1 | 1 | UNEXPLAINED |
-| Career standings / winPercentage | 9 | 6 | 1 | UNEXPLAINED |
+| Career standings / wins | 9 | 6 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 7 vs new 8) |
+| Career standings / losses | 9 | 4 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 9 vs new 24) |
+| Career standings / yearsInLeague | 9 | 1 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 1 vs new 2) |
+| Career standings / winPercentage | 9 | 6 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 0.438 vs new 0.25) |
 | Career standings / longestWinStreak | 9 | 1 | **identical** | - |
-| Career standings / longestLossStreak | 9 | 2 | 1 | streaks are per season now (doc §2); the legacy streak runs across seasons |
+| Career standings / longestLossStreak | 9 | 2 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 3 vs new 8) |
+| Career standings, medians excluded / wins | 9 | 6 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 7 vs new 8) |
+| Career standings, medians excluded / losses | 9 | 4 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 9 vs new 24) |
+| Career standings, medians excluded / longestWinStreak | 9 | 1 | **identical** | - |
+| Career standings, medians excluded / longestLossStreak | 9 | 2 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 3 vs new 8) |
 | Career placements / highestPlacement | 9 | 1 | **identical** | - |
-| Career placements / lowestPlacement | 9 | 2 | 1 | UNEXPLAINED |
-| Career placements / averagePlacement | 9 | 3 | 1 | UNEXPLAINED |
+| Career placements / lowestPlacement | 9 | 2 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 7 vs new 10) |
+| Career placements / averagePlacement | 9 | 3 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 7 vs new 8.5) |
 | Career placements / playoffAppearances | 9 | 0 | **identical** | - |
-| Career placements / toiletBowlAppearances | 9 | 1 | 1 | toilet bowl appearance = played in the losers bracket (doc §2); the legacy counted every team that missed the playoffs |
+| Career placements / toiletBowlAppearances | 9 | 1 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 1 vs new 2) |
 | Career lineups / perfectLineups | 9 | 0 | **identical** | - |
-| Career lineups / missedPoints | 9 | 9 | 2 | optimal lineups use each week's position snapshot and an exact assignment (doc §1.4 bug 8) |
-| Career lineups / lineupIQ | 9 | 8 | 1 | optimal lineups use each week's position snapshot and an exact assignment (doc §1.4 bug 8) |
+| Career lineups / missedPoints | 9 | 9 | 2 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person; 1 × legacy maps REC_FLEX as RB/WR but Sleeper's REC_FLEX is WR/TE (real lineups: 111 TE + 59 WR starts, no RB), so its potential points differ in this league; the gap equals the sum of those weeks' potential differences, exactly (David L.: legacy 576.24 vs new 1148.9; David K.: legacy 747.08 vs new 748.28) |
+| Career lineups / lineupIQ | 9 | 8 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 0.804 vs new 0.792) |
 | Career scores / highestScore | 9 | 3 | **identical** | - |
-| Career scores / lowestScore | 9 | 5 | 1 | UNEXPLAINED |
-| Career scores / pointsForward | 9 | 9 | 1 | UNEXPLAINED |
-| Career scores / pointsAgainst | 9 | 9 | 1 | UNEXPLAINED |
-| Career scores / numGames | 9 | 4 | 1 | UNEXPLAINED |
-| Career scores / pointsForwardPerGame | 9 | 9 | 1 | UNEXPLAINED |
-| Career scores / pointsAgainstPerGame | 9 | 9 | 1 | UNEXPLAINED |
+| Career scores / lowestScore | 9 | 5 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 106.46 vs new 89.46) |
+| Career scores / pointsForward | 9 | 9 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 2365.3 vs new 4373.3) |
+| Career scores / pointsAgainst | 9 | 9 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 2440.3 vs new 5039.0) |
+| Career scores / numGames | 9 | 4 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 16 vs new 32) |
+| Career scores / pointsForwardPerGame | 9 | 9 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 147.829 vs new 136.665) |
+| Career scores / pointsAgainstPerGame | 9 | 9 | 1 | 1 × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person (David L.: legacy 152.519 vs new 157.468) |
+
+### Trophies (legacy `trophies.ts`)
+
+| Trophy type | Legacy | New | Only legacy (as-was / corrected) | Only new (as-was / corrected) | Why |
+|---|---:|---:|---|---|---|
+| placement | 8 | 8 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| high-scorer-club | 23 | 24 | 0 / 0 | 1 / 1 | the legacy counts only the winning side and uses ≥ 200; any counted team-week above 200 qualifies now (doc §4.1) (every residual row verified) |
+| benchwarmer-club | 14 | 13 | 1 / 0 | 0 / 0 | **identical on corrected data** |
+| smartypants-club | 1 | 1 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-high-score | 2 | 2 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-narrowest-win | 2 | 2 | 1 / 0 | 1 / 0 | **identical on corrected data** |
+| season-largest-blowout | 2 | 2 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-points-for | 2 | 2 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-points-against | 2 | 2 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+| season-high-iq | 2 | 2 | 0 / 0 | 0 / 0 | **identical on corrected data** |
+
+### Manager matchup heatmap (legacy `manager-matchups.ts`)
+
+Cells compared (managers whose franchise did not change hands): 64. Differences on the old site's data: 6; on corrected data: **none**. The median column is compared with `median=include`, because the legacy counted median games in every season.
 

@@ -83,6 +83,10 @@ export interface TeamWeekFacts {
   result: string | null;
   points: number;
   hasPlayers: boolean;
+  /** A commissioner override changed this team-week's total. */
+  overridden: boolean;
+  /** The season's lineup has a REC_FLEX slot. */
+  recFlex: boolean;
 }
 
 /** Facts about every team-week in the new data, to explain why a legacy row has no counterpart. */
@@ -97,9 +101,12 @@ export async function teamWeekFacts(db: Db, leagueId: number): Promise<Map<strin
     result: string | null;
     points: number;
     players: boolean;
+    overridden: boolean;
+    rec_flex: boolean;
   }>(sql`
     select ls.year, tw.week, ts.name, tw.matchup_id, m.game_type::text as game_type, tw.counts, tw.result::text as result,
-           tw.points::float8 as points, exists (select 1 from player_week pw where pw.team_week_id = tw.id) as players
+           tw.points::float8 as points, exists (select 1 from player_week pw where pw.team_week_id = tw.id) as players,
+           tw.points_overridden as overridden, ('REC_FLEX' = any(ls.roster_slots)) as rec_flex
     from team_week tw join team_season ts on ts.id = tw.team_season_id join league_season ls on ls.id = tw.league_season_id
     left join matchup m on m.id = tw.matchup_id where ls.league_id = ${leagueId}`);
   return new Map(
@@ -112,6 +119,8 @@ export async function teamWeekFacts(db: Db, leagueId: number): Promise<Map<strin
         result: r.result,
         points: Number(r.points),
         hasPlayers: r.players,
+        overridden: r.overridden,
+        recFlex: r.rec_flex,
       },
     ])
   );
@@ -135,7 +144,7 @@ export function diffTeamWeek(
   explain: {
     legacyOnly: (r: Row, f: TeamWeekFacts | undefined) => string;
     newOnly: (r: Row, f: TeamWeekFacts | undefined) => string;
-    valueDiff: (l: Row, n: Row) => string;
+    valueDiff: (l: Row, n: Row, f: TeamWeekFacts | undefined) => string;
   },
   tol = 0.0051
 ): DiffResult {
@@ -154,7 +163,11 @@ export function diffTeamWeek(
     const n = newBy.get(keyOf(l));
     if (!n) out.onlyLegacy.push({ row: l, reason: explain.legacyOnly(l, facts.get(keyOf(l))) });
     else if (Math.abs(n.value - l.value) > tol)
-      out.valueDiffs.push({ legacy: l, now: n, reason: explain.valueDiff(l, n) });
+      out.valueDiffs.push({
+        legacy: l,
+        now: n,
+        reason: explain.valueDiff(l, n, facts.get(keyOf(l))),
+      });
     else out.matched++;
   }
   for (const n of now)

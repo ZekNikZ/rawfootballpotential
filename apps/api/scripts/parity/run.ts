@@ -9,14 +9,20 @@ import {
   countBy,
   diffTeamWeek,
   fetchAll,
+  keyOf,
   legacyTeamWeekRows,
   newTeamWeekRows,
   teamWeekFacts,
-  type DiffResult,
   type Row,
 } from "./compare";
-import { compareManagerRecords, MANAGER_FAMILIES, type ManagerDiff } from "./managers";
+import {
+  compareManagerRecords,
+  MANAGER_FAMILIES,
+  type FieldCheck,
+  type ManagerDiff,
+} from "./managers";
 import { compareExtras } from "./extras";
+import { FINDINGS } from "./findings";
 
 loadEnvFile();
 const { db, pool } = createDb(process.env.DATABASE_URL!);
@@ -80,7 +86,7 @@ out();
 
 const summary: { name: string; layer0: number; layer1: number }[] = [];
 const sections: string[] = [];
-const sec = (s: string) => sections.push(s);
+const sec = (s = "") => sections.push(s);
 
 for (const leagueDef of asWas.leagueDefs) {
   const [dbLeague] = await db
@@ -102,10 +108,15 @@ for (const leagueDef of asWas.leagueDefs) {
 
   const reasonFor = (kind: "legacyOnly" | "newOnly" | "valueDiff") => {
     if (kind === "valueDiff")
-      return (l: Row) =>
-        leagueDef.key === "dynasty" && l.season === 2023 && l.week <= 13
-          ? "as-played scoring (interceptions -1, weeks 1-13): doc §7"
-          : "UNEXPLAINED";
+      return (l: Row, _n: Row, f: any) => {
+        if (f?.overridden)
+          return "commissioner score override (custom_points): the legacy bench / ratio use the overridden total; the new ones use what the lineup scored";
+        if (leagueDef.key === "dynasty" && l.season === 2023 && l.week <= 13)
+          return "as-played scoring (interceptions -1, weeks 1-13): doc §7";
+        if (f?.recFlex)
+          return "legacy maps REC_FLEX as RB/WR; Sleeper's REC_FLEX is WR/TE (real lineups: 111 TE + 59 WR starts, no RB)";
+        return "UNEXPLAINED";
+      };
     if (kind === "newOnly") return () => "UNEXPLAINED";
     return (_: Row, f: any) => {
       if (!f) return "UNEXPLAINED: no such team-week in the new data";
@@ -132,6 +143,7 @@ for (const leagueDef of asWas.leagueDefs) {
   );
   sec("|---|---:|---:|---:|---|---|");
   const detail: string[] = [];
+  const recFlexGap = new Map<string, number>();
   for (const rec of TEAM_WEEK_RECORDS) {
     const newRes = await fetchAll(db, dbLeague.id, rec.id, { seasons });
     const newRows = newTeamWeekRows(newRes);
@@ -147,6 +159,17 @@ for (const leagueDef of asWas.leagueDefs) {
       facts,
       explain
     );
+    // A Layer 0 difference that disappears once the data is corrected was caused by that data (e.g. a game whose winner
+    // changed under as-played scoring, so the winner-side row moved from one team to the other).
+    const stillDiffering = new Set(
+      [...d1.onlyLegacy, ...d1.onlyNew]
+        .map((x) => keyOf(x.row))
+        .concat(d1.valueDiffs.map((x) => keyOf(x.legacy)))
+    );
+    for (const x of [...d0.onlyLegacy, ...d0.onlyNew])
+      if (x.reason.startsWith("UNEXPLAINED") && !stillDiffering.has(keyOf(x.row)))
+        x.reason =
+          "resolved by the data corrections (result changed by as-played scoring or a fake-game neighbour)";
     const reasons0 = countBy(
       [...d0.onlyLegacy, ...d0.onlyNew, ...d0.valueDiffs],
       (x: any) => x.reason
@@ -155,7 +178,17 @@ for (const leagueDef of asWas.leagueDefs) {
     const bad = [...d0.onlyLegacy, ...d0.onlyNew, ...d0.valueDiffs].filter((x: any) =>
       String(x.reason).startsWith("UNEXPLAINED")
     ).length;
-    unexplained += bad + residual;
+    if (rec.id === "potential.high")
+      for (const v of d1.valueDiffs)
+        if (facts.get(keyOf(v.legacy))?.recFlex)
+          recFlexGap.set(
+            v.legacy.manager,
+            (recFlexGap.get(v.legacy.manager) ?? 0) + (v.legacy.value - v.now.value)
+          );
+    const layer1All = [...d1.onlyLegacy, ...d1.onlyNew, ...d1.valueDiffs];
+    const reasons1 = countBy(layer1All, (x: any) => x.reason);
+    const bad1 = layer1All.filter((x: any) => String(x.reason).startsWith("UNEXPLAINED")).length;
+    unexplained += bad + bad1;
     summary.push({
       name: `${leagueDef.name}: ${rec.legacy}`,
       layer0: d0.onlyLegacy.length + d0.onlyNew.length + d0.valueDiffs.length,
@@ -166,7 +199,13 @@ for (const leagueDef of asWas.leagueDefs) {
         Object.entries(reasons0)
           .map(([r, n]) => `${n} × ${r}`)
           .join("; ") || "none"
-      } | ${residual === 0 ? "**identical**" : `${residual} differ`} |`
+      } | ${
+        residual === 0
+          ? "**identical**"
+          : Object.entries(reasons1)
+              .map(([r, n]) => `${n} × ${r}`)
+              .join("; ")
+      } |`
     );
     // Top 5 of both, for eyeballing ranks.
     const top = (rows: Row[]) =>
@@ -192,6 +231,52 @@ for (const leagueDef of asWas.leagueDefs) {
   sec(...(detail.length ? [detail.join("\n")] : []));
   sec();
 
+  // Franchises that changed hands (dynasty): the new records follow the franchise, the legacy ones the person.
+  const changed = await db.execute<{ name: string }>(sql`
+    select distinct m.name from team_season ts
+    join league_season ls on ls.id = ts.league_season_id
+    join team_season_manager tsm on tsm.team_season_id = ts.id and tsm.role = 'primary'
+    join manager m on m.id = tsm.manager_id
+    where ls.league_id = ${dbLeague.id} and ts.franchise_id in (
+      select ts2.franchise_id from team_season ts2 join league_season l2 on l2.id = ts2.league_season_id
+      join team_season_manager t2 on t2.team_season_id = ts2.id and t2.role = 'primary'
+      where l2.league_id = ${dbLeague.id} group by ts2.franchise_id having count(distinct t2.manager_id) > 1)`);
+  const ownerChanged = new Set(changed.rows.map((x) => x.name));
+  // Exact, data-derived accounting for two legacy-vs-new definition differences (so they are verified, not assumed).
+  const names = async (q: ReturnType<typeof sql>) =>
+    new Map(
+      (await db.execute<{ name: string; n: string }>(q)).rows.map((x) => [x.name, Number(x.n)])
+    );
+  const espnNonPlayoff = await names(sql`
+    select m.name, count(*) as n from team_season ts join league_season ls on ls.id = ts.league_season_id
+    join (select distinct on (ts2.franchise_id) ts2.franchise_id, tsm.manager_id from team_season ts2 join league_season l2 on l2.id = ts2.league_season_id
+          join team_season_manager tsm on tsm.team_season_id = ts2.id and tsm.role = 'primary' where l2.league_id = ${dbLeague.id} order by ts2.franchise_id, l2.year desc) cur on cur.franchise_id = ts.franchise_id
+    join manager m on m.id = cur.manager_id
+    where ls.league_id = ${dbLeague.id} and ts.made_playoffs = false and ts.final_place is not null
+      and not exists (select 1 from game_result gr where gr.team_season_id = ts.id and gr.game_type = 'toilet_bowl') group by 1`);
+  const nearPerfect = await names(sql`
+    select m.name, count(*) as n from rec_team_week tw
+    join (select distinct on (ts2.franchise_id) ts2.franchise_id, tsm.manager_id from team_season ts2 join league_season l2 on l2.id = ts2.league_season_id
+          join team_season_manager tsm on tsm.team_season_id = ts2.id and tsm.role = 'primary' where l2.league_id = ${dbLeague.id} order by ts2.franchise_id, l2.year desc) cur on cur.franchise_id = tw.franchise_id
+    join manager m on m.id = cur.manager_id
+    where tw.league_id = ${dbLeague.id} and tw.optimal_points > 0 and tw.points / tw.optimal_points > 0.999 and not tw.is_perfect group by 1`);
+  const checks: Record<string, FieldCheck> = {
+    missedPoints: {
+      reason:
+        "legacy maps REC_FLEX as RB/WR but Sleeper's REC_FLEX is WR/TE (real lineups: 111 TE + 59 WR starts, no RB), so its potential points differ in this league; the gap equals the sum of those weeks' potential differences, exactly",
+      expected: recFlexGap,
+    },
+    toiletBowlAppearances: {
+      reason:
+        "a toilet bowl appearance means playing in the losers bracket (doc §2); the legacy counted every team that missed the playoffs, including ESPN seasons (no bracket data) and teams the Sleeper bracket left out. The gap equals each manager's count of such seasons, exactly",
+      expected: espnNonPlayoff,
+    },
+    perfectLineups: {
+      reason:
+        "the legacy calls a lineup perfect when team points / potential exceed 0.999; doc §4.4 says the lineup itself must be within 0.01 of the optimum (this also covers a commissioner score override). The gap equals each manager's count of lineups the legacy rule accepts and §4.4 rejects, exactly",
+      expected: nearPerfect,
+    },
+  };
   const md: ManagerDiff[] = [];
   for (const fam of MANAGER_FAMILIES) {
     md.push(
@@ -202,7 +287,8 @@ for (const leagueDef of asWas.leagueDefs) {
         fam,
         lg0[fam.legacyRecord],
         lg1[fam.legacyRecord],
-        leagueDef.key
+        ownerChanged,
+        checks
       ))
     );
   }
@@ -220,7 +306,14 @@ for (const leagueDef of asWas.leagueDefs) {
       layer1: m.layer1,
     });
     sec(
-      `| ${m.family} / ${m.field} | ${m.managers} | ${m.layer0} | ${m.layer1 === 0 ? "**identical**" : m.layer1} | ${m.why} |`
+      `| ${m.family} / ${m.field} | ${m.managers} | ${m.layer0} | ${m.layer1 === 0 ? "**identical**" : m.layer1} | ${m.why}${
+        m.layer1 > 0 && m.detail.length
+          ? ` (${m.detail
+              .slice(0, 3)
+              .map((d) => `${d.manager}: legacy ${fmt(d.legacy)} vs new ${fmt(d.now)}`)
+              .join("; ")})`
+          : ""
+      } |`
     );
   }
   sec();
@@ -232,12 +325,14 @@ for (const leagueDef of asWas.leagueDefs) {
     asWas,
     corrected,
     defs,
-    legacyDir
+    legacyDir,
+    ownerChanged
   );
   for (const line of extras.lines) sec(line);
   unexplained += extras.unexplained;
 }
 
+for (const line of FINDINGS) out(line);
 out("## Verdict");
 out();
 out(

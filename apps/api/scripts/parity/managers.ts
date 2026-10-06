@@ -4,6 +4,8 @@ import { fetchAll } from "./compare";
 
 export interface ManagerFamily {
   family: string;
+  /** Extra query for the new API (e.g. median excluded). */
+  query?: Record<string, unknown>;
   legacyRecord: string;
   newRecord: string;
   /** legacy entry field -> new value key, with a tolerance and the reason a residual is expected. */
@@ -11,6 +13,9 @@ export interface ManagerFamily {
   /** Legacy entries to compare: the all-seasons aggregate for the season-default median. */
   pick: (e: any) => boolean;
 }
+
+const STREAK_WHY =
+  "the legacy default streak ignores median results (doc §1.4 bug 5) while the new default includes the season's median games (doc §2); with medians excluded they match exactly (next family)";
 
 const aggregate = (e: any) =>
   e.league === undefined &&
@@ -32,14 +37,29 @@ export const MANAGER_FAMILIES: ManagerFamily[] = [
         legacy: "longestWinStreak",
         now: "winStreak",
         tol: 0,
-        why: "streaks are per season now (doc §2); the legacy streak runs across seasons",
+        why: STREAK_WHY,
       },
       {
         legacy: "longestLossStreak",
         now: "lossStreak",
         tol: 0,
-        why: "streaks are per season now (doc §2); the legacy streak runs across seasons",
+        why: STREAK_WHY,
       },
+    ],
+  },
+  {
+    // Same record with medians excluded on both sides: streaks and W-L must match exactly.
+    family: "Career standings, medians excluded",
+    legacyRecord: "Most wins",
+    newRecord: "career.wins",
+    query: { median: "exclude" },
+    pick: (e: any) =>
+      e.league === undefined && e.scope === undefined && e.medianMethod === "no-medians",
+    fields: [
+      { legacy: "wins", now: "wins", tol: 0 },
+      { legacy: "losses", now: "losses", tol: 0 },
+      { legacy: "longestWinStreak", now: "winStreak", tol: 0 },
+      { legacy: "longestLossStreak", now: "lossStreak", tol: 0 },
     ],
   },
   {
@@ -117,6 +137,18 @@ export interface ManagerDiff {
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v));
 
 /** Compare one family of manager records, manager by manager, both for raw and corrected legacy data. */
+export interface FieldCheck {
+  reason: string;
+  /** manager -> the (legacy - new) gap this reason accounts for exactly */
+  expected: ReadonlyMap<string, number>;
+}
+
+/**
+ * Compare one family of manager records, manager by manager, on raw and on corrected legacy data. A residual on
+ * corrected data counts as explained only if (a) the franchise changed hands (records follow the franchise, doc §2),
+ * (b) a data-derived check accounts for the exact gap, or (c) the field has a documented logic reason that is
+ * itself verified elsewhere in the report (streaks: see the medians-excluded family).
+ */
 export async function compareManagerRecords(
   db: Db,
   leagueId: number,
@@ -124,9 +156,10 @@ export async function compareManagerRecords(
   family: ManagerFamily,
   legacy0: any,
   legacy1: any,
-  leagueKey: string
+  ownerChanged: ReadonlySet<string> = new Set(),
+  checks: Record<string, FieldCheck> = {}
 ): Promise<ManagerDiff[]> {
-  const res = await fetchAll(db, leagueId, family.newRecord, { seasons });
+  const res = await fetchAll(db, leagueId, family.newRecord, { seasons, ...(family.query ?? {}) });
   const nowBy = new Map(
     res.rows.map((r) => [res.entities.managers[r.refs.managerId!]?.name ?? "?", r.values])
   );
@@ -149,17 +182,32 @@ export async function compareManagerRecords(
     };
     const d0 = differ(l0);
     const d1 = differ(l1);
+    const check = checks[f.legacy];
+    const byOwner = d1.filter((d) => ownerChanged.has(d.manager));
+    const rest = d1.filter((d) => !ownerChanged.has(d.manager));
+    const verified = check
+      ? rest.filter((d) => Math.abs(d.legacy - d.now - (check.expected.get(d.manager) ?? 0)) < 1e-6)
+      : [];
+    const left = rest.length - verified.length;
+    const generic = left > 0 && !check && f.why ? left : 0;
+    const parts = [
+      byOwner.length
+        ? `${byOwner.length} × franchise changed hands: records follow the franchise and show its current manager (doc §2); the legacy split it by person`
+        : "",
+      verified.length && check ? `${verified.length} × ${check.reason}` : "",
+      generic && f.why ? `${generic} × ${f.why}` : "",
+      left - generic > 0 ? `${left - generic} × UNEXPLAINED` : "",
+    ].filter(Boolean);
     out.push({
       family: family.family,
       field: f.legacy,
       managers: [...nowBy.keys()].filter((n) => l0.has(n)).length,
       layer0: d0.length,
       layer1: d1.length,
-      why: d1.length === 0 ? "-" : (f.why ?? "UNEXPLAINED"),
-      unexplained: d1.length > 0 && !f.why ? d1.length : 0,
+      why: parts.length ? parts.join("; ") : "-",
+      unexplained: left - generic,
       detail: d1,
     });
   }
-  void leagueKey;
   return out;
 }
