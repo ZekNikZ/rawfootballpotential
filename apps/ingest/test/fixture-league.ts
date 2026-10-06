@@ -233,6 +233,8 @@ export function route(url: string): unknown | undefined {
   const u = new URL(url);
   const p = u.pathname.replace(/^\/v1/, "");
   if (u.pathname.startsWith("/projections/")) return [];
+  const st = p.match(/^\/stats\/nfl\/regular\/2030\/(\d+)$/);
+  if (st) return Number(st[1]) === 1 ? { q1: { pass_int: 2 } } : {};
   if (p === "/state/nfl") return { week: 1, season: "2031", season_type: "off", display_week: 1 };
   if (p === "/players/nfl") return playersDump;
   if (p === `/league/${LEAGUE_ID}`) return league;

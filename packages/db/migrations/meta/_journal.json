@@ -15,6 +15,13 @@
       "when": 1791257250007,
       "tag": "0001_rec_views",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791263145221,
+      "tag": "0002_as_played_scoring",
+      "breakpoints": true
     }
   ]
 }

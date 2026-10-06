@@ -1,0 +1,1 @@
+ALTER TABLE "league_season" ADD COLUMN "scoring_overrides" jsonb DEFAULT '[]'::jsonb NOT NULL;

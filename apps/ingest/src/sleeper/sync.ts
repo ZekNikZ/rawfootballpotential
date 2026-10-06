@@ -13,6 +13,7 @@ import type { SleeperClient } from "./client";
 import { syncDrafts, syncTradedPicks } from "./drafts";
 import { syncGames } from "./games";
 import { PlayerResolver } from "./players";
+import { overridesForWeek, rescoreEntries } from "./rescore";
 import { loadProjections } from "./projections";
 import type {
   SleeperBracketGame,
@@ -158,6 +159,19 @@ export async function syncSleeperSeason(
   for (const w of weeks) {
     const entries = await client.matchups(ext, w, weekPolicy(w));
     if (entries) matchupWeeks.set(w, entries);
+  }
+
+  // As-played scoring: re-score from raw stats when the league changed its scoring after this season was played.
+  if (season.scoringOverrides.length > 0) {
+    for (const [w, entries] of matchupWeeks) {
+      if (Object.keys(overridesForWeek(season.scoringOverrides, w)).length === 0) continue;
+      const stats = await client.stats(season.year, w, frozen ? FOREVER : weekPolicy(w));
+      if (stats)
+        matchupWeeks.set(
+          w,
+          rescoreEntries(entries, w, stats, season.scoringSettings, season.scoringOverrides)
+        );
+    }
   }
 
   const projections = await loadProjections(db, client, {

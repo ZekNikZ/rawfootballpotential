@@ -14,6 +14,14 @@ import {
 import { pk, ts } from "./_helpers";
 import { gameType, leagueSource, leagueType, seasonStatus, waiverType, weekStatus } from "./enums";
 
+/** `stat` was worth `points` per unit in weeks `fromWeek`..`toWeek` (open-ended when omitted). */
+export interface ScoringOverride {
+  stat: string;
+  points: number;
+  fromWeek?: number;
+  toWeek?: number;
+}
+
 export const league = pgTable("league", {
   id: pk(),
   slug: text().notNull().unique(),
@@ -56,6 +64,15 @@ export const leagueSeason = pgTable(
     irSlots: integer().notNull().default(0),
     taxiSlots: integer().notNull().default(0),
     scoringSettings: jsonb().$type<Record<string, number>>().notNull().default({}),
+    /**
+     * Scoring that applied while the season was played, where it differs from `scoring_settings` (Sleeper re-serves
+     * past weeks with the league's *current* scoring). Applied during normalize by re-scoring player and team points
+     * from the raw stats. Empty = the served points are as played.
+     */
+    scoringOverrides: jsonb()
+      .$type<ScoringOverride[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     /** The source's raw league settings (roster positions, trade deadline, ...). */
     settings: jsonb().$type<Record<string, unknown>>().notNull().default({}),
     waiverType: waiverType().notNull().default("normal"),

@@ -18,6 +18,7 @@ import {
   teamSeasonManager,
   teamWeek,
   type Db,
+  type ScoringOverride,
   and,
   eq,
 } from "@rfp/db";
@@ -91,6 +92,16 @@ const THRESHOLDS = {
   redraft: { high_scorer: 190, benchwarmer: 65, smartypants: 0.999 },
   dynasty: { high_scorer: 200, benchwarmer: 90, smartypants: 0.999 },
 } as const;
+
+/**
+ * Scoring that applied while a season was played, where it differs from the league's current settings (Sleeper
+ * re-serves old weeks with current scoring). Dynasty 2023 was played with interceptions at -1 for weeks 1-13 and
+ * changed to -2 from week 14 (found by re-scoring from raw stats: that reproduces Sleeper's official W-L and PF
+ * for every team exactly).
+ */
+const AS_PLAYED_SCORING: Record<string, ScoringOverride[]> = {
+  "dynasty-2023": [{ stat: "pass_int", points: -1, toWeek: 13 }],
+};
 
 export interface MongoMigrationSummary {
   leagues: number;
@@ -220,6 +231,10 @@ export async function migrateFromMongo(
             externalId: y.internalId,
           });
           summary.seasons.sleeper++;
+          await db
+            .update(leagueSeason)
+            .set({ scoringOverrides: AS_PLAYED_SCORING[`${l.key}-${y.year}`] ?? [] })
+            .where(eq(leagueSeason.id, seasonId));
           for (const [legacyTeamId, place] of Object.entries(y.finalPlacements ?? {})) {
             const roster = legacyTeamId.split("-").at(-1)!;
             await putPlacement(db, seasonId, roster, place, false, summary);

@@ -179,6 +179,16 @@ export class SleeperClient {
   nflState(policy: FreshnessPolicy) {
     return this.parsed(sleeperNflState, "state/nfl", {}, `${API}/state/nfl`, policy);
   }
+  /** Raw per-player stat lines for one NFL week (undocumented endpoint; used to re-score with as-played settings). */
+  stats(season: number, week: number, policy: FreshnessPolicy) {
+    return this.parsed(
+      z.record(z.string(), z.record(z.string(), z.number())),
+      "stats",
+      { season, week, seasonType: "regular" },
+      `${API}/stats/nfl/regular/${season}/${week}`,
+      policy
+    );
+  }
   userLeagues(userId: string, season: number, policy: FreshnessPolicy) {
     return this.parsed(
       z.array(sleeperUserLeague),

@@ -1,4 +1,4 @@
-import { league, override, sql, type Db } from "@rfp/db";
+import { league, leagueSeason, override, sql, eq, type Db } from "@rfp/db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { deriveSeason } from "../src/derive/derive";
 import { RateLimiter, RawStore, hours } from "../src/lib/raw-store";
@@ -291,5 +291,27 @@ describe("re-running ingest", () => {
     expect(row).toEqual({ points: 150, overridden: true });
     // and it flows into the derived result: 150 beats team 5's 90
     expect((await results(6)).find((r) => r.week === 1 && r.kind === "h2h")?.result).toBe("W");
+  });
+});
+
+describe("as-played scoring (Sleeper re-serves old weeks with today's scoring)", () => {
+  it("re-scores the weeks a rule covers, so a tie becomes a loss; later weeks are untouched", async () => {
+    // Week 1 was played with interceptions at -1 (the fixture league has no pass_int scoring today): team 1 threw 2.
+    await db
+      .update(leagueSeason)
+      .set({ scoringOverrides: [{ stat: "pass_int", points: -1, toWeek: 1 }] })
+      .where(eq(leagueSeason.id, seasonId));
+    await syncSleeperSeason(db, client, seasonId, { mode: "full" });
+    await deriveSeason(db, seasonId);
+    const t1 = await results(1);
+    expect(t1.find((r) => r.week === 1 && r.kind === "h2h")?.result).toBe("L"); // 98 vs 100, was a 100-100 tie
+    const [pts] = await q<{ w1: number; w2: number }>(sql`
+      select (max(tw.points) filter (where tw.week = 1))::float w1, (max(tw.points) filter (where tw.week = 2))::float w2
+      from team_week tw join team_season ts on ts.id = tw.team_season_id where tw.league_season_id = ${seasonId} and ts.external_roster_id = '1'`);
+    expect(pts).toEqual({ w1: 98, w2: 130 });
+    const [qb] = await q<{ points: number }>(sql`
+      select pw.points::float from player_week pw join team_week tw on tw.id = pw.team_week_id join team_season ts on ts.id = tw.team_season_id
+      join player p on p.id = pw.player_id where tw.week = 1 and ts.external_roster_id = '1' and p.sleeper_id = 'q1'`);
+    expect(qb?.points).toBe(48); // was 50 (half of 100), minus 2 interceptions x 1
   });
 });
