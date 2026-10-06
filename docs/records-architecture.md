@@ -215,6 +215,28 @@ record_cache        record_id, params_hash, version_key, payload jsonb, computed
 - wins, losses, win % and streaks all handle medians the same way automatically,
 - streaks are window functions over `ORDER BY week, seq`, partitioned by `(franchise_id, league_season_id)` (cross-season: drop `league_season_id` from the partition).
 
+#### 3.2.1 As built (M1)
+
+The schema lives in `packages/db/src/schema/` (44 tables, 9 `rec_*` views). Differences from the blocks above:
+
+- **Additions:**
+  - `nfl_team_alias` (§3.8), `trophy` (§4.1), `unmatched_player` (§3.9) and `admin_verification` (better-auth).
+  - `league_season`: `previous_external_id`, `enabled`, `last_week`, `team_count`, `settings jsonb`, `locked_flags text[]` (the `has_*` columns an admin set by hand, which ingest won't overwrite).
+  - `matchup.external_matchup_id`.
+  - `game_result`: `matchup_id`, `opponent_franchise_id` (for head-to-head matrices).
+  - `transaction`: `external_id`, `failure_reason`, `creator_team_season_id`.
+  - `draft.slot_order`, `draft_pick.original_team_season_id`.
+  - `player.gsis_id`, `player.active`.
+  - `player_id_map`: surrogate id and `manual` flag.
+  - `data_version.deriveVersion` (the §3.10 `derive_version`).
+  - `raw_payload`: `params_hash`, `http_status`, `body` (CSV responses), `bundle` (ESPN bundle name), and sources `nflverse | dynastyprocess | blog` besides `sleeper | espn`.
+- **Replaced:** `player_week.is_starter` and `roster_current` slot → `slot_kind` enum (`starter | bench | ir | taxi`); it is what the `Slot` filter needs. `admin_user.disabled` → `banned` (better-auth's admin-plugin name).
+- **Types:** surrogate keys are `integer generated always as identity`; points are `numeric(10,3)` (exact sums, read back as JS numbers); `nfl_game.id` is nflverse's `game_id` text.
+- **Views** (custom migration `0001_rec_views`): `rec_team_week_all` (complete weeks, final rows, enabled seasons; includes no-game weeks), `rec_team_week` (counted only), `rec_game_result`, `rec_matchup`, `rec_player_week`, `rec_team_season`, `rec_transaction` (successful, `week <= last_completed_week`), `rec_transaction_item`, `rec_draft_pick` (completed drafts).
+- **Not tables:** pg-boss keeps its own `pgboss` schema; drizzle only manages `public`.
+
+**Toolchain versions (checked at install, 2026-10-05):** TypeScript 6.0 (7.0 is out, but typescript-eslint's range stops below 6.1), drizzle-orm 0.45 / drizzle-kit 0.31 (1.0 is still RC), Node 22.18 on the dev machine (images use Node 24).
+
 ### 3.3 Record engine: metric × grain × direction
 
 Today's categories (`overall`, `single-season`, `manager`) are really **grains**. "Highest score", "most points in a season" and "most career points" are the same metric (`sum(points)`) at different grains.
