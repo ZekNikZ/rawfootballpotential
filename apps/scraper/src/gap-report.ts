@@ -139,10 +139,22 @@ export function gapReport(year: number, rs: EspnResponse[]): GapReport {
   const scored = sched.filter(
     (m) => num(obj(m.home).totalPoints) !== null && num(obj(m.away).totalPoints) !== null
   );
+  // A playoff bye is a matchup with one side only; its score is in pointsByScoringPeriod.
+  const byeGames = sched.filter((m) => {
+    const sides = [obj(m.home), obj(m.away)];
+    const present = sides.filter((x) => num(x.teamId) !== null);
+    return (
+      present.length === 1 &&
+      m.playoffTierType !== "NONE" &&
+      Object.keys(obj(present[0]?.pointsByScoringPeriod)).length > 0
+    );
+  });
+  const unexplained = sched.length - scored.length - byeGames.length;
   add(
     "Schedule",
-    sched.length && scored.length === sched.length ? "ok" : "gap",
-    `${sched.length} matchups over ${byPeriod.size} weeks, ${scored.length} with both scores`,
+    sched.length && unexplained === 0 ? "ok" : "gap",
+    `${sched.length} matchups over ${byPeriod.size} weeks, ${scored.length} with both scores, ${byeGames.length} playoff byes` +
+      (unexplained ? `, ${unexplained} unexplained` : ""),
     "weekly scores"
   );
   const playoffTiers = [...tiers].filter(([k]) => k !== "NONE");
