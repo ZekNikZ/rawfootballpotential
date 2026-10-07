@@ -11,10 +11,10 @@ code on the `rewrite` branch (commit hashes at the end). Design and definitions 
    only archive of the ESPN data (ESPN may stop serving past seasons) and the folder is git-ignored. The discovery
    recordings (`discovery-*.json.gz`) are optional. The bundles are also stored verbatim in the database's `raw_payload`
    table, so a database backup holds them too, but keep the files.
-2. **Check the emojis in a real browser.** In headless Chromium 💩, 🥇🥈🥉 and 💀🪦 rendered as small icons or missing-glyph
-   boxes. That is probably only a font gap in the test browser, but it was never verified in a real one. Look at the
-   record filters (🏈 All, 🏆 Playoffs, 💩 Toilet Bowl, 🏅 Postseason), the trophy cabinet and the team names that contain
-   emojis.
+2. **Emojis** are rendered with a bundled font (Twemoji, `twemoji-colr-font`, credited in the navigation) so they look the same on
+   every device; Windows' own font lacks newer ones such as the tombstone. Glance at the record filters (🏈 All, 🏆 Playoffs,
+   💩 Toilet Bowl, 🏅 Postseason) and the trophy cabinet on a phone and a Mac if you can. Keycap emojis such as 1️⃣ are not in
+   the font and fall back to the system.
 
 ## 1. What is built
 

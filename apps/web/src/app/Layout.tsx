@@ -294,6 +294,9 @@ export function Layout() {
                     closeNav();
                   }}
                 />
+                <Text size="xs" c="dimmed" mt="md" px="sm">
+                  Emoji: Twemoji, © Twitter, Inc. and other contributors, CC-BY 4.0
+                </Text>
               </Box>
             </ScrollArea>
           </AppShell.Navbar>
