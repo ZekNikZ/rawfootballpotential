@@ -51,10 +51,18 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Product ideas that were deliberately not built
 
-- [ ] **Power Ranking** (tenure-aware career placement). Proposed formula: `score = mean(season placement %) - 0.2887 / sqrt(seasons)`, where a season's placement % is
-      `(teams - place) / (teams - 1)` (`placePct`). 0.2887 is the standard deviation of a uniformly distributed placement, so the penalty is one standard
-      error of the mean: a 50% from 1 season scores 21%, a 50% from 6 seasons 38%. Alternative: shrink toward a below-average prior (`(sum + 3 * 0.40) / (n + 3)`).
-      Needs the owner's choice of formula, then a new record (`career.place.power`, engine `careerPlacements`).
+- [ ] **Power Ranking** (career.place.power, not built yet). Owner direction: compare each manager's final place with every other manager's place each season; the
+      decay must hit everyone; recent seasons weigh more; missing seasons count against a manager; fewer seasons = less data. Rejected: mean minus standard
+      error, and a plain Bradley-Terry fit (kept below as an alternative). Chosen design, a **season-by-season decaying Elo** per league, over completed seasons
+      in order (franchise = current manager, like the other career records):
+      1. everyone starts at 1500 when first seen; 2. before each season every known manager decays toward 1500: `R = 1500 + 0.85 (R - 1500)` (absent managers too);
+      3. each participant: `R = R0 + K * mean_over_opponents(S - E)`, S = 1 if they finished above that opponent, `E = 1 / (1 + 10^((Ropp0 - R0) / 400))`, all from the
+      season-start ratings, K = 300; 4. a manager who has debuted but is absent from a season gets `R += K * (0.40 - 0.5)` (-30 points; seasons before their first
+      are not counted); 5. show `1 / (1 + 10^(-(R - 1500) / 400))` as win chance vs an average manager, plus played/missed seasons.
+      Trial on redraft (2020-2025, 17 managers): Evan R. 1655 (70.9%), David K. 1651, Reese L. 1605, Bryson L. 1598, Blake W. 1566, David L. 1532, James M. 1487 (his 2020/2022
+      titles fade, 12th and 8th in 2024/25), ...; with the 0.40 absence score the three managers who played only 2020/2021 end 12th, 13th and 16th (0.30: 15th-17th, 0.50: mid-table).
+      Parameters to confirm with the owner: K (300), decay (0.85, half-life about 4 seasons), absence score (0.40). Needs a record, tests with hand-worked ratings, and a description.
+      Alternative kept for reference: Bradley-Terry with a Gaussian prior (prior sd 1; Evan R. 73.3%, Tyler S. above the longer-but-lower Matt M. and Colin H.).
 
 - [ ] Cross-season streaks (currently per season; decided in `records-architecture.md` section 2).
 - [ ] TOTP second factor for admins (optional in the design; better-auth supports it).
