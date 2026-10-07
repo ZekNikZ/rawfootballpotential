@@ -1,4 +1,5 @@
 import { EXTRA_RECORDS } from "./catalog-extra";
+import { RECORD_DESCRIPTIONS } from "./descriptions";
 import type { ActivePolicy, ColumnDef, FilterKey, RecordDef, Requirement } from "./types";
 
 // Column building blocks ------------------------------------------------------------------------------------
@@ -975,7 +976,7 @@ const careerTx: RecordDef[] = [
   ),
 ];
 
-export const RECORD_CATALOG: readonly RecordDef[] = [
+const ALL_RECORDS: readonly RecordDef[] = [
   ...singleWeekScores,
   ...teamwide,
   ...potential,
@@ -991,6 +992,11 @@ export const RECORD_CATALOG: readonly RecordDef[] = [
   ...careerTx,
   ...EXTRA_RECORDS,
 ];
+
+/** Every record has a description: its own, or the one in descriptions.ts. */
+export const RECORD_CATALOG: readonly RecordDef[] = ALL_RECORDS.map((r) =>
+  r.description ? r : { ...r, description: RECORD_DESCRIPTIONS[r.id] }
+);
 
 const byId = new Map(RECORD_CATALOG.map((r) => [r.id, r]));
 export const getRecordDef = (id: string): RecordDef | undefined => byId.get(id);
