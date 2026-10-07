@@ -788,21 +788,22 @@ const placementCols = [
   MANAGER,
   c("bestPlace", "Highest Placement", "int", { hint: "bestPlaceSeasons" }),
   c("worstPlace", "Lowest Placement", "int", { hint: "worstPlaceSeasons" }),
-  c("avgPlace", "Average Placement", "decimal"),
+  c("placePct", "Weighted Placement", "pct"),
   c("playoffs", "Playoff Appearances", "int"),
   c("toiletBowls", "Toilet Bowl Appearances", "int"),
 ];
 const placementBase = careerBase("Career Placements", "careerPlacements", {
   filters: ["seasons"],
   active: "complete_only",
+  version: 2, // 2: the average placement column became the league-size-weighted placement (placePct)
 });
 const placements: RecordDef[] = [
   rec(
     "career.place.avg",
     "Highest average placement",
     placementBase,
-    "avgPlace",
-    "asc",
+    "placePct",
+    "desc",
     placementCols,
     "Highest average placement"
   ),

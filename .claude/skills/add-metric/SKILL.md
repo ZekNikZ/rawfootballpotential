@@ -25,8 +25,8 @@ Use the `rec(id, title, base, sortKey, direction, columns, description)` helper.
 `engine`, `filters` (`GAME_FILTERS` / `SEASON_FILTERS` / `CAREER_FILTERS` or custom), `requires` (data a season must
 have, e.g. lineups, so ESPN 2020 weeks without lineups are excluded) and `active` (`include`, ...). Ids are stable
 URLs: never rename one casually.
-**Every record needs a description** (shown under the picker): pass it to `rec(...)`, or add it to
-`packages/core/src/records/descriptions.ts`; a test fails without one. Changing only the description needs no `version` bump (it is not part of the cached response).
+**Every record needs a description** (shown under the picker): in `catalog-extra.ts` pass it as the 7th argument of `rec(...)`; in `catalog.ts` the 7th
+argument is the legacy name, so put the description in `packages/core/src/records/descriptions.ts` instead. A test fails without one.
 
 ## 3. Engine (`apps/api/src/records/engines/*`)
 
