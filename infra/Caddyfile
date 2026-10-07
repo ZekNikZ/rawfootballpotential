@@ -12,6 +12,12 @@
 :80 {
 	encode zstd gzip
 
+	# Health for the uptime monitor and the deploy workflow (the API itself serves it at /healthz).
+	handle /api/healthz {
+		rewrite * /healthz
+		reverse_proxy api:8000
+	}
+
 	handle /api/* {
 		reverse_proxy api:8000
 	}

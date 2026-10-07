@@ -9,6 +9,11 @@ description: How RFP is built, released, deployed on the homelab server and kept
 
 ## How a change reaches production
 
+**Automatic (once the self-hosted runner from `docs/deploy-runner.md` is installed):** merging to `main` runs Release images, then
+`.github/workflows/deploy.yml` on the server's runner: backup, `RFP_TAG` = the commit SHA, pull, up, wait for `/api/healthz`,
+roll back to the previous tag if unhealthy. Manual run or rollback: Actions -> Deploy -> Run workflow with `tag`. New `.env`
+variables are not managed by it: add them to `/opt/rfp/.env` before merging. The manual route follows.
+
 1. Work on a branch, run the gate (`pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm db:check`), open a PR, merge to `main` (CI: `.github/workflows/ci.yml`).
 2. A push to `main` or a `v*` tag runs `.github/workflows/release.yml`, which builds five images and pushes them to GHCR:
    `ghcr.io/zeknikz/rfp-{migrate,api,ingest,web,backup}`. Tags: full git SHA always, `latest` on main, semver on `v*` tags
@@ -32,7 +37,7 @@ variable to `.env` (compare with `.env.example`).
 
 - **Migration:** take a backup first: `docker compose run --rm backup once`. Migrations are additive on purpose, so the previous images still run against the new schema.
 - **Derive change** (`DERIVE_VERSION` bumped): the first start after deploy re-derives; watch Admin -> Jobs.
-- **Changed record definition:** cached responses are keyed by data versions, not code. Run Admin -> Jobs -> recompute per affected season, or wait for the Tuesday/Wednesday `finalize`.
+- **Changed record definition:** bump that record's `version` in the catalog; the cache key includes it, so old answers stop matching on deploy and the API pre-warms the new ones at startup. No recompute needed.
 - **Rollback:** set `RFP_TAG` to the previous tag or SHA, then `docker compose pull && docker compose up -d`. Migrations are not reversed. For a data problem, restore a backup (`pg_restore --clean --if-exists`).
 
 ## One-off commands in production

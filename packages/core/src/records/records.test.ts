@@ -6,6 +6,10 @@ describe("record catalog", () => {
   it("has unique ids, and every record ranks by one of its own columns", () => {
     const ids = RECORD_CATALOG.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
+    for (const r of RECORD_CATALOG)
+      expect(Number.isInteger(r.version ?? 1) && (r.version ?? 1) >= 1, `${r.id} version`).toBe(
+        true
+      );
     for (const r of RECORD_CATALOG) {
       expect(
         r.columns.some((col) => col.key === r.sortKey),

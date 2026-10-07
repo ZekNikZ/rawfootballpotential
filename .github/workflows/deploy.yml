@@ -1,0 +1,138 @@
+# Deploys the images that "Release images" just built to the production server.
+#
+# Runs on the self-hosted runner installed on that server (labels: self-hosted, linux, rfp-prod), which is the only job
+# in this repository that uses it; CI and the image builds stay on GitHub-hosted runners. The server is assumed to have
+# been set up with infra/setup-server.sh (stack in /opt/rfp, .env there). Setup of the runner: docs/deploy-runner.md.
+#
+# What it does: back up the database, point RFP_TAG in /opt/rfp/.env at the commit's image, `docker compose pull`,
+# `docker compose up -d`, wait for /api/healthz, and put the previous tag back if the new one does not become healthy.
+# Migrations run in the `migrate` container before the API starts and are never reversed (they are additive on purpose).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Release images"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy (a full commit SHA, a version such as 1.2.0, or latest). Empty = latest main."
+        required: false
+        default: ""
+
+# One deploy at a time; a newer one waits instead of cancelling a running one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  APP_DIR: /opt/rfp
+
+jobs:
+  deploy:
+    # Automatic deploys only for a successful push build of main (not for tag builds or failed builds).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: [self-hosted, linux, rfp-prod]
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - name: Decide the tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-${RUN_SHA:-latest}}"
+          if ! [[ "$tag" =~ ^[A-Za-z0-9_.-]{1,128}$ ]]; then echo "bad tag"; exit 1; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Deploying image tag $tag"
+
+      # Only docker-compose.yml is taken from the repository (for the commit being deployed).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          sparse-checkout: docker-compose.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Check the server layout
+        run: |
+          set -euo pipefail
+          test -f "$APP_DIR/.env" || { echo "$APP_DIR/.env is missing: run infra/setup-server.sh first"; exit 1; }
+          test -w "$APP_DIR/.env" || { echo "the runner user cannot write $APP_DIR/.env (see docs/deploy-runner.md)"; exit 1; }
+          docker compose version
+          docker info > /dev/null
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Back up the database
+        working-directory: ${{ env.APP_DIR }}
+        run: docker compose run --rm backup once
+
+      - name: Deploy
+        id: deploy
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          NEW_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Never print .env: only read single values from it.
+          get() { grep -E "^$1=" .env | head -n1 | cut -d= -f2- || true; }
+          set_tag() {
+            if grep -qE '^RFP_TAG=' .env; then sed -i -E "s|^RFP_TAG=.*|RFP_TAG=$1|" .env; else echo "RFP_TAG=$1" >> .env; fi
+          }
+          old_tag="$(get RFP_TAG)"; old_tag="${old_tag:-latest}"
+          echo "previous=$old_tag" >> "$GITHUB_OUTPUT"
+
+          # Take docker-compose.yml from the deployed commit (keep a copy of the old one for a rollback).
+          cp docker-compose.yml docker-compose.previous.yml
+          cp "$GITHUB_WORKSPACE/docker-compose.yml" docker-compose.yml
+
+          set_tag "$NEW_TAG"
+          docker compose pull
+          docker compose up -d --remove-orphans
+
+          port="$(get WEB_PORT)"; port="${port:-8080}"
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${port}/api/healthz" > /tmp/rfp-healthz.json 2>/dev/null; then
+              echo "healthy after $((i * 5))s:"; cat /tmp/rfp-healthz.json; echo; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::the new version did not become healthy within 5 minutes"
+          exit 1
+
+      - name: Roll back to the previous image
+        if: failure() && steps.deploy.outcome == 'failure'
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          OLD_TAG: ${{ steps.deploy.outputs.previous }}
+        run: |
+          set -euo pipefail
+          docker compose logs --tail 80 migrate api ingest || true
+          if [ -f docker-compose.previous.yml ]; then cp docker-compose.previous.yml docker-compose.yml; fi
+          sed -i -E "s|^RFP_TAG=.*|RFP_TAG=${OLD_TAG}|" .env
+          docker compose up -d --remove-orphans
+          echo "::warning::rolled back to image tag ${OLD_TAG}; migrations are not reversed (they are additive)"
+
+      - name: Clean up
+        if: always()
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          docker logout ghcr.io || true
+          rm -f docker-compose.previous.yml /tmp/rfp-healthz.json
+          docker image prune -f --filter "until=168h" || true
+          docker compose ps

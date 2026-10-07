@@ -21,7 +21,7 @@ pnpm 11 workspaces + Turborepo, Node 24, TypeScript strict, ESM.
 
 Data flow: sources -> `raw_payload` (every response cached) -> normalize -> canonical tables -> **derive**
 (`team_week_stats`, `game_result`, `team_season_week`, `player_tenure`, trophies) -> `data_version` bump -> records read
-`rec_*` views -> responses cached in `record_cache` keyed by (record, params, data versions of the seasons read).
+`rec_*` views -> responses cached in `record_cache` keyed by (record, params, `RecordDef.version`, data versions of the seasons read). **Changing a record's definition or query means bumping its `version` in the catalog**, or deployed servers keep serving cached answers.
 
 ## Commands
 
@@ -65,7 +65,7 @@ Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root
 ## Skills (in `.claude/skills/`)
 
 - `add-metric`: add or change a record/metric end to end (catalog, engine, derive, tests, docs, deploy implications).
-- `deploy-and-operate`: how a change reaches production, the server layout, backups, rollback, and answering "how do I keep it up to date" questions.
+- `deploy-and-operate`: how a change reaches production (merge to `main` auto-deploys through the self-hosted runner, `docs/deploy-runner.md`), the server layout, backups, rollback, and answering "how do I keep it up to date" questions.
 - `data-problems`: a number looks wrong, a job is stuck, a new season or ESPN bundle arrives.
 
 ## Still owed to the owner
