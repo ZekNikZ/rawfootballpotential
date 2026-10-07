@@ -50,6 +50,13 @@
       "when": 1791351937378,
       "tag": "0006_rec_views_span_weeks",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791396508532,
+      "tag": "0007_changelog_2_0_0",
+      "breakpoints": true
     }
   ]
 }
