@@ -51,6 +51,11 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Product ideas that were deliberately not built
 
+- [ ] **Power Ranking** (tenure-aware career placement). Proposed formula: `score = mean(season placement %) - 0.2887 / sqrt(seasons)`, where a season's placement % is
+      `(teams - place) / (teams - 1)` (`placePct`). 0.2887 is the standard deviation of a uniformly distributed placement, so the penalty is one standard
+      error of the mean: a 50% from 1 season scores 21%, a 50% from 6 seasons 38%. Alternative: shrink toward a below-average prior (`(sum + 3 * 0.40) / (n + 3)`).
+      Needs the owner's choice of formula, then a new record (`career.place.power`, engine `careerPlacements`).
+
 - [ ] Cross-season streaks (currently per season; decided in `records-architecture.md` section 2).
 - [ ] TOTP second factor for admins (optional in the design; better-auth supports it).
 - [ ] Scope an admin to one league (the data model has room).

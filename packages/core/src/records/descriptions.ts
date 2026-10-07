@@ -107,7 +107,7 @@ export const RECORD_DESCRIPTIONS: Readonly<Record<string, string>> = {
 
   // Career Placements
   "career.place.avg":
-    "The best average final placement across a manager's seasons. Lower is better.",
+    "Placement weighted by league size: each completed season counts as (teams - place) / (teams - 1), so a champion is 100% and last place is 0%, and a 2nd of 14 beats a 2nd of 9. Ranked by the average over the seasons played.",
   "career.place.best":
     "The best final placement a manager has ever finished with. Lower is better.",
   "career.place.worst": "The worst final placement a manager has ever finished with.",

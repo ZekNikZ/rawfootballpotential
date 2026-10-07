@@ -84,7 +84,7 @@ export async function careerStandingsRecord(ctx: RunContext): Promise<RankedRow[
 
 export async function careerPlacementsRecord(ctx: RunContext): Promise<RankedRow[]> {
   const values: Record<string, SQL> = {
-    avgPlace: sql`avg_place`,
+    placePct: sql`place_pct`,
     bestPlace: sql`best_place`,
     worstPlace: sql`worst_place`,
     playoffs: sql`playoffs`,
@@ -93,6 +93,8 @@ export async function careerPlacementsRecord(ctx: RunContext): Promise<RankedRow
   const inner = sql`
     with t as (
       select ts.franchise_id, ts.season, ts.final_place, ts.made_playoffs,
+             -- placement relative to the league size: 1 = champion, 0 = last (a 2nd of 14 beats a 2nd of 9)
+             (ts.team_count - ts.final_place)::float8 / nullif(ts.team_count - 1, 0) as place_pct,
              exists (select 1 from rec_game_result gr where gr.team_season_id = ts.team_season_id and gr.game_type = 'toilet_bowl') as toilet,
              min(ts.final_place) over (partition by ts.franchise_id) as mn,
              max(ts.final_place) over (partition by ts.franchise_id) as mx
@@ -101,7 +103,7 @@ export async function careerPlacementsRecord(ctx: RunContext): Promise<RankedRow
     ),
     career as (
       select franchise_id,
-             min(final_place) as best_place, max(final_place) as worst_place, avg(final_place) as avg_place,
+             min(final_place) as best_place, max(final_place) as worst_place, avg(place_pct) as place_pct,
              count(*) filter (where made_playoffs)::int as playoffs,
              count(*) filter (where toilet)::int as toilet_bowls,
              array_agg(season order by season) filter (where final_place = mn) as best_seasons,
@@ -109,12 +111,12 @@ export async function careerPlacementsRecord(ctx: RunContext): Promise<RankedRow
       from t group by franchise_id
     )
     select
-      round((${values[ctx.def.sortKey] ?? sql`avg_place`})::numeric, 4)::float8 as sort_value,
+      round((${values[ctx.def.sortKey] ?? sql`place_pct`})::numeric, 4)::float8 as sort_value,
       0 as season, franchise_id,
       jsonb_build_object(
         'bestPlace', best_place, 'bestPlaceSeasons', best_seasons,
         'worstPlace', worst_place, 'worstPlaceSeasons', worst_seasons,
-        'avgPlace', avg_place::float8, 'playoffs', playoffs, 'toiletBowls', toilet_bowls
+        'placePct', round(place_pct::numeric, 4)::float8, 'playoffs', playoffs, 'toiletBowls', toilet_bowls
       ) as data,
       ${franchiseRefs} as refs, false as in_progress, ${tieKey} as tie_key
     from career`;

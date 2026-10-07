@@ -94,9 +94,9 @@ describe("career placements (from the brackets)", () => {
       bestPlaceSeasons: [2030],
       worstPlace: 3,
       worstPlaceSeasons: [2031],
-      avgPlace: 2.5,
+      placePct: 0.7, // 6 teams: (6-2)/5 and (6-3)/5
     });
-    expect(best["Team 4"]?.values).toMatchObject({ bestPlace: 2, avgPlace: 3 });
+    expect(best["Team 4"]?.values).toMatchObject({ bestPlace: 2, placePct: 0.6 }); // places 2 and 4
     const res = await w.run("career.place.best");
     expect(res.rows.map((r) => [w.team(res, r), r.rank]).slice(0, 3)).toEqual([
       ["Team 3", 1],
@@ -105,6 +105,25 @@ describe("career placements (from the brackets)", () => {
     ]);
     const worst = await w.run("career.place.worst");
     expect(w.team(worst, worst.rows[0]!)).toBe("Team 5");
+  });
+
+  it("weighted placement ranks best first and counts a place in a bigger league for more", async () => {
+    const res = await w.run("career.place.avg");
+    expect(res.rows.map((r) => [w.team(res, r), r.rank]).slice(0, 2)).toEqual([
+      ["Team 3", 1],
+      ["Team 1", 2],
+    ]);
+    expect(res.meta.sortKey).toBe("placePct");
+    expect(res.meta.direction).toBe("desc");
+    // 2031 as a 12-team league: Team 1's 3rd there is (12-3)/11, better than the 6-team (6-3)/5
+    const season31 = w.fixture.seasonIds[2031]!;
+    await w.db.execute(sql`update league_season set team_count = 12 where id = ${season31}`);
+    try {
+      const big = byTeam(await w.run("career.place.avg"));
+      expect(big["Team 1"]?.values.placePct).toBeCloseTo((4 / 5 + 9 / 11) / 2, 4);
+    } finally {
+      await w.db.execute(sql`update league_season set team_count = 6 where id = ${season31}`);
+    }
   });
 
   it("playoff and toilet bowl appearances follow the brackets, not the standings", async () => {
