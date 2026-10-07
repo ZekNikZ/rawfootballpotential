@@ -62,13 +62,43 @@ Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root
 - Admin corrections (score, game type, placement) are refused for ESPN seasons (they re-import from a bundle).
 - Dynasty 2025 PF differs from Sleeper totals by 0-3.5 per team; unexplained, accepted.
 
+## Production and workflow facts
+
+- Live at https://rawfootballpotential.com on a homelab VM (docker compose in `/opt/rfp`, TLS outside the stack).
+  **A merge to `main` deploys**: Release images (GitHub-hosted) -> Deploy (self-hosted runner on the VM,
+  `.github/workflows/deploy.yml`): backup, `RFP_TAG` = commit SHA, compose pull/up, wait for `/api/healthz`, automatic
+  rollback if unhealthy. Migrations run first and are never reversed.
+- Cache busting: bump a record's `version` in the catalog when its output changes; bump `DERIVE_VERSION` when derive
+  changes. See `docs/maintenance.md` section 2. Every record needs a description (a test enforces it).
+- Version History is data (`site_config.changelog`), added through a migration or the admin.
+- Emojis come from a bundled Twemoji font (credit line in the nav; keep it).
+- The dev machine is Windows + Git Bash: no python or pkill, big heredocs fail (use the Write tool), Playwright needs the
+  installed Chrome. More in `docs/maintenance.md` section 4.
+- Open work is in `docs/TODO_TASKS.md`; keep it current.
+
+## Docs
+
+`docs/maintenance.md` (system map, which version to bump, gotchas), `docs/cutover.md` (runbook), `docs/deploy-runner.md`
+(auto-deploy runner), `docs/records-architecture.md` (design and definitions), `docs/m4-parity-report.md`,
+`docs/TODO_TASKS.md`.
+
 ## Skills (in `.claude/skills/`)
 
-- `add-metric`: add or change a record/metric end to end (catalog, engine, derive, tests, docs, deploy implications).
-- `deploy-and-operate`: how a change reaches production (merge to `main` auto-deploys through the self-hosted runner, `docs/deploy-runner.md`), the server layout, backups, rollback, and answering "how do I keep it up to date" questions.
-- `data-problems`: a number looks wrong, a job is stuck, a new season or ESPN bundle arrives.
+- `add-metric`: add or change a record/metric end to end (catalog, engine, description, derive, tests, versions, docs).
+- `db-migration`: schema and view changes that are safe to auto-deploy (additive, idempotent data migrations).
+- `changelog-entry`: add a Version History entry (migration or admin).
+- `pre-merge-gate`: checks and the PR/merge routine (a merge deploys to production).
+- `deploy-and-operate`: how a change reaches production, server layout, backups, rollback, one-off commands.
+- `post-deploy-verify`: verify the live site after a deploy; known failure modes (preload errors, empty responses).
+- `data-problems`: a number looks wrong, a job is stuck, a player is unmatched, a new season or ESPN bundle arrives.
+
+## Agents (in `.claude/agents/`)
+
+- `record-verifier`: independently re-computes a new or changed record with SQL and probes edge cases (ties, byes, two-week games).
+- `deploy-verifier`: read-only check of the live site after a deploy.
+- `docs-keeper`: audits CLAUDE.md, docs and skills against the code and fixes what drifted.
 
 ## Still owed to the owner
 
 Copy `apps/scraper/bundles/redraft-2020.json.gz` and `redraft-2021.json.gz` to the S3 bucket (git-ignored, the only
-archive of the ESPN data); check emoji rendering (💩 🥇🥈🥉 💀🪦) in a real browser.
+archive of the ESPN data). Everything else outstanding is in `docs/TODO_TASKS.md`.
