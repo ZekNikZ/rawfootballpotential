@@ -36,3 +36,7 @@ docs/screenshots/
 
 # ESPN scraper output (irreplaceable: also keep a copy in the S3 bucket)
 /apps/scraper/bundles
+
+# database dumps and backups (never commit data)
+*.dump
+*.sql.gz
