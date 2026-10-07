@@ -2,6 +2,15 @@ import { join } from "node:path";
 import { chromium, type BrowserContext } from "playwright";
 import type { Getter } from "./espn";
 
+/**
+ * Your installed Google Chrome by default (no download, and ESPN's login is happier with a real browser). Set
+ * PW_CHROMIUM to a browser executable, or PW_BUNDLED=1 to use Playwright's own Chromium (`playwright install chromium`).
+ */
+function browserChoice(): { executablePath: string } | { channel: string } | Record<string, never> {
+  if (process.env.PW_CHROMIUM) return { executablePath: process.env.PW_CHROMIUM };
+  return process.env.PW_BUNDLED ? {} : { channel: "chrome" };
+}
+
 const LOGIN_URL = "https://www.espn.com/fantasy/football/";
 const WAIT_MS = 10 * 60 * 1000;
 
@@ -26,7 +35,7 @@ export async function loginInBrowser(
 ): Promise<LoggedIn> {
   const ctx = await chromium.launchPersistentContext(join(profileDir), {
     headless: false,
-    ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
+    ...browserChoice(),
     viewport: { width: 1100, height: 800 },
   });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
@@ -82,7 +91,7 @@ export async function discoverApis(
 ): Promise<Captured[]> {
   const ctx = await chromium.launchPersistentContext(join(profileDir), {
     headless: false,
-    ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
+    ...browserChoice(),
     viewport: { width: 1280, height: 900 },
   });
   const captured: Captured[] = [];
