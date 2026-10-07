@@ -57,3 +57,75 @@ export async function loginInBrowser(
   };
   return { get, close: () => ctx.close() };
 }
+
+export interface Captured {
+  url: string;
+  method: string;
+  status: number;
+  /** The headers ESPN's own pages send that matter (the player filter is in x-fantasy-filter). */
+  headers: Record<string, string>;
+  body: unknown;
+}
+
+const API = /fantasy\.espn\.com\/apis\/v3\/games\/ffl/;
+const KEEP_HEADERS = ["x-fantasy-filter", "x-fantasy-platform", "x-fantasy-source"];
+
+/**
+ * Discovery mode: opens ESPN's own pages in the logged-in browser and records every fantasy API call they make, so the
+ * scraper can ask for exactly what the pages ask for (the team page's projections, the player card's transactions).
+ * You click around; press Enter in the terminal (or close the window) when done.
+ */
+export async function discoverApis(
+  profileDir: string,
+  startUrl: string,
+  log: (msg: string) => void
+): Promise<Captured[]> {
+  const ctx = await chromium.launchPersistentContext(join(profileDir), {
+    headless: false,
+    ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
+    viewport: { width: 1280, height: 900 },
+  });
+  const captured: Captured[] = [];
+  const pending: Promise<void>[] = [];
+  ctx.on("response", (res) => {
+    if (!API.test(res.url())) return;
+    pending.push(
+      (async () => {
+        let body: unknown;
+        try {
+          body = await res.json();
+        } catch {
+          body = null;
+        }
+        const headers: Record<string, string> = {};
+        const sent = res.request().headers();
+        for (const h of KEEP_HEADERS) if (sent[h]) headers[h] = sent[h];
+        captured.push({
+          url: res.url(),
+          method: res.request().method(),
+          status: res.status(),
+          headers,
+          body,
+        });
+      })().catch(() => undefined)
+    );
+  });
+  const page = ctx.pages()[0] ?? (await ctx.newPage());
+  await page.goto(startUrl);
+  if (!(await hasSession(ctx))) log("Log in to ESPN in the window first; I'm recording as you go.");
+  log("Recording ESPN API calls. Open the pages you want me to learn from, then press Enter here.");
+  let closed = false;
+  ctx.on("close", () => (closed = true));
+  await new Promise<void>((resolve) => {
+    process.stdin.once("data", () => resolve());
+    const t = setInterval(() => {
+      if (closed) {
+        clearInterval(t);
+        resolve();
+      }
+    }, 1000);
+  });
+  await Promise.allSettled(pending);
+  if (!closed) await ctx.close().catch(() => undefined);
+  return captured;
+}

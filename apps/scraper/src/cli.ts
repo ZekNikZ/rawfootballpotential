@@ -1,13 +1,16 @@
 // Usage (on your desktop, not the server):
 //   pnpm scrape:espn --year 2021                 scrape a season, write the bundle, print the data-gap report
+//   pnpm scrape:espn discover --year 2021        record the API calls ESPN's own pages make while you click around
 //   pnpm scrape:espn report <bundle.json.gz>     re-run the gap report on a saved bundle
 // Options: --league redraft  --espn-league <id>  --out <dir>  --profile <dir>  --login (force the browser)
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { gzipSync } from "node:zlib";
 import { buildBundle, readBundle, writeBundle } from "./bundle";
-import { loginInBrowser } from "./browser";
+import { discoverApis, loginInBrowser } from "./browser";
 import {
   fetchOne,
   lastScoringPeriod,
@@ -32,6 +35,30 @@ function arg(name: string): string | undefined {
 async function report(path: string) {
   const bundle = readBundle(path);
   console.log(formatReport(gapReport(bundle.manifest.year, bundle.responses)));
+}
+
+async function discover() {
+  const year = Number(arg("year") ?? 2021);
+  const leagueSlug = arg("league") ?? "redraft";
+  const id = arg("espn-league") ?? KNOWN_LEAGUES[leagueSlug]?.[year];
+  if (!id) throw new Error("no ESPN league id known; pass --espn-league");
+  const start = `https://fantasy.espn.com/football/team?leagueId=${id}&seasonId=${year}&teamId=${arg("team") ?? 1}&scoringPeriodId=${arg("week") ?? 5}`;
+  const profile = resolve(arg("profile") ?? resolve(here, "../../.espn-profile"));
+  const calls = await discoverApis(profile, start, log);
+  const path = resolve(
+    arg("out") ?? resolve(here, "bundles"),
+    `discovery-${leagueSlug}-${year}.json.gz`
+  );
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, gzipSync(Buffer.from(JSON.stringify(calls))));
+  log(`Recorded ${calls.length} API calls to ${path}`);
+  const shapes = new Map<string, number>();
+  for (const c of calls) {
+    const u = new URL(c.url);
+    const key = `${u.pathname.split("/leagues/")[1] ?? u.pathname} ${u.searchParams.getAll("view").join("+")}${c.headers["x-fantasy-filter"] ? " [filter]" : ""}`;
+    shapes.set(key, (shapes.get(key) ?? 0) + 1);
+  }
+  for (const [k, n] of shapes) log(`  ${n}x ${k}`);
 }
 
 async function scrape() {
@@ -110,7 +137,8 @@ try {
   if (command === "report") {
     if (!rest[0]) throw new Error("usage: pnpm scrape:espn report <bundle>");
     await report(rest[0]);
-  } else await scrape();
+  } else if (command === "discover") await discover();
+  else await scrape();
 } catch (err) {
   console.error(err instanceof Error ? err.message : err);
   process.exitCode = 1;
