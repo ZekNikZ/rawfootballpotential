@@ -28,6 +28,9 @@ pnpm dev                    # web (Vite), api and ingest under tsx watch
 
 - [`docs/records-architecture.md`](docs/records-architecture.md): design, definitions, record catalog, "as built" notes per milestone
 - [`docs/cutover.md`](docs/cutover.md): cutover instructions, the manual verification checklist, operations
+- [`docs/maintenance.md`](docs/maintenance.md): how the system fits together, which version to bump, gotchas
+- [`docs/deploy-runner.md`](docs/deploy-runner.md): automatic deploys through the self-hosted runner
+- [`docs/TODO_TASKS.md`](docs/TODO_TASKS.md): outstanding tasks
 - [`docs/m4-parity-report.md`](docs/m4-parity-report.md): the legacy generators compared with the new records
 
 ## One-off commands
