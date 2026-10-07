@@ -2,7 +2,10 @@
 # One-time setup of a fresh Debian 12/13 or Ubuntu 22.04/24.04 server (VM or privileged LXC) for the RFP stack.
 #
 #   sudo ./setup-server.sh                      # interactive
-#   sudo RFP_TAG=v1.0.0 PUBLIC_URL=https://rawfootballpotential.com ./setup-server.sh
+#   sudo RFP_TAG=latest PUBLIC_URL=https://rawfootballpotential.com ./setup-server.sh
+#
+# RFP_TAG is an image tag: a full commit SHA (what the Deploy workflow sets), `latest` (the newest main build), or a version
+# such as 1.0.0 (a git tag v1.0.0 builds image tag 1.0.0: the v is stripped). Automatic deploys overwrite it in .env.
 #
 # What it does: installs Docker Engine + compose plugin, creates /opt/rfp with docker-compose.yml and a .env that has
 # generated secrets, optionally enables a firewall, pulls the images and starts the stack. It never prints secrets.

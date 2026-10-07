@@ -1,7 +1,7 @@
 # Raw Football Potential (RFP)
 
 Fantasy-football league history and records site (two leagues: `redraft`, `dynasty`). Rewritten from scratch; the old
-app is in `legacy/` (reference only, to be deleted). Owner: Matthew. Design and definitions: `docs/records-architecture.md`
+app was removed after the cutover (git history, commit `70b61ed` and earlier). Owner: Matthew. Design and definitions: `docs/records-architecture.md`
 (the source of truth; section 2 fixes semantics, 3.11.3 defines the "additional" records, 3.11.4 the ESPN importer).
 Cutover and operations: `docs/cutover.md`. Legacy-vs-new numbers: `docs/m4-parity-report.md`.
 
@@ -13,7 +13,7 @@ pnpm 11 workspaces + Turborepo, Node 24, TypeScript strict, ESM.
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/core` | pure compute, no I/O: optimal lineups, medians, game results, streaks, brackets, tenure, asleep-at-the-wheel, **the record catalog** (`src/records/catalog.ts`, `catalog-extra.ts`), zod schemas (`@rfp/core/admin` has the ESPN bundle schema) |
 | `packages/db`   | Drizzle schema (`src/schema/*`), migrations (`migrations/`), the `rec_*` SQL views the records read                                                                                                                                             |
-| `apps/ingest`   | worker (pg-boss jobs/schedules), Sleeper sync, ESPN importer, NFL reference (nflverse), **derive** (`src/derive/derive.ts`), one-time Mongo migration, CLI                                                                                      |
+| `apps/ingest`   | worker (pg-boss jobs/schedules), Sleeper sync, ESPN importer, NFL reference (nflverse), **derive** (`src/derive/derive.ts`), the ESPN importer                                                                                                  |
 | `apps/api`      | Fastify API: record engines (`src/records/engines/*`), info pages, better-auth admin, tests                                                                                                                                                     |
 | `apps/web`      | React 19 / Mantine 9 / React Router / TanStack Query; browser smoke test in `scripts/smoke.ts`                                                                                                                                                  |
 | `apps/scraper`  | desktop-only ESPN scraper (Playwright, headed Chrome, manual login); not deployed                                                                                                                                                               |
@@ -41,8 +41,8 @@ Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root
 
 ## Hard rules
 
-- **Never print, log or commit secrets** (`.env`: Mongo URL, `BETTER_AUTH_SECRET`, DB passwords, S3 keys). Check `git diff` before committing.
-- **Mongo is read-only**, and only used by the one-time migration.
+- **Never print, log or commit secrets** (`.env`: `BETTER_AUTH_SECRET`, DB passwords, S3 keys). Check `git diff` before committing.
+- Mongo is gone from the code (the one-time migration and the parity harness were removed with `legacy/`); do not reintroduce it.
 - **Sleeper politeness:** well under 1000 calls/min, `players/nfl` at most once a day, cache every response in `raw_payload`.
 - **Do not guess record semantics.** If a case changes what a record shows (ties, byes, two-week games, playoffs,
   which manager gets credit), ask the owner, then write the decision into the doc (section 3.11.3) and the record's description.

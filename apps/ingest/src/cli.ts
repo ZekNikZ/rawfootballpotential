@@ -3,7 +3,6 @@ import { createDb } from "@rfp/db";
 import { loadEnv } from "./lib/env";
 import { log } from "./lib/log";
 import { RawStore, hours } from "./lib/raw-store";
-import { migrateFromMongo, recordMigrationRun } from "./mongo/migrate-mongo";
 import { deriveSeason } from "./derive/derive";
 import { listSeasons, runSeasonPipeline } from "./pipeline";
 import { SleeperClient } from "./sleeper/client";
@@ -17,7 +16,6 @@ import { createHandlers, type JobName } from "./jobs/handlers";
 const HELP = `usage: pnpm ingest <command> [options]
 
 commands
-  migrate-mongo                 one-time: legacy config + cached ESPN leagues + projections from Mongo (read-only)
   players                       refresh the Sleeper player dump (cached for a day)
   rollover                      discover newly created Sleeper league seasons
   sync [--season <slug-year|slug|all>] [--mode full|live|daily] [--force]
@@ -51,16 +49,6 @@ async function main() {
   try {
     const mode = values.mode as "full" | "live" | "daily";
     switch (command) {
-      case "migrate-mongo": {
-        const url = process.env.MONGO_CONNECTION_URL;
-        const database = process.env.MONGO_DATABASE;
-        if (!url || !database)
-          throw new Error("MONGO_CONNECTION_URL and MONGO_DATABASE are required");
-        const summary = await migrateFromMongo(db, client, url, database);
-        await recordMigrationRun(db, summary);
-        console.log(JSON.stringify(summary, null, 2));
-        break;
-      }
       case "players":
         await syncPlayers(db, client, values.force ? hours(0) : hours(20));
         break;
