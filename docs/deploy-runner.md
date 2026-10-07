@@ -15,7 +15,8 @@ It assumes the server was set up with `infra/setup-server.sh` (stack in `/opt/rf
 
 1. Waits for the **Release images** run of a push to `main` to succeed (tag builds and failed builds never deploy).
 2. Logs in to GHCR with the workflow's own token (read-only for packages), so private packages work.
-3. `docker compose run --rm backup once` (a database dump in `/opt/rfp/backups` before anything changes).
+3. Checks that `/opt/rfp/.env` has every variable `docker-compose.yml` requires (names only are reported, never values), then
+   `docker compose run --rm backup once` (a database dump in `/opt/rfp/backups` before anything changes).
 4. Copies `docker-compose.yml` from the deployed commit into `/opt/rfp`, sets `RFP_TAG` in `.env` to the commit SHA,
    `docker compose pull`, `docker compose up -d --remove-orphans`. The `migrate` container runs migrations first; the worker
    re-derives seasons whose `DERIVE_VERSION` is behind and the API pre-warms the record cache.

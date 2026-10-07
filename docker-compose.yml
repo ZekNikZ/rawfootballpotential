@@ -85,6 +85,13 @@ services:
     environment:
       <<: *app-env
       INGEST_SCHEDULES_ENABLED: ${INGEST_SCHEDULES_ENABLED:-true}
+    healthcheck:
+      # The worker touches /tmp/ingest-alive every 30 s while the database answers (apps/ingest/src/worker.ts).
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(stat -c %Y /tmp/ingest-alive) )) -lt 120"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     depends_on:
       migrate: { condition: service_completed_successfully }
 

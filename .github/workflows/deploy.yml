@@ -58,7 +58,7 @@ jobs:
           echo "Deploying image tag $tag"
 
       # Only docker-compose.yml is taken from the repository (for the commit being deployed).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           sparse-checkout: docker-compose.yml
@@ -71,6 +71,21 @@ jobs:
           test -w "$APP_DIR/.env" || { echo "the runner user cannot write $APP_DIR/.env (see docs/deploy-runner.md)"; exit 1; }
           docker compose version
           docker info > /dev/null
+
+      # A release can add a required variable to docker-compose.yml; the workflow never writes secrets, so fail early (names
+      # only, values are never printed) instead of starting a half-configured stack.
+      - name: Check .env has every variable the compose file requires
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in $(grep -oE '\$\{[A-Z_][A-Z0-9_]*\}' "$GITHUB_WORKSPACE/docker-compose.yml" | tr -d '${}' | sort -u); do
+            val="$(grep -E "^$v=" "$APP_DIR/.env" | tail -n1 | cut -d= -f2- || true)"
+            [ -n "$val" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::missing or empty in $APP_DIR/.env:$missing (compare with .env.example, set them, then re-run the deploy)"
+            exit 1
+          fi
 
       - name: Log in to GHCR
         env:
@@ -90,7 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           # Never print .env: only read single values from it.
-          get() { grep -E "^$1=" .env | head -n1 | cut -d= -f2- || true; }
+          get() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2- || true; }
           set_tag() {
             if grep -qE '^RFP_TAG=' .env; then sed -i -E "s|^RFP_TAG=.*|RFP_TAG=$1|" .env; else echo "RFP_TAG=$1" >> .env; fi
           }

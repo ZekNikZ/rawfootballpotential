@@ -202,7 +202,7 @@ server after you have switched back. Without an override you cannot tell which s
 | Job                | When                           | What                                                                                              |
 | ------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `live`             | every 5 min in NFL game windows | current week's scores for the Matchups page only (records never read live data)                   |
-| `daily`            | 05:00                          | player dump (at most once a day), rosters, transactions, picks, draft, team names                 |
+| `daily`            | 05:00                          | player dump (at most once a day), rosters, transactions, picks, draft, team names; then deletes record-cache rows older than 30 days |
 | `finalize`         | Tuesday and Wednesday 06:00    | marks the finished week complete, recomputes derived data, bumps the season's data version, warms the record cache |
 | `nfl-reference`    | 05:30                          | nflverse schedule and weekly rosters (byes, inactives)                                            |
 | `season-rollover`  | 07:00                          | picks up a newly created Sleeper league season                                                    |
