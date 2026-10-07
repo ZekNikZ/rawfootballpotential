@@ -26,20 +26,6 @@ const find = (rs: EspnResponse[], endpoint: string) => rs.find((r) => r.endpoint
 const all = (rs: EspnResponse[], endpoint: string) => rs.filter((r) => r.endpoint === endpoint);
 const week = (r: EspnResponse) => num(r.params.scoringPeriodId);
 
-function entriesOf(side: unknown): Obj[] {
-  const s = obj(side);
-  return arr(obj(s.rosterForCurrentScoringPeriod).entries).map(obj);
-}
-
-const points = (e: Obj): number | null => {
-  const pe = obj(e.playerPoolEntry);
-  return num(pe.appliedStatTotal) ?? num(obj(e.playerPoints).totalPoints);
-};
-
-/** True when a player entry carries a projection (statSourceId 1) for the week. */
-const hasProjection = (e: Obj): boolean =>
-  arr(obj(obj(e.playerPoolEntry).player).stats).some((s) => obj(s).statSourceId === 1);
-
 export interface GapReport {
   year: number;
   checks: Check[];
@@ -179,122 +165,117 @@ export function gapReport(year: number, rs: EspnResponse[]): GapReport {
       "scores that didn't count"
     );
 
-  // ---- box scores (lineups)
-  const boxes = all(rs, "mBoxscore");
-  const boxWeeks = new Set(boxes.map((b) => week(b)).filter((w): w is number => w !== null));
-  let sides = 0;
-  let sidesWithRoster = 0;
+  // ---- team-week rosters: lineups, actual and projected points, scores of teams without a game
+  const rosterRequests = all(rs, "rosterTeamWeek");
+  const teamCount = teams.length || size || 0;
+  const expectedTeamWeeks = teamCount * (finalPeriod || new Set(rosterRequests.map(week)).size);
+  let teamWeeksWithRoster = 0;
   let entries = 0;
   let withPoints = 0;
   let withProjection = 0;
   let bench = 0;
   let ir = 0;
   const projWeeks = new Set<number>();
-  const emptyWeeks: number[] = [];
+  const rosterWeeks = new Set<number>();
   const playerIds = new Set<number>();
-  for (const b of boxes) {
-    const w = week(b);
-    let any = false;
-    for (const m of arr(obj(b.payload).schedule).map(obj)) {
-      if (num(m.matchupPeriodId) !== w) continue;
-      for (const side of [m.home, m.away]) {
-        if (!side) continue;
-        sides++;
-        const es = entriesOf(side);
-        if (es.length) sidesWithRoster++;
-        for (const e of es) {
-          any = true;
-          entries++;
-          if (points(e) !== null) withPoints++;
-          if (hasProjection(e)) {
-            withProjection++;
-            if (w !== null) projWeeks.add(w);
-          }
-          const slot = num(e.lineupSlotId);
-          if (slot === BENCH) bench++;
-          if (slot === IR) ir++;
-          const pid = num(e.playerId);
-          if (pid !== null) playerIds.add(pid);
+  const named = new Set<number>();
+  for (const r of rosterRequests) {
+    const w = week(r);
+    for (const t of arr(obj(r.payload).teams).map(obj)) {
+      const es = arr(obj(t.roster).entries).map(obj);
+      if (!es.length) continue;
+      teamWeeksWithRoster++;
+      if (w !== null) rosterWeeks.add(w);
+      for (const e of es) {
+        entries++;
+        const player = obj(obj(e.playerPoolEntry).player);
+        const stats = arr(player.stats).map(obj);
+        const forWeek = (source: number) =>
+          stats.some(
+            (s) => s.statSourceId === source && s.statSplitTypeId === 1 && s.scoringPeriodId === w
+          );
+        if (forWeek(0)) withPoints++;
+        if (forWeek(1)) {
+          withProjection++;
+          if (w !== null) projWeeks.add(w);
+        }
+        const slot = num(e.lineupSlotId);
+        if (slot === BENCH) bench++;
+        if (slot === IR) ir++;
+        const pid = num(e.playerId);
+        if (pid !== null) {
+          playerIds.add(pid);
+          if (typeof player.fullName === "string") named.add(pid);
         }
       }
     }
-    if (!any && w !== null) emptyWeeks.push(w);
   }
   numbers.lineupEntries = entries;
   numbers.players = playerIds.size;
-  if (!boxes.length)
+  if (!rosterRequests.length)
     add(
       "Lineups",
       "gap",
-      "no box-score requests in the bundle",
-      "potential points, lineup IQ, player records"
+      "no team-week rosters in the bundle",
+      "potential points, lineup IQ, player records, benchwarmer"
     );
   else if (!entries)
     add(
       "Lineups",
       "gap",
-      "box scores came back without any player entries",
-      "potential points, lineup IQ, player records, benchwarmer"
+      "the rosters came back without any player entries",
+      "potential points, lineup IQ, player records"
     );
   else {
     add(
       "Lineups",
-      emptyWeeks.length || sidesWithRoster < sides || (finalPeriod && boxWeeks.size < finalPeriod)
-        ? "warn"
-        : "ok",
-      `${entries} player entries over ${boxWeeks.size}/${finalPeriod || boxWeeks.size} weeks (${sidesWithRoster}/${sides} team sides have a roster), ` +
-        `${bench} bench, ${ir} IR` +
-        (emptyWeeks.length ? `; no lineups in weeks ${emptyWeeks.join(", ")}` : ""),
-      "potential points, lineup IQ, player records"
+      teamWeeksWithRoster < expectedTeamWeeks ? "warn" : "ok",
+      `${teamWeeksWithRoster}/${expectedTeamWeeks} team-weeks have a roster (${entries} player entries, ${bench} bench, ${ir} IR), ` +
+        `${rosterWeeks.size} weeks`,
+      "potential points, lineup IQ, player records, scores of teams without a game"
     );
     add(
       "Actual points",
-      withPoints === entries ? "ok" : "warn",
-      `points on ${withPoints}/${entries} entries`,
+      withPoints / entries >= 0.9 ? "ok" : "warn",
+      `that week's points on ${withPoints}/${entries} entries (players on a bye or injured may have none)`,
       "player records, as-played scoring"
     );
     add(
       "Projections",
-      withProjection ? (projWeeks.size >= (finalPeriod || boxWeeks.size) ? "ok" : "warn") : "gap",
       withProjection
-        ? `projections on ${withProjection} entries in ${projWeeks.size}/${finalPeriod || boxWeeks.size} weeks`
-        : "no projected points on any entry (ESPN drops them for past seasons)",
+        ? projWeeks.size >= (finalPeriod || rosterWeeks.size)
+          ? "ok"
+          : "warn"
+        : "gap",
+      withProjection
+        ? `that week's projection on ${withProjection}/${entries} entries in ${projWeeks.size}/${finalPeriod || rosterWeeks.size} weeks`
+        : "no weekly projections on any entry",
       "boom / bust and upset records"
     );
   }
 
-  // ---- weekly rosters (scores for idle teams)
-  const rosterWeeks = all(rs, "mRosterWeek");
-  const rosterTeams = rosterWeeks.map(
-    (r) =>
-      arr(obj(r.payload).teams).filter((t) => arr(obj(obj(t).roster).entries).length > 0).length
-  );
-  add(
-    "Weekly rosters",
-    rosterWeeks.length && rosterTeams.every((n) => n > 0)
-      ? "ok"
-      : rosterWeeks.length
-        ? "warn"
-        : "gap",
-    rosterWeeks.length
-      ? `${rosterWeeks.length} weeks, ${Math.min(...rosterTeams)}-${Math.max(...rosterTeams)} teams with players per week`
-      : "none fetched",
-    "scores of teams without a game, roster history"
-  );
-
-  // ---- transactions
-  const txs = all(rs, "mTransactions2").flatMap((r) => arr(obj(r.payload).transactions).map(obj));
+  // ---- transactions: the feed, plus the ones carried on player cards (de-duplicated by id)
+  const cards = all(rs, "playerCards").flatMap((r) => arr(obj(r.payload).players).map(obj));
+  const feed = all(rs, "mTransactions2").flatMap((r) => arr(obj(r.payload).transactions).map(obj));
+  const txById = new Map<string, Obj>();
+  for (const t of [...feed, ...cards.flatMap((c) => arr(c.transactions).map(obj))])
+    txById.set(String(t.id ?? JSON.stringify(t).slice(0, 60)), t);
+  const txs = [...txById.values()];
+  const isDraft = (t: Obj) => arr(t.items).some((i) => obj(i).type === "DRAFT");
+  const moves = txs.filter((t) => !isDraft(t));
   const txByType = new Map<string, number>();
-  for (const t of txs) txByType.set(String(t.type), (txByType.get(String(t.type)) ?? 0) + 1);
-  const failed = txs.filter((t) => /FAIL|CANCEL|DECLIN|REJECT/i.test(String(t.status))).length;
-  const withBid = txs.filter((t) => num(t.bidAmount) !== null && num(t.bidAmount)! > 0).length;
-  numbers.transactions = txs.length;
+  for (const t of moves) txByType.set(String(t.type), (txByType.get(String(t.type)) ?? 0) + 1);
+  const failed = moves.filter((t) => t.status !== "EXECUTED").length;
+  const withBid = moves.filter((t) => num(t.bidAmount) !== null && num(t.bidAmount)! > 0).length;
+  const txWeeks = new Set(moves.map((t) => num(t.scoringPeriodId)).filter((w) => w !== null));
+  numbers.transactions = moves.length;
   add(
     "Transactions",
-    txs.length ? "ok" : "gap",
-    txs.length
-      ? `${txs.length} (${[...txByType].map(([k, n]) => `${k} ${n}`).join(", ")}); ${failed} failed or cancelled; ${withBid} with a bid`
-      : "ESPN returned no transactions for this season",
+    moves.length ? "ok" : "gap",
+    moves.length
+      ? `${moves.length} (${[...txByType].map(([k, n]) => `${k} ${n}`).join(", ")}) in ${txWeeks.size} weeks; ` +
+          `${failed} not executed; ${withBid} with a bid; feed ${feed.length}, player cards ${cards.length}`
+      : "no transactions on the feed or on any player card",
     "transaction records, most moved, player tenure, retention"
   );
 
@@ -311,21 +292,16 @@ export function gapReport(year: number, rs: EspnResponse[]): GapReport {
     "draft records, retention %"
   );
 
-  // ---- players: names and positions for every player seen
-  const named = new Set<number>();
-  for (const b of boxes)
-    for (const m of arr(obj(b.payload).schedule).map(obj))
-      for (const side of [m.home, m.away])
-        for (const e of entriesOf(side)) {
-          const p = obj(obj(e.playerPoolEntry).player);
-          if (typeof p.fullName === "string" && num(e.playerId) !== null)
-            named.add(num(e.playerId)!);
-        }
+  // ---- players
+  for (const c of cards) {
+    const pid = num(c.id);
+    if (pid !== null && typeof obj(c.player).fullName === "string") named.add(pid);
+  }
   if (playerIds.size)
     add(
       "Players",
-      named.size === playerIds.size ? "ok" : "warn",
-      `${playerIds.size} distinct ESPN players, ${named.size} with a name; matching to canonical players happens on import (unmatched ones go to the admin queue)`,
+      named.size >= playerIds.size ? "ok" : "warn",
+      `${playerIds.size} distinct ESPN players on rosters, ${named.size} with a name; matching to canonical players happens on import (unmatched ones go to the admin queue)`,
       "player records"
     );
 

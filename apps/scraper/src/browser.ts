@@ -54,8 +54,8 @@ export async function loginInBrowser(
   } else {
     log("Using the saved ESPN login.");
   }
-  const get: Getter = async (url) => {
-    const res = await ctx.request.get(url, { headers: { accept: "application/json" } });
+  const get: Getter = async (url, headers) => {
+    const res = await ctx.request.get(url, { headers: { accept: "application/json", ...headers } });
     let body: unknown;
     try {
       body = await res.json();

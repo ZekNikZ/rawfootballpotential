@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "../src/bundle";
-import { lastScoringPeriod, leagueUrl, weekRequests, type EspnResponse } from "../src/espn";
+import {
+  lastScoringPeriod,
+  leagueUrl,
+  playerCardRequest,
+  playerIdsIn,
+  teamWeekRequest,
+  weekRequests,
+  type EspnResponse,
+} from "../src/espn";
 import { formatReport, gapReport } from "../src/gap-report";
 
 const res = (
@@ -10,22 +18,34 @@ const res = (
   status = 200
 ) => ({ endpoint, params, status, payload }) satisfies EspnResponse;
 
-const entry = (playerId: number, slot: number, pts: number, projected = true) => ({
+const stat = (source: number, week: number) => ({
+  statSourceId: source,
+  statSplitTypeId: 1,
+  scoringPeriodId: week,
+  appliedTotal: 10,
+});
+
+const entry = (playerId: number, slot: number, week: number, projected = true) => ({
   playerId,
   lineupSlotId: slot,
   playerPoolEntry: {
-    appliedStatTotal: pts,
-    player: { fullName: `Player ${playerId}`, stats: projected ? [{ statSourceId: 1 }] : [] },
+    player: {
+      fullName: `Player ${playerId}`,
+      stats: [stat(0, week), ...(projected ? [stat(1, week)] : [])],
+    },
   },
 });
 
-const side = (teamId: number, entries: unknown[]) => ({
-  teamId,
-  totalPoints: 100,
-  rosterForCurrentScoringPeriod: { entries },
-});
+const teamRoster = (id: number, entries: unknown[]) => ({ id, roster: { entries } });
 
-function season(opts: { transactions?: unknown[]; projected?: boolean; tiers?: boolean } = {}) {
+function season(
+  opts: {
+    transactions?: unknown[];
+    cardTransactions?: unknown[];
+    projected?: boolean;
+    tiers?: boolean;
+  } = {}
+) {
   const w = 1;
   return [
     res("mSettings", {
@@ -58,27 +78,29 @@ function season(opts: { transactions?: unknown[]; projected?: boolean; tiers?: b
     res("mDraftDetail", {
       draftDetail: { picks: [{ bidAmount: 12, keeper: false }, { bidAmount: 0 }] },
     }),
+    res("mBoxscore", { schedule: [] }, { scoringPeriodId: 1 }),
     res(
-      "mBoxscore",
+      "rosterTeamWeek",
       {
-        schedule: [
-          {
-            matchupPeriodId: w,
-            home: side(1, [
-              entry(10, 0, 20, opts.projected !== false),
-              entry(11, 20, 3, opts.projected !== false),
-            ]),
-            away: side(2, [entry(12, 0, 15, opts.projected !== false)]),
-          },
+        teams: [
+          teamRoster(1, [
+            entry(10, 0, 1, opts.projected !== false),
+            entry(11, 20, 1, opts.projected !== false),
+          ]),
         ],
       },
-      { scoringPeriodId: w }
+      { scoringPeriodId: 1, forTeamId: 1 }
     ),
     res(
-      "mRosterWeek",
-      { teams: [{ roster: { entries: [{}] } }, { roster: { entries: [{}] } }] },
-      { scoringPeriodId: w }
+      "rosterTeamWeek",
+      { teams: [teamRoster(2, [entry(12, 0, 1, opts.projected !== false)])] },
+      { scoringPeriodId: 1, forTeamId: 2 }
     ),
+    res("playerCards", {
+      players: [
+        { id: 10, player: { fullName: "Player 10" }, transactions: opts.cardTransactions ?? [] },
+      ],
+    }),
     res("mTransactions2", { transactions: opts.transactions ?? [] }, { scoringPeriodId: w }),
   ];
 }
@@ -92,9 +114,11 @@ describe("gapReport", () => {
     expect(by("Playoff bracket")[0]?.level).toBe("gap");
     expect(by("Transactions")[0]).toMatchObject({ level: "gap" });
     expect(by("Draft")[0]?.detail).toContain("2 picks, 1 with a price");
-    expect(by("Lineups")[0]?.detail).toContain("3 player entries");
-    expect(by("Lineups")[0]?.detail).toContain("1 bench");
-    expect(by("Projections")[0]?.level).toBe("warn"); // week 1 has them, the season has 2 periods but 1 box score
+    expect(by("Lineups")[0]?.detail).toContain(
+      "2/4 team-weeks have a roster (3 player entries, 1 bench"
+    );
+    expect(by("Lineups")[0]?.level).toBe("warn"); // 2 teams x 2 scoring periods expected, only week 1 fetched
+    expect(by("Projections")[0]?.level).toBe("warn");
     expect(rep.numbers).toMatchObject({ teams: 2, lineupEntries: 3, draftPicks: 2, faab: "yes" });
     expect(formatReport(rep)).toMatch(/GAP .*Owners/);
   });
@@ -110,21 +134,41 @@ describe("gapReport", () => {
     expect(rep.checks.find((c) => c.area === "Playoff bracket")?.level).toBe("ok");
   });
 
-  it("counts transactions by type, failures and bids", () => {
+  it("counts transactions from the feed and from player cards, once each", () => {
+    const waiver = {
+      id: "a",
+      type: "WAIVER",
+      status: "EXECUTED",
+      bidAmount: 5,
+      scoringPeriodId: 3,
+    };
     const rep = gapReport(
       2021,
       season({
         transactions: [
-          { type: "WAIVER", status: "EXECUTED", bidAmount: 5 },
-          { type: "WAIVER", status: "FAILED_INVALIDPLAYERS", bidAmount: 9 },
-          { type: "FREE_AGENT", status: "EXECUTED", bidAmount: 0 },
+          { id: "b", type: "FREEAGENT", status: "EXECUTED", bidAmount: 0, scoringPeriodId: 4 },
+        ],
+        // the same transaction rides on every player it touches; the draft is one transaction with DRAFT items
+        cardTransactions: [
+          waiver,
+          waiver,
+          {
+            id: "c",
+            type: "WAIVER",
+            status: "FAILED_INVALIDPLAYERS",
+            bidAmount: 9,
+            scoringPeriodId: 3,
+          },
+          { id: "d", type: "DRAFT", status: "EXECUTED", items: [{ type: "DRAFT" }] },
         ],
       })
     );
     const tx = rep.checks.find((c) => c.area === "Transactions")!;
     expect(tx.level).toBe("ok");
+    expect(tx.detail).toContain("3 (");
     expect(tx.detail).toContain("WAIVER 2");
-    expect(tx.detail).toContain("1 failed");
+    expect(tx.detail).toContain("in 2 weeks");
+    expect(tx.detail).toContain("1 not executed");
     expect(tx.detail).toContain("2 with a bid");
   });
 });
@@ -136,9 +180,33 @@ describe("requests and bundles", () => {
     );
     expect(weekRequests(2021, "1", 4).map((r) => [r.endpoint, r.params.scoringPeriodId])).toEqual([
       ["mBoxscore", 4],
-      ["mRosterWeek", 4],
       ["mTransactions2", 4],
     ]);
+  });
+
+  it("asks for a team's week the way ESPN's team page does", () => {
+    const r = teamWeekRequest(2021, "50111898", 7, 5);
+    expect(r.url).toContain("view=mRoster&forTeamId=7&scoringPeriodId=5");
+    expect(JSON.parse(r.headers!["x-fantasy-filter"]!)).toEqual({
+      players: { filterRanksForScoringPeriodIds: { value: [5] } },
+    });
+  });
+
+  it("batches player cards and finds every player id a bundle mentions, transactions included", () => {
+    const card = playerCardRequest(2021, "1", [1, 2, 3], 18);
+    expect(JSON.parse(card.headers!["x-fantasy-filter"]!).players.filterIds.value).toEqual([
+      1, 2, 3,
+    ]);
+    const ids = playerIdsIn([
+      res("rosterTeamWeek", {
+        teams: [{ roster: { entries: [{ playerId: 10 }, { playerId: 11 }] } }],
+      }),
+      res("mDraftDetail", { draftDetail: { picks: [{ playerId: 12 }] } }),
+      res("playerCards", {
+        players: [{ transactions: [{ items: [{ playerId: 13 }, { playerId: 0 }] }] }],
+      }),
+    ]);
+    expect([...ids].sort()).toEqual([10, 11, 12, 13]);
   });
 
   it("reads the number of scoring periods, falling back to 17", () => {

@@ -17,6 +17,10 @@ import {
   publicGetter,
   seasonRequest,
   SEASON_VIEWS,
+  playerCardRequest,
+  playerIdsIn,
+  playerListRequest,
+  teamWeekRequest,
   weekRequests,
   type EspnResponse,
   type Getter,
@@ -24,6 +28,7 @@ import {
 import { formatReport, gapReport } from "./gap-report";
 import { KNOWN_LEAGUES } from "./leagues";
 
+const CARD_BATCH = 40;
 const here = fileURLToPath(new URL("..", import.meta.url));
 const log = (msg: string) => console.log(msg);
 
@@ -104,10 +109,37 @@ async function scrape() {
       responses.push(await fetchOne(get, seasonRequest(year, espnLeagueId, v.endpoint), opts));
       log(`  ${v.endpoint}: HTTP ${responses.at(-1)!.status}`);
     }
+    const teamIds = (
+      (
+        responses.find((r) => r.endpoint === "mTeam")?.payload as {
+          teams?: { id: number }[];
+        } | null
+      )?.teams ?? []
+    ).map((t) => t.id);
+    if (!teamIds.length) throw new Error("mTeam returned no teams");
     for (let week = 1; week <= last; week++) {
       for (const req of weekRequests(year, espnLeagueId, week))
         responses.push(await fetchOne(get, req, opts));
+      for (const id of teamIds)
+        responses.push(await fetchOne(get, teamWeekRequest(year, espnLeagueId, id, week), opts));
       log(`  week ${week} done`);
+    }
+
+    // 3. Transactions, from the player cards: start with every player seen, then follow the players the
+    //    transactions themselves mention until nothing new turns up.
+    responses.push(await fetchOne(get, playerListRequest(year), opts));
+    const done = new Set<number>();
+    for (;;) {
+      const todo = [...playerIdsIn(responses)].filter((id) => !done.has(id));
+      if (!todo.length) break;
+      for (let i = 0; i < todo.length; i += CARD_BATCH) {
+        const batch = todo.slice(i, i + CARD_BATCH);
+        responses.push(
+          await fetchOne(get, playerCardRequest(year, espnLeagueId, batch, last + 1), opts)
+        );
+        for (const id of batch) done.add(id);
+      }
+      log(`  player cards: ${done.size} players`);
     }
   } catch (err) {
     // Keep what was fetched: a partial bundle is better than starting over.
