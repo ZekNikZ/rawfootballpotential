@@ -16,10 +16,10 @@ Quick path: run the `deploy-verifier` agent. Manual path:
 
 ## Known failure modes
 
-- **"Unable to preload CSS/JS for /assets/X"** (or a blank lazy page): the browser holds an `index.html` from before the deploy and asks
-  for a hashed chunk that the new `web` image no longer has, or Caddy answered a missing asset with the SPA's `index.html`
-  (`try_files` fallback, content-type `text/html`). Check the asset URL with `curl -I`: if it is 200 + the right type now, a hard refresh
-  fixes the visitor; the durable fixes (reload on `vite:preloadError`, 404 for missing `/assets/*`) are in `docs/TODO_TASKS.md`.
+- **"Unable to preload CSS/JS for /assets/X"** (or a blank lazy page): the browser holds an `index.html` from before the deploy and asks for a
+  hashed chunk that the new `web` image no longer has. The app now reloads once to the page being opened (`preload-recovery.ts`) and Caddy answers a
+  missing `/assets/*` file with a real 404, not the SPA page. If it still appears: `curl -I` the asset URL; a `200 text/html` means the Caddyfile
+  `/assets/*` handler is not deployed; a persistent 404 for the _current_ hash means the web image and `index.html` are out of step.
 - **Empty body or timeout from `curl`** once in a while: repeat the request 10-20 times and compare status/size before concluding
   anything; the path is browser -> Cloudflare/tunnel -> reverse proxy -> Caddy (`web`) -> `api`. Do not "fix" the app for a proxy fault.
 - **Old numbers after a record change**: its `version` in the catalog was not bumped (the cache key includes it).

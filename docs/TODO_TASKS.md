@@ -5,19 +5,11 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Bugs and live-site checks
 
-- [ ] _(hard refresh fixed it for the owner, which points to cause 1; the hardening below is still worth doing)_ **"Unable to preload CSS for /assets/ManagerRecords-DKa71XGT.css"** when navigating to the manager records page on the
-      live site (reported right after the emoji-font deploy). Findings so far: the file exists and is served (`200 text/css`,
-      same hash as the current build), so it is not a missing asset in the current deploy. Likely causes, in order:
-      1. a tab opened **before** a deploy still runs the old `index.html`/JS, whose lazy chunks were removed when the web
-         container was replaced (every deploy replaces `/assets`); or the deploy window itself;
-      2. an intermittent failure in the path through the tunnel/proxy (while checking the site, a few requests returned an
-         empty body or timed out once; unexplained);
-      3. `infra/Caddyfile` serves `index.html` (HTTP 200, `text/html`) for **any** unknown path, including a missing
-         `/assets/*` file, which makes the browser report a CSS/JS preload failure instead of a plain 404.
-      Fixes to make (Claude): add a `vite:preloadError` handler in `apps/web/src/main.tsx` that reloads the page once;
-      make Caddy answer 404 for `/assets/*` misses (a `handle /assets/*` with `file_server` and no `try_files` fallback);
-      optionally keep the previous build's assets for a while. First ask the owner whether a hard refresh fixes it, and whether it
-      repeats (curl the CSS 20 times and compare status/size to rule out the proxy).
+- [x] **"Unable to preload CSS"** after a deploy (a tab opened before it asks for chunks the new image no longer has; a hard refresh fixed it).
+      Hardened: the app reloads once, straight to the page being opened (`apps/web/src/lib/preload-recovery.ts`, at most once per 30 s so a broken
+      server cannot cause a loop), and Caddy now answers a missing `/assets/*` file with a real 404 (`Cache-Control: no-store`) instead of the SPA
+      page (`infra/Caddyfile`). The earlier one-off empty/timeout responses seen with curl were never explained; if they recur, repeat a request 20 times
+      and compare status and size before blaming the app (the `post-deploy-verify` skill).
 - [x] Emoji check on the live site: all emojis look good (confirmed by the owner, 2026-10-07).
 - [ ] Skim the 77 record descriptions written in `packages/core/src/records/descriptions.ts`; they were written from reading the
       code, not from running every record (Owner).
@@ -47,8 +39,7 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Cleanups and small improvements (Claude)
 
-- [x] `RFP_TAG` wording fixed (cutover.md, setup-server.sh). A stray git tag `1.0.0` still exists on `6fbf583` (it triggers nothing; delete with
-      `git push origin :refs/tags/1.0.0` if unwanted; the owner decides).
+- [x] `RFP_TAG` wording fixed (cutover.md, setup-server.sh); the stray git tag `1.0.0` was deleted.
 - [x] Workflow actions bumped to their Node 24 majors (checkout v7, setup-node v7, pnpm/action-setup v6, docker actions v4/v6/v7).
 - [x] `record_cache` pruning: the `daily` job deletes rows computed more than 30 days ago (`apps/ingest/src/jobs/prune.ts`).
 - [x] `ingest` healthcheck: the worker touches `/tmp/ingest-alive` every 30 s while the database answers; compose checks its age.

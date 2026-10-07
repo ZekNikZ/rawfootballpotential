@@ -81,6 +81,12 @@ font stack (`apps/web/src/theme.ts`) after the system text fonts and before the 
 navigation (`Layout.tsx`); the font is OFL and the artwork CC-BY 4.0, so keep the credit. Noto Color Emoji from fontsource was
 tried first: its split files rendered blank in Chrome on Windows. Keycap emojis (1️⃣) are not in Twemoji and use the system font.
 
+## 6b. Stale tabs after a deploy
+
+Every deploy replaces the hashed files under `/assets`. A tab opened before it can fail to load a lazy route. `apps/web/src/lib/preload-recovery.ts`
+reloads once (to the page being opened, at most once per 30 s); `infra/Caddyfile` returns a real 404 (`no-store`) for a missing asset so the
+browser never mistakes `index.html` for a script or stylesheet.
+
 ## 7. Where things are
 
 | Need | Look at |
