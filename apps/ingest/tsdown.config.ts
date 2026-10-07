@@ -1,7 +1,8 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/worker.ts"],
+  // The worker, plus the CLI for one-off runs in the image (`node dist/cli.js derive`, `espn <bundle>`, ...).
+  entry: { worker: "src/worker.ts", cli: "src/cli.ts" },
   format: "esm",
   platform: "node",
   target: "node24",

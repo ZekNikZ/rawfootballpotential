@@ -24,4 +24,17 @@ pnpm install
 pnpm dev                    # web (Vite), api and ingest under tsx watch
 ```
 
+## Docs
+
+- [`docs/records-architecture.md`](docs/records-architecture.md): design, definitions, record catalog, "as built" notes per milestone
+- [`docs/cutover.md`](docs/cutover.md): cutover instructions, the manual verification checklist, operations
+- [`docs/m4-parity-report.md`](docs/m4-parity-report.md): the legacy generators compared with the new records
+
+## One-off commands
+
+On a development machine: `pnpm ingest <command>` (`derive`, `sync`, `nfl-reference`, `espn <bundle>`, `report`, ...),
+`pnpm admin:create-owner`, `pnpm scrape:espn --year <year>` (ESPN scraper, headed browser, you log in),
+`pnpm --filter @rfp/api show-record <id>` and `sweep-records`. In the production images the same tools run as
+`docker compose run --rm ingest node dist/cli.js <command>` and `docker compose run --rm -it api node dist/create-owner.js --email ... --name ...`.
+
 Checks: `pnpm turbo run lint typecheck test` (and `pnpm format:check`). Requires Node 24 (see `.nvmrc`).

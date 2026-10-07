@@ -581,6 +581,8 @@ Files: `docker-compose.yml` and `.env.example` at the repo root, `infra/` (multi
   - Destructive changes take two deploys: first add the new column and backfill it, then drop the old one.
 - **Derived tables** are rebuilt by jobs, not migrations. A migration that changes how derived data is computed bumps a `derive_version`, and `ingest` then recomputes on startup.
 
+**One-off commands in the images.** The `ingest` image also ships the CLI (`node dist/cli.js derive | sync | nfl-reference | espn <bundle> | report`) and the `api` image the owner bootstrap (`node dist/create-owner.js`), so a production host never needs a checkout. The cutover steps are in [`cutover.md`](cutover.md).
+
 **Not hosting-specific.** Nothing assumes a homelab or a VPS: any Docker host with an HTTPS reverse proxy in front of `WEB_PORT` works.
 
 **Build and deploy**
@@ -920,6 +922,8 @@ Check per season for gaps in older years.
 ---
 
 ## 6. Build order
+
+**Status (2026-10-07): all seven steps are done** (milestones M0-M9; "as built" notes in §3.2.1, §3.5.1, §3.6.1, §3.9.1, §3.11.1-§3.11.4). What remains is the cutover: [`cutover.md`](cutover.md).
 
 1. `packages/db` schema + migrations. `packages/core` compute, with tests for every issue in §1.4 and the decisions in §2.
 2. Sleeper ingest (league, users, rosters, matchups, **brackets**, **transactions**, **drafts**, projections) and the derive step. **One-time Mongo migration script** (`pnpm migrate:mongo`) copies the cached ESPN seasons and the config document into the new tables. Mongo stays read-only until cutover, then gets shut down.

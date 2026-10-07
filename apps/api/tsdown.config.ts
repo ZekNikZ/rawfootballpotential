@@ -1,7 +1,8 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/server.ts"],
+  // The server, plus the one-off owner bootstrap (run in the image: `node dist/create-owner.js`).
+  entry: { server: "src/server.ts", "create-owner": "scripts/create-owner.ts" },
   format: "esm",
   platform: "node",
   target: "node24",

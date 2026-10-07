@@ -8,5 +8,6 @@ legacy
 **/dist
 .turbo
 backups
-.espn-profile
 docs
+apps/scraper/bundles
+.espn-profile*
