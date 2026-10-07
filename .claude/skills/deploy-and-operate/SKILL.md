@@ -45,6 +45,8 @@ variable to `.env` (compare with `.env.example`).
 ```sh
 docker compose run --rm ingest node dist/cli.js derive            # also: sync --season <id>, nfl-reference, espn <bundle>
 docker compose run --rm -it api node dist/create-owner.js --email <e> --name "<n>"
+docker compose run --rm api node dist/show-record.js <record-id> [--league dynasty] [key=value ...]   # read-only, prints top rows
+docker compose run --rm api node dist/sweep-records.js [id-prefix]                                   # every record x filters, no failures expected
 docker compose run --rm backup once
 docker compose logs -f api ingest
 ```

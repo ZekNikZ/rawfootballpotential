@@ -1,8 +1,14 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  // The server, plus the one-off owner bootstrap (run in the image: `node dist/create-owner.js`).
-  entry: { server: "src/server.ts", "create-owner": "scripts/create-owner.ts" },
+  // The server, plus one-off tools run in the image: `node dist/create-owner.js`, `node dist/show-record.js <id>` and
+  // `node dist/sweep-records.js [id-prefix]` (read-only record checks against the production database).
+  entry: {
+    server: "src/server.ts",
+    "create-owner": "scripts/create-owner.ts",
+    "show-record": "scripts/show-record.ts",
+    "sweep-records": "scripts/sweep-records.ts",
+  },
   format: "esm",
   platform: "node",
   target: "node24",

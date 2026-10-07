@@ -5,6 +5,7 @@ import { log } from "../lib/log";
 import { hours } from "../lib/raw-store";
 import { importEspnSeason } from "../espn/normalize";
 import { syncNflReference } from "../nfl/reference";
+import { pruneRecordCache } from "./prune";
 import { listSeasons, runSeasonPipeline, type SeasonRef } from "../pipeline";
 import type { SleeperClient } from "../sleeper/client";
 import { syncPlayers } from "../sleeper/players";
@@ -135,7 +136,12 @@ export function createHandlers(
         ]);
         for (const s of seasons)
           await runSeasonPipeline(db, client, s, { mode: "daily", derive: false });
-        return { seasons: seasons.length };
+        // Housekeeping must never fail the sync: old cached record responses (see prune.ts).
+        const cachePruned = await pruneRecordCache(db).catch((err) => {
+          log.warn({ err: String(err) }, "record cache prune failed");
+          return 0;
+        });
+        return { seasons: seasons.length, cachePruned };
       }),
 
     // Re-fetches completed weeks (stat corrections), re-derives and bumps data_version. Safe to re-run.

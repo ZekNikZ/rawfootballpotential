@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { createDb } from "@rfp/db";
 import { PgBoss } from "pg-boss";
 import { createHandlers, jobPayload, type JobName } from "./jobs/handlers";
@@ -59,7 +60,21 @@ async function main() {
   await boss.send("recompute", {});
   log.info({ schedules: env.INGEST_SCHEDULES_ENABLED }, "ingest worker started");
 
+  // Heartbeat for the container healthcheck (docker-compose.yml): the file is touched only while the database answers.
+  const heartbeatFile = process.env.HEARTBEAT_FILE ?? "/tmp/ingest-alive";
+  const beat = async () => {
+    try {
+      await pool.query("select 1");
+      writeFileSync(heartbeatFile, String(Date.now()));
+    } catch (err) {
+      log.warn({ err: String(err) }, "heartbeat failed");
+    }
+  };
+  await beat();
+  const heartbeat = setInterval(() => void beat(), 30_000);
+
   const shutdown = async () => {
+    clearInterval(heartbeat);
     log.info("shutting down");
     await boss.stop({ graceful: true });
     await pool.end();

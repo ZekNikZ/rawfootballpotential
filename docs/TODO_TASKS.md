@@ -49,14 +49,11 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 - [x] `RFP_TAG` wording fixed (cutover.md, setup-server.sh). A stray git tag `1.0.0` still exists on `6fbf583` (it triggers nothing; delete with
       `git push origin :refs/tags/1.0.0` if unwanted; the owner decides).
-- [ ] Bump `actions/checkout@v4` (and other actions) in the workflows: GitHub warns that v4 runs on Node 20, being removed.
-- [ ] `record_cache` grows: every metric-version or data-version bump leaves old rows. Add a nightly job deleting rows whose
-      `version_key` no longer matches (or older than 30 days).
-- [ ] `docker compose` health: add a healthcheck for `ingest` (it is only monitored through `/api/healthz` last-run times).
-- [ ] The deploy workflow pulls `docker-compose.yml` from the commit but cannot add new `.env` variables; consider a check step
-      that compares `.env.example` keys with `/opt/rfp/.env` and fails early with the missing names (never print values).
-- [ ] The `ingest` image CLI and `create-owner` are documented; add `pnpm`-free commands for `sweep-records`/`show-record`
-      against production (currently dev-only scripts).
+- [x] Workflow actions bumped to their Node 24 majors (checkout v7, setup-node v7, pnpm/action-setup v6, docker actions v4/v6/v7).
+- [x] `record_cache` pruning: the `daily` job deletes rows computed more than 30 days ago (`apps/ingest/src/jobs/prune.ts`).
+- [x] `ingest` healthcheck: the worker touches `/tmp/ingest-alive` every 30 s while the database answers; compose checks its age.
+- [x] The Deploy workflow fails early, naming them, when `/opt/rfp/.env` lacks a variable that `docker-compose.yml` requires.
+- [x] `node dist/show-record.js` and `node dist/sweep-records.js` ship in the `api` image for read-only checks against production.
 - [x] Web bundle: every page and the whole admin area were already `lazy()` routes; the 644 kB main chunk was React + Mantine + app
       shell. React/react-router and TanStack Query now have their own long-lived chunks (`apps/web/vite.config.ts`), so the size warning is gone and
       returning visitors re-download only the small app chunk after a deploy. First-load size is unchanged (about 190 kB gzipped).
