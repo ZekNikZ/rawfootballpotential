@@ -1,5 +1,6 @@
 import "@mantine/core/styles.css";
 import "@fontsource/bebas-neue";
+import "twemoji-colr-font/twemoji.css";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
