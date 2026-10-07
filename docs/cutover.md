@@ -20,7 +20,7 @@ code on the `rewrite` branch (commit hashes at the end). Design and definitions 
 
 | Milestone | What                                                                                                   |
 | --------- | ------------------------------------------------------------------------------------------------------ |
-| M0-M1     | monorepo, Drizzle schema and migrations (0000-0006), `rec_*` views                                     |
+| M0-M1     | monorepo, Drizzle schema and migrations (0000-0007), `rec_*` views                                     |
 | M2        | pure compute (optimal lineups, medians, results, streaks, brackets, tenure, retention)                |
 | M3        | Sleeper ingest, derive, NFL reference (nflverse), pg-boss jobs, the one-time Mongo migration           |
 | M4        | record engine and API, parity harness                                                                  |
