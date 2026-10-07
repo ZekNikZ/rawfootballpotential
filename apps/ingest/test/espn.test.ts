@@ -380,3 +380,72 @@ describe("import into the database", () => {
     );
   });
 });
+
+describe("a two-week playoff matchup (ESPN 2020)", () => {
+  let id: number;
+  let summary: Awaited<ReturnType<typeof runEspnImport>>;
+  beforeAll(async () => {
+    const [lg] = await db.select().from(league);
+    const [s] = await db
+      .insert(leagueSeason)
+      .values({
+        leagueId: lg!.id,
+        year: 2018,
+        source: "espn",
+        externalId: "mongo:L-Test-2018",
+        status: "complete",
+        regularSeasonWeeks: 2,
+        playoffWeekStart: 3,
+        lastWeek: 3,
+        playoffTeams: 2,
+        teamCount: 4,
+      })
+      .returning();
+    id = s!.id;
+    for (const name of ESPN_TEAM_NAMES) {
+      const [f] = await db.insert(franchise).values({ leagueId: lg!.id }).returning();
+      await db
+        .insert(teamSeason)
+        .values({ leagueSeasonId: id, franchiseId: f!.id, externalRosterId: `R2-${name}`, name });
+    }
+    // Matchup period 3 is scoring periods 3 and 4: the week-3 games carry the combined score.
+    const rs = espnFixtureResponses();
+    const settings = rs.find((r) => r.endpoint === "mSettings")!.payload as {
+      id: number;
+      status: { finalScoringPeriod: number };
+      settings: { scheduleSettings: Record<string, unknown> };
+    };
+    settings.id = 424243; // each ESPN season here is its own league
+    settings.status.finalScoringPeriod = 4;
+    settings.settings.scheduleSettings.matchupPeriods = { "1": [1], "2": [2], "3": [3, 4] };
+    for (const t of [1, 2, 3, 4])
+      rs.push({
+        endpoint: "rosterTeamWeek",
+        params: { scoringPeriodId: 4, forTeamId: t },
+        status: 200,
+        payload: rs.find((r) => r.params.scoringPeriodId === 3 && r.params.forTeamId === t)!
+          .payload,
+      });
+    summary = await runEspnImport(db, id, rs, null);
+  });
+
+  it("marks the games as spanning two weeks and keeps their combined score", async () => {
+    const games = await db.select().from(matchup).where(eq(matchup.leagueSeasonId, id));
+    expect(games.filter((g) => g.week === 3).map((g) => g.spanWeeks)).toEqual([2, 2]);
+    expect(games.filter((g) => g.week < 3).every((g) => g.spanWeeks === 1)).toBe(true);
+    const rows = await q<{ span: number; points: string }>(sql`
+      select span_weeks span, points from rec_team_week_all where league_season_id = ${id} and week = 3 order by points desc`);
+    expect(rows.map((r) => r.span)).toEqual([2, 2, 2, 2]);
+    expect(Number(rows[0]!.points)).toBe(110);
+  });
+
+  it("stores no lineups for those weeks, and the results still count", async () => {
+    const lineups = await q<{ week: number; n: string }>(sql`
+      select tw.week, count(*) n from player_week pw join team_week tw on tw.id = pw.team_week_id
+      where tw.league_season_id = ${id} group by 1 order by 1`);
+    expect(lineups.map((l) => l.week)).toEqual([1, 2]);
+    expect(summary.scoreMismatches).toEqual([]);
+    const places = await db.select().from(teamSeason).where(eq(teamSeason.leagueSeasonId, id));
+    expect(places.map((t) => t.finalPlace).sort()).toEqual([1, 2, 3, 4]);
+  });
+});

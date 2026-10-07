@@ -36,6 +36,20 @@
       "when": 1791315388159,
       "tag": "0004_team_week_asleep",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791351936447,
+      "tag": "0005_matchup_span_weeks",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791351937378,
+      "tag": "0006_rec_views_span_weeks",
+      "breakpoints": true
     }
   ]
 }

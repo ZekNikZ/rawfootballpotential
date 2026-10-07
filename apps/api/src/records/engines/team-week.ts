@@ -64,6 +64,7 @@ export async function teamWeekRecord(ctx: RunContext): Promise<RankedRow[]> {
     where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
       and ${scopeCond(sql`tw.game_type`, q.scope)}
       and ${weeksCond(sql`tw.week`, q.weeks)}
+      and tw.span_weeks = 1
       and ${q.franchise ? sql`tw.franchise_id = ${q.franchise}` : sql`true`}
       and ${q.opponent ? sql`ots.franchise_id = ${q.opponent}` : sql`true`}
       and ${spec.where ?? sql`true`}`;
@@ -97,7 +98,7 @@ export async function uncountedRecord(ctx: RunContext): Promise<RankedRow[]> {
       where pw.team_week_id = tw.team_week_id and pw.points is not null
       order by pw.points desc, p.full_name limit 1
     ) top on true
-    where not tw.counts
+    where not tw.counts and tw.span_weeks = 1
       and ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
       and ${q.franchise ? sql`tw.franchise_id = ${q.franchise}` : sql`true`}`;
   return rankRows(ctx, inner);

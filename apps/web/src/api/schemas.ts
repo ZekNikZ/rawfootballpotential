@@ -374,6 +374,7 @@ export const matchupsResponse = z.object({
       bracketRound: nullableNum,
       placementAtStake: nullableNum,
       isChampionship: z.boolean(),
+      spanWeeks: z.number().int().default(1),
       counts: z.boolean(),
       teams: z.array(matchupTeam),
     })

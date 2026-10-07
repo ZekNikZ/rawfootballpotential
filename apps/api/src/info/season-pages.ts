@@ -108,7 +108,7 @@ export async function matchups(
       select tw.id as team_week_id, tw.team_season_id, tw.matchup_id, tw.points::float8 as points, tw.counts, tw.result::text as result,
              tw.is_final, tw.points_overridden,
              (select sum(pw.projected_points)::float8 from player_week pw where pw.team_week_id = tw.id and pw.slot_kind = 'starter') as projected,
-             m.game_type::text as game_type, m.bracket::text as bracket, m.bracket_round, m.placement_at_stake, m.is_championship
+             m.game_type::text as game_type, m.bracket::text as bracket, m.bracket_round, m.placement_at_stake, m.is_championship, m.span_weeks
       from team_week tw left join matchup m on m.id = tw.matchup_id
       where tw.league_season_id = ${seasonId} and tw.week = ${chosen}
       order by tw.matchup_id nulls last, tw.team_season_id`)
@@ -166,6 +166,7 @@ export async function matchups(
     bracketRound: num(sides[0]?.bracket_round),
     placementAtStake: num(sides[0]?.placement_at_stake),
     isChampionship: Boolean(sides[0]?.is_championship),
+    spanWeeks: Number(sides[0]?.span_weeks ?? 1),
     counts: Boolean(sides[0]?.counts),
     teams: sides.map(team),
   }));

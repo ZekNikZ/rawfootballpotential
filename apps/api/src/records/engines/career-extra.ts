@@ -58,7 +58,7 @@ export async function careerMarginsRecord(ctx: RunContext): Promise<RankedRow[]>
       from rec_team_week tw join league_season ls on ls.id = tw.league_season_id
       where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
         and ${scopeCond(sql`tw.game_type`, ctx.q.scope)}
-        and tw.result in ('W', 'L')
+        and tw.result in ('W', 'L') and tw.span_weeks = 1
         and ${close ? sql`abs(tw.margin) < 5` : sql`abs(tw.margin) > 50`}
       group by tw.franchise_id
     )
@@ -82,7 +82,7 @@ export async function careerWeeklyRecord(ctx: RunContext): Promise<RankedRow[]> 
              s.asleep_starters as dead, s.bye_starters as bye, s.asleep_points_lost as lost
       from rec_team_week tw
       left join team_week_stats s on s.team_week_id = tw.team_week_id
-      where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
+      where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)} and tw.span_weeks = 1
     ),
     c as (
       select tw.franchise_id,

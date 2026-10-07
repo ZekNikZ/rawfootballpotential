@@ -30,7 +30,7 @@ export async function allPlayRecord(ctx: RunContext): Promise<RankedRow[]> {
         and ${scopeCond(sql`tw.game_type`, q.scope)}
         and ${weeksCond(sql`tw.week`, q.weeks)}
         and ${q.franchise ? sql`tw.franchise_id = ${q.franchise}` : sql`true`}
-        and tw.allplay_w is not null
+        and tw.allplay_w is not null and tw.span_weeks = 1
       group by tw.team_season_id, tw.franchise_id, tw.league_season_id, tw.season
     ),
     x as (
@@ -123,7 +123,7 @@ export async function weeklyCountsRecord(ctx: RunContext): Promise<RankedRow[]> 
       select tw.*, max(tw.points) over (partition by tw.league_season_id, tw.week) as hi,
              min(tw.points) over (partition by tw.league_season_id, tw.week) as lo
       from rec_team_week tw
-      where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
+      where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)} and tw.span_weeks = 1
     ),
     t as (
       select tw.team_season_id, tw.franchise_id, tw.league_season_id, tw.season,

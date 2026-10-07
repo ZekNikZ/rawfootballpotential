@@ -140,6 +140,7 @@ export function teamWeekBase(ctx: RunContext): SQL {
       left join team_week_stats s on s.team_week_id = tw.team_week_id
       left join rec_game_result mg on mg.team_season_id = tw.team_season_id and mg.week = tw.week and mg.kind = 'median'
       where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
+        and tw.span_weeks = 1
     )`;
 }
 

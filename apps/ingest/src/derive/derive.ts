@@ -40,7 +40,7 @@ import { log } from "../lib/log";
 import { teamSeasonOverrideKey } from "../sleeper/games";
 
 /** Bump when derive logic changes; ingest recomputes seasons whose data_version.derive_version is behind. */
-export const DERIVE_VERSION = 2;
+export const DERIVE_VERSION = 3;
 
 const chunk = <T>(arr: readonly T[], size: number): T[][] => {
   const out: T[][] = [];
@@ -461,7 +461,10 @@ export async function deriveSeason(db: Db, leagueSeasonId: number): Promise<Deri
   }
   const high = threshold("high_scorer");
   const low = threshold("benchwarmer");
+  // A combined multi-week score is not a weekly score: it can't make the high-scorer or benchwarmer clubs.
+  const spanOfMatchup = new Map(matchups.map((m) => [m.id, m.spanWeeks]));
   for (const t of counted) {
+    if ((spanOfMatchup.get(t.matchupId ?? -1) ?? 1) > 1) continue;
     if (high !== undefined && t.points > high)
       trophyRows.push({
         kind: "high_scorer",

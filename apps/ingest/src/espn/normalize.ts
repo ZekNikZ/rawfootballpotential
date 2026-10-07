@@ -18,6 +18,7 @@ import {
   and,
   desc,
   eq,
+  gt,
   inArray,
   like,
   sql,
@@ -97,6 +98,8 @@ export async function loadLatestEspnBundle(
     })),
   };
 }
+
+const PLAIN_SLOTS = new Set(["QB", "RB", "WR", "TE", "K", "DEF"]);
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
@@ -327,6 +330,8 @@ export async function normalizeEspnSeason(
 
   // ---- games: matchups (with brackets), then one team_week per team and week -----------------------------------
   const twoSided = data.games.filter((g) => g.sides.length === 2);
+  // A matchup period of several scoring periods (a two-week playoff matchup) is one game with the combined score.
+  const spanOf = (week: number) => s.matchupPeriods.get(week)?.length ?? 1;
   const matchupRows: (typeof matchup.$inferInsert)[] = [];
   const gameKey = new Map<EspnGame, { week: number; ext: number }>();
   const perWeek = new Map<number, number>();
@@ -345,6 +350,7 @@ export async function normalizeEspnSeason(
       bracketRound: c.bracketRound,
       placementAtStake: c.placementAtStake,
       isChampionship: c.isChampionship,
+      spanWeeks: spanOf(g.week),
     });
   }
   const matchupIds = new Map<string, number>();
@@ -360,6 +366,7 @@ export async function normalizeEspnSeason(
           bracketRound: sql`excluded.bracket_round`,
           placementAtStake: sql`excluded.placement_at_stake`,
           isChampionship: sql`excluded.is_championship`,
+          spanWeeks: sql`excluded.span_weeks`,
         },
       })
       .returning({ id: matchup.id, week: matchup.week, ext: matchup.externalMatchupId });
@@ -386,7 +393,8 @@ export async function normalizeEspnSeason(
     gameOf.set(`${b.teamId}:${g.week}`, { matchupId, opponent: a.teamId, type });
   }
   const starterTotal = (teamId: number, week: number): number | null => {
-    const entries = data.rosters.get(`${teamId}:${week}`);
+    // The lineups of a multi-week matchup are not stored (their score is a sum over several lineups).
+    const entries = spanOf(week) === 1 ? data.rosters.get(`${teamId}:${week}`) : undefined;
     if (!entries?.length) return null;
     return entries
       .filter((e) => e.slotId !== BENCH_SLOT && e.slotId !== IR_SLOT)
@@ -421,6 +429,11 @@ export async function normalizeEspnSeason(
       });
     }
   }
+  // Rows from an earlier import of the season that its weeks no longer include (the Mongo migration counted each
+  // scoring period of a multi-week playoff as a week).
+  await db
+    .delete(teamWeek)
+    .where(and(eq(teamWeek.leagueSeasonId, leagueSeasonId), gt(teamWeek.week, s.lastWeek)));
   const teamWeekIds = new Map<string, number>();
   for (const batch of chunk(twRows, 500)) {
     const rows = await db
@@ -451,6 +464,9 @@ export async function normalizeEspnSeason(
   const pwRows: (typeof playerWeek.$inferInsert)[] = [];
   for (const [key, entries] of data.rosters) {
     const [espnTeam, week] = key.split(":").map(Number) as [number, number];
+    // Scoring period -> matchup period: lineups are kept for one-period matchups only.
+    const period = [...s.matchupPeriods].find(([, ps]) => ps.includes(week));
+    if (period && period[1].length > 1) continue;
     const teamSeasonId = teamSeasonByEspn.get(espnTeam);
     const teamWeekId =
       teamSeasonId === undefined ? undefined : teamWeekIds.get(`${teamSeasonId}:${week}`);
@@ -465,7 +481,16 @@ export async function normalizeEspnSeason(
         points: e.actual,
         projectedPoints: e.projected,
         position: e.position,
-        eligiblePositions: e.position ? [e.position] : [],
+        // Like Sleeper's snapshot: the position, plus the plain slot a starter actually filled (ESPN lists a QB who
+        // plays TE as a TE only by where he was started).
+        eligiblePositions: [
+          ...new Set([
+            ...(e.position ? [e.position] : []),
+            ...(kind === "starter" && PLAIN_SLOTS.has(SLOT_NAMES[e.slotId] ?? "")
+              ? [SLOT_NAMES[e.slotId]!]
+              : []),
+          ]),
+        ],
       });
     }
   }

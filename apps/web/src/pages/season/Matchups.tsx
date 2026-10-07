@@ -48,6 +48,7 @@ function gameBadges(g: Game) {
       label: GAME_LABEL[g.gameType] ?? g.gameType,
       color: g.gameType === "toilet_bowl" ? "orange" : "blue",
     });
+  if (g.spanWeeks > 1) out.push({ label: `${g.spanWeeks}-week game`, color: "violet" });
   if (g.placementAtStake && !g.isChampionship)
     out.push({
       label: `Plays for ${g.placementAtStake}${suffix(g.placementAtStake)}`,

@@ -157,6 +157,8 @@ export interface EspnSeason {
     playoffTeams: number;
     playoffWeekStart: number;
     lastWeek: number;
+    /** Scoring periods in each matchup period; more than one for a multi-week playoff matchup (ESPN 2020). */
+    matchupPeriods: Map<number, number[]>;
     /** Starting slots in lineup order, as slot names (BN and IR excluded). */
     rosterSlots: string[];
     benchSlots: number;
@@ -191,10 +193,11 @@ function parseSettings(
   const settings = obj(root.settings);
   const sched = obj(settings.scheduleSettings);
   const regular = num(sched.matchupPeriodCount) ?? 0;
-  const lastWeek = Math.max(
-    num(obj(root.status).finalScoringPeriod) ?? 0,
-    ...schedule.map((m) => num(obj(m).matchupPeriodId) ?? 0)
-  );
+  // The last *matchup* period (a two-week playoff matchup is one period of two scoring periods).
+  const periodsInSchedule = schedule.map((m) => num(obj(m).matchupPeriodId) ?? 0);
+  const lastWeek = periodsInSchedule.length
+    ? Math.max(...periodsInSchedule)
+    : (num(obj(root.status).finalScoringPeriod) ?? 0);
   const counts = obj(obj(settings.rosterSettings).lineupSlotCounts);
   const rosterSlots: string[] = [];
   let benchSlots = 0;
@@ -210,6 +213,12 @@ function parseSettings(
       for (let i = 0; i < n; i++) rosterSlots.push(name ?? `SLOT_${slotId}`);
     }
   }
+  const matchupPeriods = new Map<number, number[]>();
+  for (const [k, v] of Object.entries(obj(sched.matchupPeriods)))
+    matchupPeriods.set(
+      Number(k),
+      arr(v).filter((x): x is number => typeof x === "number")
+    );
   const acq = obj(settings.acquisitionSettings);
   const hasFaab = acq.isUsingAcquisitionBudget === true;
   return {
@@ -218,6 +227,7 @@ function parseSettings(
     playoffTeams: num(sched.playoffTeamCount) ?? 0,
     playoffWeekStart: regular + 1,
     lastWeek,
+    matchupPeriods,
     rosterSlots,
     benchSlots,
     irSlots,
@@ -271,8 +281,12 @@ function parseGames(schedule: unknown[]): { games: EspnGame[]; weekScores: Map<s
     for (const side of [obj(m.home), obj(m.away)]) {
       const teamId = num(side.teamId);
       if (teamId === null) continue;
+      const byPeriod = Object.values(obj(side.pointsByScoringPeriod)).filter(
+        (x): x is number => typeof x === "number"
+      );
+      // A bye has no total; its score is the sum over the matchup period's scoring periods.
       const points =
-        num(side.totalPoints) ?? num(obj(side.pointsByScoringPeriod)[String(week)]) ?? null;
+        num(side.totalPoints) ?? (byPeriod.length ? byPeriod.reduce((a, b) => a + b, 0) : null);
       sides.push({ teamId, points });
       if (points !== null) weekScores.set(`${teamId}:${week}`, points);
     }
@@ -390,7 +404,8 @@ function parseTransactions(rs: BundleResponse[], anomalies: string[]): EspnTrans
       type !== "FUTURE_ROSTER" &&
       type !== "TRADE_PROPOSAL" &&
       type !== "TRADE_DECLINE" &&
-      type !== "TRADE_UPHOLD"
+      type !== "TRADE_UPHOLD" &&
+      type !== "TRADE_VETO"
     ) {
       anomalies.push(`transaction ${id}: unknown type ${type}`);
     }

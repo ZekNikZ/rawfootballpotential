@@ -23,6 +23,12 @@ export const matchup = pgTable(
     /** Bracket `p`: the final place this game decides (1 = championship, 3 = third place, ...). */
     placementAtStake: integer(),
     isChampionship: boolean().notNull().default(false),
+    /**
+     * Scoring periods the game spans: 1 normally, 2 for a two-week playoff matchup (ESPN 2020). The combined score
+     * counts for results, totals and placements, but is not comparable with a one-week score, so single-game and
+     * lineup records skip games with span_weeks > 1.
+     */
+    spanWeeks: integer().notNull().default(1),
   },
   (t) => [
     unique("matchup_external_uq").on(t.leagueSeasonId, t.week, t.externalMatchupId),

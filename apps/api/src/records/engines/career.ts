@@ -166,6 +166,7 @@ export async function careerScoringRecord(ctx: RunContext): Promise<RankedRow[]>
       where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
         and ${scopeCond(sql`tw.game_type`, q.scope)}
         and ${weeksCond(sql`tw.week`, q.weeks)}
+        and tw.span_weeks = 1
     ),
     extremes as (
       select franchise_id, max(hi) as high_score, min(lo) as low_score,
