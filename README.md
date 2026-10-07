@@ -1,7 +1,7 @@
 # Raw Football Potential (RFP)
 
 Fantasy football league history and records. This is the from-scratch rewrite; the previous app lives in
-[`legacy/`](legacy/) as a reference until cutover. Design: [`docs/records-architecture.md`](docs/records-architecture.md).
+the legacy site (removed after cutover; it is in git history at `70b61ed` and earlier). Design: [`docs/records-architecture.md`](docs/records-architecture.md).
 
 ## Layout
 
@@ -18,7 +18,7 @@ Fantasy football league history and records. This is the from-scratch rewrite; t
 ## Local development
 
 ```sh
-cp .env.example .env        # then edit; the Mongo vars are only needed for `pnpm migrate:mongo`
+cp .env.example .env        # then edit
 docker compose up -d db     # Postgres 18 on 127.0.0.1:${POSTGRES_HOST_PORT}
 pnpm install
 pnpm dev                    # web (Vite), api and ingest under tsx watch
@@ -31,7 +31,7 @@ pnpm dev                    # web (Vite), api and ingest under tsx watch
 - [`docs/maintenance.md`](docs/maintenance.md): how the system fits together, which version to bump, gotchas
 - [`docs/deploy-runner.md`](docs/deploy-runner.md): automatic deploys through the self-hosted runner
 - [`docs/TODO_TASKS.md`](docs/TODO_TASKS.md): outstanding tasks
-- [`docs/m4-parity-report.md`](docs/m4-parity-report.md): the legacy generators compared with the new records
+- [`docs/m4-parity-report.md`](docs/m4-parity-report.md): the legacy generators compared with the new records (historical; the harness was removed with `legacy/`)
 
 ## One-off commands
 

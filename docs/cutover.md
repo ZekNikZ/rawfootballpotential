@@ -39,8 +39,9 @@ site is not touched or redeployed: it keeps serving rawfootballpotential.com fro
 domain, and stays untouched afterwards, so it is also the rollback (section 10).
 
 - [ ] **Merge `rewrite` into `main` with a PR.** The release workflow builds and pushes the images
-      (`ghcr.io/zeknikz/rfp-{migrate,api,ingest,backup,web}`) on a push to `main` or a `v*` tag. Tag `v1.0.0` after the
-      merge so the new server can pin `RFP_TAG=v1.0.0`; wait for the Release workflow to finish before pulling. Nothing
+      (`ghcr.io/zeknikz/rfp-{migrate,api,ingest,backup,web}`) on a push to `main` or a `v*` tag. Image tags are the full
+      commit SHA, `latest` (newest `main` build) and, for a git tag `vX.Y.Z`, `X.Y.Z` (the `v` is stripped). Set `RFP_TAG` to `latest` or a SHA
+      (or `1.0.0` if you tag a release); wait for the Release workflow to finish before pulling. Nothing
       else deploys from `main`, so merging does not affect the old server (check that nothing there auto-pulls `main`).
       To try the stack before merging, build locally on the new server with `docker compose up -d --build`.
 - [ ] **The new server**: Docker with the compose plugin, this repo's `docker-compose.yml` and `.env` (no need for the
@@ -91,20 +92,20 @@ docker compose exec -T db pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-
 docker compose up -d
 ```
 
-### Path B: rebuild from the sources (slower, reproducible)
+### Path B: rebuild from the sources (no longer available in full)
 
-Run from a checkout with `DATABASE_URL` pointing at the production database (for example through an SSH tunnel to its
-127.0.0.1 port), after `docker compose up -d` has applied the migrations:
+The one-time Mongo migration (legacy config, thresholds, placements as corrections, cached ESPN leagues) was removed after the
+cutover together with `legacy/`; it exists in git history (commit `70b61ed` and earlier). What can still be rebuilt from sources
+on a fresh, migrated database is the Sleeper and ESPN data:
 
 ```sh
-pnpm migrate:mongo                                   # needs MONGO_CONNECTION_URL / MONGO_DATABASE; read-only
 pnpm ingest all                                      # players, Sleeper seasons, NFL reference, derive
 pnpm ingest espn apps/scraper/bundles/redraft-2021.json.gz
 pnpm ingest espn apps/scraper/bundles/redraft-2020.json.gz
 pnpm ingest nfl-reference
 ```
 
-Or upload the two bundles in the admin UI instead of the `espn` commands (section 5).
+Admin settings, thresholds and corrections are only in the database, so backups (and the dump of path A) are what matter.
 
 In the production images the same commands run as `docker compose run --rm ingest node dist/cli.js <command>`
 (for example `derive`, `nfl-reference`, `sync --season redraft-2026`, `espn <bundle>`; the bundle file has to be mounted).
@@ -122,7 +123,7 @@ Copy `.env.example` to `.env` and set at least:
 | `POSTGRES_PASSWORD`                                          | a real password                                                                                               |
 | `BETTER_AUTH_SECRET`                                         | `openssl rand -base64 32`. Changing it later logs everyone out                                                |
 | `PUBLIC_URL`                                                 | `https://rawfootballpotential.com` (the final address, set from the start); used for cookies and the Origin check on admin writes |
-| `RFP_TAG`                                                    | the release tag or SHA to deploy (rollback = the previous tag)                                                |
+| `RFP_TAG`                                                    | an image tag: commit SHA, `latest`, or `X.Y.Z` for a `vX.Y.Z` git tag (the `v` is dropped). Automatic deploys set it for you; rollback = the previous value                                                |
 | `WEB_BIND` / `WEB_PORT`                                      | where the reverse proxy sends traffic (bind to 127.0.0.1 if the proxy is on the same host)                    |
 | `TZ`                                                         | `America/New_York`: the cron schedules follow it                                                              |
 | `S3_BUCKET`, `S3_ENDPOINT_URL`, `AWS_*`                      | for off-machine backups (section 8); empty keeps backups local                                                |
@@ -193,11 +194,8 @@ server after you have switched back. Without an override you cannot tell which s
 
 - [ ] After a few quiet days: shut down the old server's web app, restore a normal DNS TTL, and remove the old server from
       anything that still references it (monitors, backups).
-- [ ] Delete `legacy/` (it is only a reference; the parity harness `pnpm --filter @rfp/api parity` needs it, so run that one last time first if
-      you want a final comparison).
-- [ ] Shut down Mongo, remove `MONGO_*` from `.env`, and remove the `migrate:mongo` script and `apps/ingest/src/mongo` if you
-      like (nothing else depends on them).
-- [ ] Rotate anything that was shared during the migration (the Mongo credentials).
+- [x] `legacy/`, the parity harness and the Mongo migration code were deleted (history keeps them).
+- [ ] Shut down Mongo and rotate its credentials (not in this repository).
 
 ## 8. Running it: what happens on its own
 

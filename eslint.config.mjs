@@ -10,7 +10,6 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/.turbo/**",
       "**/coverage/**",
-      "legacy/**",
       "packages/db/migrations/**",
     ],
   },

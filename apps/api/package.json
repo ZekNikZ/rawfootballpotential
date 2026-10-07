@@ -9,7 +9,6 @@
     "test": "vitest run --passWithNoTests",
     "build": "tsdown",
     "dev": "tsx watch src/server.ts",
-    "parity": "tsx scripts/parity/run.ts",
     "prewarm": "tsx scripts/prewarm.ts",
     "show-record": "tsx scripts/show-record.ts",
     "sweep-records": "tsx scripts/sweep-records.ts",
@@ -32,7 +31,6 @@
   "devDependencies": {
     "@rfp/ingest": "workspace:*",
     "@types/pg": "^8.23.1",
-    "mongodb": "^7.7.0",
     "pg": "^8.23.1"
   }
 }
