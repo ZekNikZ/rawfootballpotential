@@ -34,14 +34,24 @@ Tests: core 74, db 2, ingest 44, api 193, scraper 8, web 5; lint, typecheck and 
 
 ## 2. Before you start
 
-- [ ] Decide how `rewrite` becomes `main` (merge or replace). The release workflow builds and pushes the images
-      (`ghcr.io/zeknikz/rfp-{migrate,api,ingest,backup,web}`) on a push to `main` or a `v*` tag, so you may want to tag
-      `v1.0.0` after merging. Images for a branch push are not built; to test before merging, build locally with
-      `docker compose up -d --build`.
-- [ ] A host with Docker, and an HTTPS reverse proxy (or Cloudflare Tunnel) that can forward to the `web` container's
-      `WEB_PORT`. Nothing else is exposed: Postgres is bound to 127.0.0.1.
-- [ ] Keep the legacy site running on `main` until the new one is verified (section 6).
-- [ ] Mongo stays **read-only**. Do not shut it down until section 7.
+**The plan: a new server, then repoint DNS.** The new app runs on a different server from the legacy site. The legacy
+site is not touched or redeployed: it keeps serving rawfootballpotential.com from the old server until you repoint the
+domain, and stays untouched afterwards, so it is also the rollback (section 10).
+
+- [ ] **Merge `rewrite` into `main` with a PR.** The release workflow builds and pushes the images
+      (`ghcr.io/zeknikz/rfp-{migrate,api,ingest,backup,web}`) on a push to `main` or a `v*` tag. Tag `v1.0.0` after the
+      merge so the new server can pin `RFP_TAG=v1.0.0`; wait for the Release workflow to finish before pulling. Nothing
+      else deploys from `main`, so merging does not affect the old server (check that nothing there auto-pulls `main`).
+      To try the stack before merging, build locally on the new server with `docker compose up -d --build`.
+- [ ] **The new server**: Docker with the compose plugin, this repo's `docker-compose.yml` and `.env` (no need for the
+      source tree, only those two files, or a clone of `main`), and the GHCR images pullable (`docker login ghcr.io` if
+      the packages are private). Open ports 80/443 only; Postgres is bound to 127.0.0.1.
+- [ ] **HTTPS in front of `web`**: a reverse proxy or Cloudflare Tunnel on the new server, forwarding to `WEB_PORT`, with
+      a certificate for rawfootballpotential.com. If the certificate is issued by HTTP challenge it can only be issued once
+      DNS points at the server; use a DNS challenge (or Cloudflare) to have the certificate ready before the switch.
+- [ ] **Lower the DNS TTL** of rawfootballpotential.com (and www) to about 300 s a day ahead, so the switch and a possible
+      switch back take minutes. Note the current records (A/AAAA/CNAME) so you can restore them.
+- [ ] Mongo stays **read-only** and the legacy site stays up on the old server until section 7.
 
 ## 3. Get the data into production
 
@@ -93,6 +103,10 @@ Or upload the two bundles in the admin UI instead of the `espn` commands (sectio
 In the production images the same commands run as `docker compose run --rm ingest node dist/cli.js <command>`
 (for example `derive`, `nfl-reference`, `sync --season redraft-2026`, `espn <bundle>`; the bundle file has to be mounted).
 
+**Freshness:** the dump is a snapshot. Take it (and run `pnpm ingest derive` first) shortly before you start the new
+server, and after the first start run Admin → Jobs → **daily** so the worker pulls anything Sleeper changed since; the
+scheduled jobs then keep it current. Do not run the new site against a stale dump for long before the switch.
+
 ## 4. Production configuration (`.env`, never committed)
 
 Copy `.env.example` to `.env` and set at least:
@@ -101,7 +115,7 @@ Copy `.env.example` to `.env` and set at least:
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | `POSTGRES_PASSWORD`                                          | a real password                                                                                               |
 | `BETTER_AUTH_SECRET`                                         | `openssl rand -base64 32`. Changing it later logs everyone out                                                |
-| `PUBLIC_URL`                                                 | the real `https://` address; used for cookies and the Origin check on admin writes                            |
+| `PUBLIC_URL`                                                 | `https://rawfootballpotential.com` (the final address, set from the start); used for cookies and the Origin check on admin writes |
 | `RFP_TAG`                                                    | the release tag or SHA to deploy (rollback = the previous tag)                                                |
 | `WEB_BIND` / `WEB_PORT`                                      | where the reverse proxy sends traffic (bind to 127.0.0.1 if the proxy is on the same host)                    |
 | `TZ`                                                         | `America/New_York`: the cron schedules follow it                                                              |
@@ -124,7 +138,16 @@ Copy `.env.example` to `.env` and set at least:
 
 ## 6. Verify before switching traffic (manual checklist)
 
-Compare against the legacy site where it makes sense; expected differences are listed in section 9.
+Compare against the legacy site (still live on the old server) where it makes sense; expected differences are listed in
+section 9.
+
+**Testing the new server before the switch.** The domain still points at the old server, so reach the new one by
+overriding name resolution on your own computer only: add `<new server IP>  rawfootballpotential.com www.rawfootballpotential.com`
+to the hosts file (`C:WindowsSystem32driversetchosts`, edit as administrator), flush DNS (`ipconfig /flushdns`) and
+restart the browser. Because `PUBLIC_URL` is already the real domain, sign-in cookies and the admin Origin check behave
+exactly as they will in production, which a temporary address or bare IP would not allow. This needs the certificate for
+the real domain on the new server (section 2). **Remove the hosts entry when done**, or you will keep seeing the new
+server after you have switched back. Without an override you cannot tell which server answered; `/api/healthz` (which only exists on the new one) tells you.
 
 - [ ] **Home** for both leagues: season snapshot, blog posts, Version History opens once per new version.
 - [ ] **Records**: Overall, Single Season and Managers for both leagues. Try the Time (scope) filter, the median filter, a
@@ -147,10 +170,23 @@ Compare against the legacy site where it makes sense; expected differences are l
       try a restore into a scratch database (`pg_restore --clean --if-exists -d <url> <dump>`).
 - [ ] **Uptime** monitor on `/api/healthz`.
 
-Then point the domain at the new stack. Keep the legacy deployment for a few days so you can switch back.
+## 6a. Switch the domain
+
+1. Take a fresh dump and restore it on the new server (section 3, path A) if the earlier one is more than a day old, then
+   run Admin → Jobs → **daily** once. (There is no live write path on the legacy site that the new one would miss: the
+   data comes from Sleeper, which both read.)
+2. Repoint rawfootballpotential.com (and www) to the new server in your DNS provider. With the short TTL most visitors
+   move within minutes.
+3. Remove the hosts-file entry, then confirm from a phone on mobile data (no override) that you get the new site, the
+   certificate is valid, and `https://rawfootballpotential.com/api/healthz` answers.
+4. Watch Admin → Jobs and `docker compose logs -f api ingest` through the next scheduled `daily` (05:00) and `finalize`.
+5. **Leave the legacy server running for a few days** (it needs no changes) so you can switch back. Do not restore the old
+   TTL until you are happy.
 
 ## 7. After the cutover
 
+- [ ] After a few quiet days: shut down the old server's web app, restore a normal DNS TTL, and remove the old server from
+      anything that still references it (monitors, backups).
 - [ ] Delete `legacy/` (it is only a reference; the parity harness `pnpm --filter @rfp/api parity` needs it, so run that one last time first if
       you want a final comparison).
 - [ ] Shut down Mongo, remove `MONGO_*` from `.env`, and remove the `migrate:mongo` script and `apps/ingest/src/mongo` if you
@@ -196,7 +232,10 @@ These are decisions and findings, all written up in the docs; none is an unexpla
 
 ## 10. If something goes wrong
 
-- **Roll back the deploy:** set `RFP_TAG` to the previous tag and `docker compose pull && docker compose up -d`. Migrations are
+- **Switch back to the legacy site:** point rawfootballpotential.com back at the old server (the DNS records you noted
+  before the switch; the short TTL makes it take minutes). The legacy site was never changed, so there is nothing to
+  redeploy. Anything admins entered on the new site in the meantime (corrections, thresholds) exists only there.
+- **Roll back a bad release on the new server:** set `RFP_TAG` to the previous tag and `docker compose pull && docker compose up -d`. Migrations are
   not reversed (destructive changes were made two-step on purpose); the previous images keep working with the current schema.
 - **A wrong number on a record page:** every record is a plain SQL query over the `rec_*` views; `pnpm --filter @rfp/api show-record <id>`
   (and `sweep-records`) print rows from a database. A season's derived data can be rebuilt without touching sources: Admin →
