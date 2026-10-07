@@ -6,6 +6,13 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "scrape:espn": "tsx src/cli.ts",
+    "report": "tsx src/cli.ts report"
+  },
+  "dependencies": {
+    "@rfp/core": "workspace:*",
+    "playwright": "^1.63.0",
+    "zod": "^4.6.5"
   }
 }

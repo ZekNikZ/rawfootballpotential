@@ -49,8 +49,15 @@ export async function registerImportRoutes(app: FastifyInstance, deps: AdminDeps
       );
     if (!target)
       throw new HttpError(404, `No ESPN season ${manifest.year} in league "${manifest.league}"`);
-    if (target.season.externalId !== manifest.espnLeagueId)
+    // Seasons migrated from Mongo carry a placeholder id; the first bundle brings the real ESPN league id.
+    const adopt = target.season.externalId.startsWith("mongo:");
+    if (!adopt && target.season.externalId !== manifest.espnLeagueId)
       throw new HttpError(400, "The bundle's ESPN league id doesn't match that season");
+    if (adopt)
+      await db
+        .update(leagueSeason)
+        .set({ externalId: manifest.espnLeagueId })
+        .where(eq(leagueSeason.id, target.season.id));
 
     const bundleName = `${manifest.league}-${manifest.year}-${manifest.scrapedAt}`;
     for (let i = 0; i < responses.length; i += 200) {
