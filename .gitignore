@@ -24,3 +24,15 @@ dist-ssr
 *.sw?
 
 .env
+# rewrite
+.turbo
+*.tsbuildinfo
+coverage
+backups
+.espn-profile*
+.env.*
+!.env.example
+docs/screenshots/
+
+# ESPN scraper output (irreplaceable: also keep a copy in the S3 bucket)
+/apps/scraper/bundles

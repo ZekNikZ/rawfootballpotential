@@ -1,0 +1,68 @@
+.table {
+  --rank-width: 3.25rem;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 120ms;
+
+  &[data-fetching] {
+    opacity: 0.6;
+  }
+
+  th,
+  td {
+    white-space: nowrap;
+  }
+
+  [data-numeric] {
+    text-align: right;
+  }
+
+  [data-ranked] {
+    font-weight: 600;
+  }
+}
+
+/* Rows paint their own background so the sticky cells (which inherit it) never show scrolled content through. */
+.row {
+  background-color: var(--mantine-color-body);
+
+  &:nth-of-type(odd) {
+    background-color: var(--table-striped-color);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--table-hover-color);
+    }
+  }
+}
+
+.rank {
+  width: var(--rank-width);
+  min-width: var(--rank-width);
+  text-align: right;
+  color: var(--mantine-color-dimmed);
+}
+
+th.rank,
+td.rank,
+th.sticky,
+td.sticky {
+  position: sticky;
+  z-index: 1;
+  background-color: inherit;
+}
+
+th.rank,
+td.rank {
+  left: 0;
+}
+
+th.sticky,
+td.sticky {
+  left: var(--rank-width);
+}
+
+thead th.rank,
+thead th.sticky {
+  background-color: var(--mantine-color-body);
+}

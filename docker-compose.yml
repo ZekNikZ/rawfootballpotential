@@ -1,0 +1,126 @@
+# RFP: single-machine stack (web + api + ingest worker + Postgres + backups).
+#   cp .env.example .env
+#   docker compose pull && docker compose up -d     # deploy images built by GitHub Actions (GHCR)
+#   docker compose up -d --build                     # or build locally
+#
+# TLS is terminated by an external reverse proxy (homelab proxy, Cloudflare Tunnel, ...),
+# which forwards plain HTTP to `web` on WEB_PORT. The ESPN scraper does not run here:
+# it runs on a desktop (headed browser) and its output is imported through the admin UI.
+#
+# Startup order is enforced: `migrate` runs Drizzle migrations once and exits;
+# api/ingest only start after it exits successfully, so app code never runs
+# against an un-migrated schema.
+
+name: rfp
+
+x-app-env: &app-env
+  NODE_ENV: production
+  TZ: ${TZ:-America/New_York} # NFL schedule time; cron expressions in ingest use this
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: infra/Dockerfile
+  restart: unless-stopped
+  pull_policy: missing
+  logging:
+    driver: local
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/18/docker; mount the parent.
+      - pgdata:/var/lib/postgresql
+    ports:
+      # Localhost only: for psql / a DB GUI on the host. Never exposed publicly.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *app
+    image: ghcr.io/zeknikz/rfp-migrate:${RFP_TAG:-latest}
+    build: { context: ., dockerfile: infra/Dockerfile, target: migrate }
+    restart: "no"
+    environment: *app-env
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *app
+    image: ghcr.io/zeknikz/rfp-api:${RFP_TAG:-latest}
+    build: { context: ., dockerfile: infra/Dockerfile, target: api }
+    environment:
+      <<: *app-env
+      PORT: "8000"
+      PUBLIC_URL: ${PUBLIC_URL}
+      BETTER_AUTH_URL: ${PUBLIC_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      TRUST_PROXY: "true" # honor X-Forwarded-* from Caddy (client IP, https scheme for secure cookies)
+    expose: ["8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  ingest:
+    <<: *app
+    image: ghcr.io/zeknikz/rfp-ingest:${RFP_TAG:-latest}
+    build: { context: ., dockerfile: infra/Dockerfile, target: ingest }
+    environment:
+      <<: *app-env
+      INGEST_SCHEDULES_ENABLED: ${INGEST_SCHEDULES_ENABLED:-true}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    <<: *app
+    image: ghcr.io/zeknikz/rfp-web:${RFP_TAG:-latest}
+    build: { context: ., dockerfile: infra/Dockerfile, target: web }
+    ports:
+      # Point the external reverse proxy here. Bind to 127.0.0.1 if the proxy runs on this host.
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"
+    depends_on:
+      api: { condition: service_healthy }
+
+  backup:
+    <<: *app
+    image: ghcr.io/zeknikz/rfp-backup:${RFP_TAG:-latest}
+    build: { context: ., dockerfile: infra/Dockerfile, target: backup }
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      # Optional off-machine copy. Leave S3_BUCKET empty to keep backups local only.
+      # Any S3-compatible store works (AWS, Backblaze B2, Cloudflare R2, MinIO) via S3_ENDPOINT_URL.
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_PREFIX: ${S3_PREFIX:-rfp/}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:

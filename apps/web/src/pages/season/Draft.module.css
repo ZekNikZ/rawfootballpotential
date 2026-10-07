@@ -1,0 +1,40 @@
+.board {
+  table-layout: fixed;
+
+  th,
+  td {
+    vertical-align: top;
+  }
+}
+
+.round {
+  width: 44px;
+  text-align: center;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--mantine-color-body);
+}
+
+.head {
+  min-width: 128px;
+  font-weight: 600;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.cell {
+  min-width: 128px;
+  padding: var(--mantine-spacing-xs);
+}
+
+.empty {
+  background-color: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7));
+}
+
+.list {
+  font-variant-numeric: tabular-nums;
+
+  [data-numeric] {
+    text-align: right;
+  }
+}

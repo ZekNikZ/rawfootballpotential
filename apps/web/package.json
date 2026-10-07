@@ -1,0 +1,45 @@
+{
+  "name": "@rfp/web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "check:contract": "tsx scripts/check-contract.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "admin:screenshots": "tsx scripts/admin-screenshots.ts"
+  },
+  "dependencies": {
+    "@fontsource/bebas-neue": "^5.3.0",
+    "@mantine/core": "^9.7.0",
+    "@mantine/form": "^9.7.0",
+    "@mantine/hooks": "^9.7.0",
+    "@mantine/notifications": "^9.7.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@rfp/core": "workspace:*",
+    "@tanstack/react-query": "^5.104.1",
+    "dayjs": "^1.11.23",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "react-router": "^8.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "playwright": "^1.63.0",
+    "postcss": "^8.5.29",
+    "postcss-preset-mantine": "^1.18.0",
+    "postcss-simple-vars": "^7.0.1",
+    "vite": "^8.3.2"
+  }
+}

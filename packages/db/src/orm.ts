@@ -1,0 +1,30 @@
+// Apps import query operators from here so the whole workspace shares one drizzle-orm instance
+// (pnpm can otherwise resolve duplicate copies whose SQL types do not unify).
+export {
+  and,
+  or,
+  not,
+  eq,
+  ne,
+  gt,
+  gte,
+  lt,
+  lte,
+  between,
+  inArray,
+  notInArray,
+  isNull,
+  isNotNull,
+  like,
+  ilike,
+  exists,
+  asc,
+  desc,
+  sql,
+  count,
+  sum,
+  avg,
+  max,
+  min,
+} from "drizzle-orm";
+export type { SQL } from "drizzle-orm";

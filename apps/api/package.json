@@ -1,0 +1,38 @@
+{
+  "name": "@rfp/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsdown",
+    "dev": "tsx watch src/server.ts",
+    "parity": "tsx scripts/parity/run.ts",
+    "prewarm": "tsx scripts/prewarm.ts",
+    "show-record": "tsx scripts/show-record.ts",
+    "sweep-records": "tsx scripts/sweep-records.ts",
+    "admin:create-owner": "tsx scripts/create-owner.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "^10.1.2",
+    "@rfp/core": "workspace:*",
+    "@rfp/db": "workspace:*",
+    "better-auth": "^1.7.7",
+    "fast-xml-parser": "^5.11.2",
+    "fastify": "^5.12.5",
+    "pg-boss": "^12.36.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@rfp/ingest": "workspace:*",
+    "@types/pg": "^8.23.1",
+    "mongodb": "^7.7.0",
+    "pg": "^8.23.1"
+  }
+}

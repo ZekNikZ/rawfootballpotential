@@ -1,0 +1,1 @@
+ALTER TABLE "matchup" ADD COLUMN "span_weeks" integer DEFAULT 1 NOT NULL;

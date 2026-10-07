@@ -1,0 +1,41 @@
+.table {
+  font-variant-numeric: tabular-nums;
+
+  th {
+    white-space: nowrap;
+  }
+
+  td {
+    vertical-align: top;
+  }
+
+  [data-numeric] {
+    text-align: right;
+  }
+}
+
+.row {
+  background-color: var(--mantine-color-body);
+
+  &:nth-of-type(odd) {
+    background-color: var(--table-striped-color);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--table-hover-color);
+    }
+  }
+}
+
+th.sticky,
+td.sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: inherit;
+}
+
+thead th.sticky {
+  background-color: var(--mantine-color-body);
+}
