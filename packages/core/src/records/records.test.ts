@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { RECORD_CATALOG, getRecordDef } from "./catalog";
+import { RECORD_DESCRIPTIONS } from "./descriptions";
 import { parseSeasons, queryKey, recordQuerySchema, selectSeasons } from "./query";
 
 describe("record catalog", () => {
+  it("gives every record a description, and descriptions.ts has no stale ids", () => {
+    for (const r of RECORD_CATALOG)
+      expect(r.description?.trim().length ?? 0, `${r.id} has a description`).toBeGreaterThan(20);
+    const ids = new Set(RECORD_CATALOG.map((r) => r.id));
+    for (const id of Object.keys(RECORD_DESCRIPTIONS))
+      expect(ids.has(id), `${id} exists`).toBe(true);
+  });
+
   it("has unique ids, and every record ranks by one of its own columns", () => {
     const ids = RECORD_CATALOG.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);

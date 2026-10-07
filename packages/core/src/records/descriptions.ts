@@ -1,0 +1,152 @@
+// One-line descriptions (shown under the record picker) for the records whose definition is not spelled out where they
+// are declared. Records declared with their own description (catalog-extra.ts and a few in catalog.ts) win over these.
+// The test in records.test.ts requires every record to end up with one.
+export const RECORD_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  // Single Week Scores
+  "score.high": "The highest single-week scores. Ranked by points scored.",
+  "score.low": "The lowest single-week scores. Ranked by fewest points scored.",
+  blowout: "The largest margins of victory in a single game. Ranked by the winning margin.",
+  "narrow-win": "The closest wins in a single game. Ranked by the smallest winning margin.",
+  "loss.high-score": "The highest scores that still lost the game. Ranked by points scored.",
+  "win.low-score": "The lowest scores that still won the game. Ranked by fewest points scored.",
+
+  // Single Week Teamwide Scores
+  "teamwide.high":
+    "The highest combined score of a team's whole roster in a week: starters plus bench. Ranked by the combined total.",
+  "teamwide.low":
+    "The lowest combined score of a team's whole roster in a week: starters plus bench. Ranked by the combined total.",
+  "bench.high": "The most points scored by a team's bench in a single week.",
+  "bench.low": "The fewest points scored by a team's bench in a single week.",
+
+  // Single Week Potential Score
+  "potential.high":
+    "The highest potential score in a week: the points of the best lineup the roster could have started. Ranked by potential points.",
+  "potential.low":
+    "The lowest potential score in a week: the points of the best lineup the roster could have started. Ranked by potential points.",
+  "actual.high":
+    "The highest points actually scored by the starting lineup in a week, shown with the potential score and the share realized.",
+  "actual.low":
+    "The lowest points actually scored by the starting lineup in a week, shown with the potential score and the share realized.",
+  "ratio.high":
+    "The highest share of potential points realized in a week: points scored divided by the best possible lineup's points.",
+  "ratio.low":
+    "The lowest share of potential points realized in a week: points scored divided by the best possible lineup's points.",
+
+  // Player Performances
+  "player.roster.high":
+    "The highest single-week scores by any player on a roster, starting or on the bench. Ranked by the player's points.",
+  "player.roster.low":
+    "The lowest single-week scores by any player on a roster, starting or on the bench. Ranked by the player's points.",
+  "player.starter.high":
+    "The highest single-week scores by a player in a starting lineup slot. Ranked by the player's points.",
+  "player.starter.low":
+    "The lowest single-week scores by a player in a starting lineup slot. Ranked by the player's points.",
+  "player.bench.high":
+    "The highest single-week scores by a player left on the bench. Ranked by the player's points.",
+  "player.bench.low":
+    "The lowest single-week scores by a player left on the bench. Ranked by the player's points.",
+
+  // Transactions
+  "waiver.faab-high":
+    "The most auction (FAAB) dollars spent on a single successful waiver claim. Failed claims do not count.",
+  "draft.price-high":
+    "The most auction dollars spent on a single draft pick (auction drafts only).",
+  "moves.player":
+    "The players involved in the most executed transactions (trades, waiver claims, free-agent adds and drops) across the seasons shown.",
+  "trade.largest":
+    "The trades that moved the most players in total, shown with the picks and FAAB included. Ranked by players moved.",
+  "trade.broadest": "The trades that involved the most teams. Ranked by the number of teams.",
+
+  // Other
+  "bench-season.player":
+    "The players who scored the most points for a team in a season while sitting on its bench. Ranked by bench points.",
+  "uncounted.best":
+    "The highest scores that did not count toward a game: weeks with no opponent or outside the playoff brackets.",
+
+  // Single Season
+  "season.pf.high": "The most points scored by a team in a season (PF).",
+  "season.pf.low": "The fewest points scored by a team in a season (PF).",
+  "season.pa.high": "The most points scored against a team in a season (PA).",
+  "season.pa.low": "The fewest points scored against a team in a season (PA).",
+  "season.wins.high": "The most wins by a team in a season.",
+  "season.losses.high": "The most losses by a team in a season.",
+  "season.winpct.high":
+    "The highest win percentage by a team in a season. Ties count as half a win.",
+  "season.winpct.low": "The lowest win percentage by a team in a season. Ties count as half a win.",
+  "season.iq.high":
+    "The highest lineup IQ in a season: points scored divided by the points of the best possible lineups each week.",
+  "season.iq.low":
+    "The lowest lineup IQ in a season: points scored divided by the points of the best possible lineups each week.",
+  "season.player.high":
+    "The most points scored by one player in a season while on a team, shown with points per game and the best and worst weeks.",
+
+  // Single Season Transactions
+  "season.trades.most": "The most trades completed by a team in a season.",
+  "season.trades.fewest": "The fewest trades completed by a team in a season, including none.",
+  "season.claims.most": "The most successful waiver claims by a team in a season.",
+  "season.claims.fewest":
+    "The fewest successful waiver claims by a team in a season, including none.",
+  "season.faab.most":
+    "The most auction (FAAB) dollars spent on waiver claims by a team in a season.",
+  "season.faab.least":
+    "The fewest auction (FAAB) dollars spent on waiver claims by a team in a season.",
+  "season.retention.high":
+    "The highest share of a team's drafted players still on its roster at the end of the season.",
+  "season.retention.low":
+    "The lowest share of a team's drafted players still on its roster at the end of the season.",
+
+  // Career Standings
+  "career.wins": "Total wins across a manager's career, for the selected time scope.",
+  "career.losses": "Total losses across a manager's career, for the selected time scope.",
+  "career.years": "The number of seasons a manager has been in the league (YiL).",
+  "career.winpct": "Career win percentage. Ties count as half a win.",
+  "career.win-streak":
+    "The longest winning streak a manager has had within a single season (streaks do not carry across seasons).",
+  "career.loss-streak":
+    "The longest losing streak a manager has had within a single season (streaks do not carry across seasons).",
+
+  // Career Placements
+  "career.place.avg":
+    "The best average final placement across a manager's seasons. Lower is better.",
+  "career.place.best":
+    "The best final placement a manager has ever finished with. Lower is better.",
+  "career.place.worst": "The worst final placement a manager has ever finished with.",
+  "career.playoffs": "The number of seasons a manager made the playoffs.",
+  "career.toilet-bowls": "The number of seasons a manager played in the toilet bowl.",
+
+  // Career Lineup IQ
+  "career.perfect":
+    "The number of weeks a manager's starting lineup scored exactly as many points as the best possible lineup.",
+  "career.missed":
+    "The fewest total points left on the bench across a career: best-possible lineup points minus points actually scored.",
+  "career.iq":
+    "Career lineup IQ: total points scored divided by the total points of the best possible lineups each week.",
+
+  // Career Scores
+  "career.score.high": "The highest single-week score a manager has ever had.",
+  "career.score.low":
+    "The lowest single-week score a manager has ever had; the lowest of the lows ranks first.",
+  "career.pf": "Total points scored across a manager's career (PF).",
+  "career.pa": "Total points scored against a manager's teams across their career (PA).",
+  "career.pfpg": "Average points scored per game across a manager's career (PFPG).",
+  "career.papg": "Average points scored against per game across a manager's career (PAPG).",
+
+  // Career Transactions
+  "career.trades": "The total number of trades a manager has made.",
+  "career.claims": "The total number of successful waiver claims a manager has made.",
+  "career.spent": "The total auction (FAAB) dollars a manager has spent on waiver claims.",
+
+  // Seeds and Finishes
+  "seed.lowest-champion":
+    "The champions with the lowest regular-season seed. Ranked by seed, lowest first.",
+  "seed.top-worst":
+    "The worst final finishes by a team that earned a top regular-season seed. Ranked by final placement.",
+  "seed.worst-record-playoffs":
+    "The worst regular-season records that still made the playoffs. Ranked by win percentage, lowest first.",
+  "seed.best-record-missed":
+    "The best regular-season records that missed the playoffs. Ranked by win percentage, highest first.",
+
+  // Droughts and Dynasties
+  "streak.playoffs": "The most consecutive seasons a manager made the playoffs.",
+  "streak.toilet-bowl": "The most consecutive seasons a manager played in the toilet bowl.",
+};
