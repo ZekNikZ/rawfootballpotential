@@ -51,14 +51,18 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Product ideas that were deliberately not built
 
-- [ ] **Power Ranking** (owner wants each manager's final place compared with every other manager's place in each season, so fewer seasons = less data,
-      and a short but higher-placed career can outrank a long, lower-placed one). The mean-minus-standard-error idea was rejected. Proposed instead:
-      a **Bradley-Terry rating** fitted on the pairwise results of every season (A beat B when A finished higher), with a Gaussian prior (sd 1 on the
-      logit scale) pulling managers with little data toward the average. Report `win probability vs an average manager = 1 / (1 + e^-rating)` and a
-      "±" from the posterior sd. Trial on the real redraft data (441 pairwise results): Evan R. 73.3% (6 seasons), David K. 66.1%, James M. 64.2%;
-      the one-season Tyler S. (37.5% weighted) lands above the longer Matt M. and Colin H. and Jordan K. (one season, 50%) sits near 49%. Prior sd 0.5
-      shrinks harder, 2 shrinks less. Variants: Elo run season by season (adds recency); ranking by the posterior mean (as trialled) rather than a lower bound.
-      Needs the owner's choice, then a record `career.place.power` (engine `careerPlacements`; solve with Newton's method in TypeScript, about 17 managers per league).
+- [ ] **Power Ranking** (career.place.power, not built yet). Owner direction: compare each manager's final place with every other manager's place each season; the
+      decay must hit everyone; recent seasons weigh more; missing seasons count against a manager; fewer seasons = less data. Rejected: mean minus standard
+      error, and a plain Bradley-Terry fit (kept below as an alternative). Chosen design, a **season-by-season decaying Elo** per league, over completed seasons
+      in order (franchise = current manager, like the other career records):
+      1. everyone starts at 1500 when first seen; 2. before each season every known manager decays toward 1500: `R = 1500 + 0.85 (R - 1500)` (absent managers too);
+      3. each participant: `R = R0 + K * mean_over_opponents(S - E)`, S = 1 if they finished above that opponent, `E = 1 / (1 + 10^((Ropp0 - R0) / 400))`, all from the
+      season-start ratings, K = 300; 4. a manager who has debuted but is absent from a season gets `R += K * (0.40 - 0.5)` (-30 points; seasons before their first
+      are not counted); 5. show `1 / (1 + 10^(-(R - 1500) / 400))` as win chance vs an average manager, plus played/missed seasons.
+      Trial on redraft (2020-2025, 17 managers): Evan R. 1655 (70.9%), David K. 1651, Reese L. 1605, Bryson L. 1598, Blake W. 1566, David L. 1532, James M. 1487 (his 2020/2022
+      titles fade, 12th and 8th in 2024/25), ...; with the 0.40 absence score the three managers who played only 2020/2021 end 12th, 13th and 16th (0.30: 15th-17th, 0.50: mid-table).
+      Parameters to confirm with the owner: K (300), decay (0.85, half-life about 4 seasons), absence score (0.40). Needs a record, tests with hand-worked ratings, and a description.
+      Alternative kept for reference: Bradley-Terry with a Gaussian prior (prior sd 1; Evan R. 73.3%, Tyler S. above the longer-but-lower Matt M. and Colin H.).
 
 - [ ] Cross-season streaks (currently per season; decided in `records-architecture.md` section 2).
 - [ ] TOTP second factor for admins (optional in the design; better-auth supports it).
