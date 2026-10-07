@@ -51,10 +51,14 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Product ideas that were deliberately not built
 
-- [ ] **Power Ranking** (tenure-aware career placement). Proposed formula: `score = mean(season placement %) - 0.2887 / sqrt(seasons)`, where a season's placement % is
-      `(teams - place) / (teams - 1)` (`placePct`). 0.2887 is the standard deviation of a uniformly distributed placement, so the penalty is one standard
-      error of the mean: a 50% from 1 season scores 21%, a 50% from 6 seasons 38%. Alternative: shrink toward a below-average prior (`(sum + 3 * 0.40) / (n + 3)`).
-      Needs the owner's choice of formula, then a new record (`career.place.power`, engine `careerPlacements`).
+- [ ] **Power Ranking** (owner wants each manager's final place compared with every other manager's place in each season, so fewer seasons = less data,
+      and a short but higher-placed career can outrank a long, lower-placed one). The mean-minus-standard-error idea was rejected. Proposed instead:
+      a **Bradley-Terry rating** fitted on the pairwise results of every season (A beat B when A finished higher), with a Gaussian prior (sd 1 on the
+      logit scale) pulling managers with little data toward the average. Report `win probability vs an average manager = 1 / (1 + e^-rating)` and a
+      "±" from the posterior sd. Trial on the real redraft data (441 pairwise results): Evan R. 73.3% (6 seasons), David K. 66.1%, James M. 64.2%;
+      the one-season Tyler S. (37.5% weighted) lands above the longer Matt M. and Colin H. and Jordan K. (one season, 50%) sits near 49%. Prior sd 0.5
+      shrinks harder, 2 shrinks less. Variants: Elo run season by season (adds recency); ranking by the posterior mean (as trialled) rather than a lower bound.
+      Needs the owner's choice, then a record `career.place.power` (engine `careerPlacements`; solve with Newton's method in TypeScript, about 17 managers per league).
 
 - [ ] Cross-season streaks (currently per season; decided in `records-architecture.md` section 2).
 - [ ] TOTP second factor for admins (optional in the design; better-auth supports it).
