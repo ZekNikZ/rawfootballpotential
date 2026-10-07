@@ -735,6 +735,35 @@ All of §4.5 is in the catalog: 68 records in 17 sections (139 records in all), 
 
 **Verification.** `apps/api/test/records-extra.test.ts` checks 92 cases against the fixture leagues with every expected value worked out by hand (luck, all-play, schedule swap, champions, rivalries and streaks, draft value, pickups, loyalty) and runs every new record under four filter sets. A second fixture world is hand-edited (bye, inactive, cancelled game, a big bench score) and re-derived to check the bye and regret records. On the dev data, asleep-at-the-wheel (one team-week by hand), drop regret and trade value (against separate SQL) matched. `pnpm --filter @rfp/api sweep-records` runs every record with seven filter sets against the dev database (1,918 runs, none failing, the slowest 450 ms); `show-record <id>` prints one record's top rows.
 
+#### 3.11.4 ESPN scraper and importer as built (M9)
+
+**Scraper** (`apps/scraper`, run on the owner's desktop). `pnpm scrape:espn --year 2021` tries the league without a login; for a private league it opens the installed Google Chrome (headed, persistent profile `.espn-profile`, or `--profile <dir>` to use another ESPN account) and waits until the `espn_s2` and `SWID` cookies exist, i.e. until you have logged in by hand. Nothing about the credentials is read or stored. League ids are in `src/leagues.ts` (redraft 2020 `79321063`, 2021 `50111898`). Requests are one at a time with a 1.2 s pause and backoff on 429 / 5xx; an existing bundle is never overwritten without `--force`; a failure saves a `.partial` bundle.
+
+What it asks for is what ESPN's own pages ask for, found with `pnpm scrape:espn discover` (it records the API calls the pages make while you click around). This replaced the guesses in §5 step 3:
+
+| Request | Gives |
+| --- | --- |
+| `mSettings`, `mTeam`+`mStandings`, `mMatchupScore`, `mDraftDetail` (once) | settings, scoring rules, teams, owners (SWIDs), final ranks, the whole schedule with `playoffTierType` (bracket), the draft |
+| `mBoxscore`+`mMatchupScore` and `mTransactions2` per week | matchups and totals, the week's transaction feed |
+| `mRoster` per team and week (`forTeamId`, `scoringPeriodId`, header `x-fantasy-filter` = the team page's player filter) | the roster as of that week: slot, **actual (stat source 0) and projected (source 1) points per player**, also for teams with no game |
+| `kona_playercard`, 40 players a request, repeated until no new player turns up | transactions per player (the feed is incomplete for older seasons; the same record rides on every player it touches) |
+| `players_wl` | the season's player list |
+
+Output: `apps/scraper/bundles/<league>-<year>.json.gz` (validated with the server's import schema) and the data-gap report (`pnpm scrape:espn report <bundle>` re-runs it). Keep copies of the bundles in the S3 bucket.
+
+**Importer** (`apps/ingest/src/espn`). The admin upload (`POST /api/admin/import/espn`) archives the bundle verbatim in `raw_payload` and queues the `import-espn` job; `pnpm ingest espn <bundle>` does the same from the command line. The job normalizes the newest stored bundle for the season **in place**: the season, team and franchise rows made by the Mongo migration keep their ids (so corrections, trophies and franchise links survive), then derive runs. `recompute` with `renormalize` re-imports an ESPN season from its stored bundle. Re-running is idempotent. What it does:
+
+- **Season:** takes `externalId` (the placeholder `mongo:` id becomes the ESPN league id), weeks, playoff teams, lineup slots (ESPN slot ids mapped to the solver's slot names), bench / IR sizes, the data flags (player data, projections, transactions, draft; `faab` when the league uses a budget) from ESPN.
+- **Teams:** ESPN team -> existing team season by team name (case and spacing ignored), falling back to the configured final place; if a team can't be matched the import stops and lists both sides rather than guess. ESPN owner ids (SWIDs) are recorded as manager identities.
+- **Games and brackets:** the winners bracket and its consolation ladder are `playoffs`, the losers ladder is `toilet_bowl`, other weeks `regular`. A one-sided playoff matchup is a bye (a team-week that doesn't count, scored from `pointsByScoringPeriod`). The place a last-week game decides comes from ESPN's own final ranks (winners side: the better rank; toilet bowl: N + 1 - the worse rank), so derive's bracket placement can be compared with ESPN's rank, and with the hand-entered legacy placements, which still win when active.
+- **Lineups:** one `player_week` per roster entry (starter / bench / IR, actual and projected points). `nfl_team` and `nfl_game_id` are left for the NFL reference job, which the import job runs.
+- **Players:** matched by ESPN id (`player.espn_id`); a D/ST by its NFL team (ESPN id `-(16000 + pro team id)`). Players that don't match are created with their ESPN id and name and put in the admin's unmatched queue.
+- **Transactions:** executed and failed claims (`WAIVER`), free-agent adds, plain drops (`ROSTER`), and trades (the `TRADE_ACCEPT` record that carries the moves). Votes, proposals, declines and lineup moves are not transactions. Anything not executed (failed, canceled, still pending at season end) is stored as failed and never counted (doc §2).
+- **Draft:** snake or linear by whether round two runs the other way (ESPN calls an offline draft "OFFLINE"); the board slot is mirrored in even rounds of a snake draft, and the original owner of a slot is whoever held it in round one.
+- **Report:** counts, unmatched players, weeks where the schedule's score and the starters' sum disagree, and teams whose stored final place differs from ESPN's rank.
+
+**2021 (first season, run on the real bundle):** 12 teams, 84 regular + 8 playoff + 9 toilet-bowl games, 204 team-weeks, 3,316 lineup entries, 415 transactions (81 not executed), 192 draft picks. All 301 players matched (no queue), no score mismatches, the brackets reproduce both the legacy placements and ESPN's ranks, and no lineup anomalies. 2021 now has lineup, projection, transaction and draft records and pages.
+
 ## 4. Record catalog
 
 Legend:
@@ -851,6 +880,8 @@ All accepted, and all built in M8 (§3.11.3 says how each is defined). They're g
 ---
 
 ## 5. ESPN data contract (for the later Playwright scraper)
+
+> **As built (M9):** see §3.11.4. The requests in step 3 below are what ESPN's own pages turned out to use, not the guesses first listed here.
 
 The scraper must fill the same canonical tables Sleeper does. For each ESPN season we need:
 

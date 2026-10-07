@@ -29,7 +29,7 @@ dist-ssr
 *.tsbuildinfo
 coverage
 backups
-.espn-profile
+.espn-profile*
 .env.*
 !.env.example
 docs/screenshots/

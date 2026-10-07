@@ -11,6 +11,7 @@ import { syncPlayers } from "./sleeper/players";
 import { seasonRollover } from "./sleeper/rollover";
 import { syncNflReference } from "./nfl/reference";
 import { buildReport, formatReport } from "./report";
+import { importEspnFile } from "./espn/archive";
 import { createHandlers, type JobName } from "./jobs/handlers";
 
 const HELP = `usage: pnpm ingest <command> [options]
@@ -24,6 +25,7 @@ commands
   nfl-reference [--seasons 2022,2023] [--force]
   all [--force]                 players, rollover, sync + nfl-reference + derive for every season
   job <name> [--season ...]     run a scheduled job now (live|daily|finalize|nfl-reference|season-rollover|recompute)
+  espn <bundle> [--season slug-year]  archive a scraped ESPN bundle, normalize it, derive, print the import report
   report                        sanity report per season
 `;
 
@@ -113,6 +115,12 @@ async function main() {
           ...(target ? { leagueSeasonId: target.id } : {}),
           triggeredBy: "cli",
         });
+        break;
+      }
+      case "espn": {
+        const file = rest[0];
+        if (!file) throw new Error("usage: pnpm ingest espn <bundle.json.gz>");
+        console.log(JSON.stringify(await importEspnFile(db, file), null, 2));
         break;
       }
       case "report":

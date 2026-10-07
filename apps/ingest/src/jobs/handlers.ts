@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DERIVE_VERSION, deriveSeason } from "../derive/derive";
 import { log } from "../lib/log";
 import { hours } from "../lib/raw-store";
+import { importEspnSeason } from "../espn/normalize";
 import { syncNflReference } from "../nfl/reference";
 import { listSeasons, runSeasonPipeline, type SeasonRef } from "../pipeline";
 import type { SleeperClient } from "../sleeper/client";
@@ -11,7 +12,14 @@ import { seasonRollover } from "../sleeper/rollover";
 import { bootstrapSleeperSeason } from "../sleeper/sync";
 
 export type JobName =
-  "live" | "daily" | "finalize" | "nfl-reference" | "season-rollover" | "recompute" | "add-season";
+  | "live"
+  | "daily"
+  | "finalize"
+  | "nfl-reference"
+  | "season-rollover"
+  | "recompute"
+  | "add-season"
+  | "import-espn";
 
 type SyncKind = (typeof syncRun.$inferInsert)["kind"];
 type SeasonStatus = (typeof leagueSeason.$inferSelect)["status"];
@@ -24,6 +32,7 @@ export const JOB_KIND: Record<JobName, SyncKind> = {
   "season-rollover": "season_rollover",
   recompute: "recompute",
   "add-season": "backfill",
+  "import-espn": "import_espn",
 };
 
 export const jobPayload = z.object({
@@ -170,10 +179,23 @@ export function createHandlers(
         for (const s of seasons) {
           if (payload.renormalize && s.source === "sleeper")
             await runSeasonPipeline(db, client, s, { mode: "full" });
+          else if (payload.renormalize && s.source === "espn") await importEspnSeason(db, s.id);
           else await deriveSeason(db, s.id);
           await changed(s.id);
         }
         return { seasons: seasons.map((s) => s.id) };
+      }),
+
+    // A scraped ESPN bundle was uploaded: normalize the newest stored bundle for the season, then derive.
+    "import-espn": (payload) =>
+      tracked(db, "import_espn", payload, async () => {
+        if (payload.leagueSeasonId === undefined)
+          throw new Error("import-espn needs leagueSeasonId");
+        const summary = await importEspnSeason(db, payload.leagueSeasonId);
+        await syncNflReference(db, { seasons: [summary.year] });
+        await deriveSeason(db, payload.leagueSeasonId);
+        await changed(payload.leagueSeasonId);
+        return { ...summary, derive: undefined } as unknown as Record<string, unknown>;
       }),
 
     // An admin added a Sleeper league season: bootstrap it, then ingest everything.

@@ -9,11 +9,9 @@ import {
   override,
   player,
   rawPayload,
-  syncRun,
   teamSeason,
   unmatchedPlayer,
   and,
-  desc,
   eq,
   sql,
 } from "@rfp/db";
@@ -507,7 +505,8 @@ describe("players, jobs and import", () => {
     return { status: res.statusCode, json: res.json() };
   };
 
-  it("archives an ESPN bundle in raw_payload and records the run", async () => {
+  it("archives an ESPN bundle in raw_payload and queues the import", async () => {
+    w.sent.splice(0);
     const [lg] = await db().select().from(league).limit(1);
     const bundle = {
       manifest: {
@@ -532,16 +531,17 @@ describe("players, jobs and import", () => {
     };
     const ok = await upload(bundle);
     expect(ok.status).toBe(200);
-    expect(ok.json).toMatchObject({ responses: 2, normalized: false });
+    expect(ok.json).toMatchObject({ responses: 2, normalized: true });
     const stored = await db().select().from(rawPayload).where(eq(rawPayload.source, "espn"));
     expect(stored).toHaveLength(2);
     expect(stored[0]?.bundle).toContain("2019");
-    const [run] = await db()
-      .select()
-      .from(syncRun)
-      .where(eq(syncRun.kind, "import_espn"))
-      .orderBy(desc(syncRun.id));
-    expect(run).toMatchObject({ status: "success" });
+    // The worker does the normalizing and records its own run: the route only queues it.
+    expect(w.sent.splice(0)).toEqual([
+      {
+        name: "import-espn",
+        data: { leagueSeasonId: ok.json.leagueSeasonId, triggeredBy: expect.any(String) },
+      },
+    ]);
 
     // plain (not gzipped) JSON works too
     expect((await upload(bundle, false)).status).toBe(200);

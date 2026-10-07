@@ -25,6 +25,7 @@ const SCHEDULES: Record<JobName, string[]> = {
   "season-rollover": ["0 7 * * *"],
   recompute: [],
   "add-season": [],
+  "import-espn": [],
 };
 
 async function main() {

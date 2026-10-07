@@ -1,5 +1,5 @@
 import { gunzipSync } from "node:zlib";
-import { hashParams, league, leagueSeason, rawPayload, syncRun, and, eq } from "@rfp/db";
+import { hashParams, league, leagueSeason, rawPayload, and, eq } from "@rfp/db";
 import { espnBundle } from "@rfp/core/admin";
 import multipart from "@fastify/multipart";
 import type { FastifyInstance } from "fastify";
@@ -11,8 +11,7 @@ const GZIP_MAGIC = [0x1f, 0x8b];
 
 /**
  * ESPN season bundles (doc §5) are uploaded here and archived verbatim in `raw_payload` (the scraped data is
- * irreplaceable). Normalizing them into the canonical tables arrives with the scraper work (M9); until then the import
- * stores and reports, and says so.
+ * irreplaceable), then queues the `import-espn` job, which normalizes the newest stored bundle for the season.
  */
 export async function registerImportRoutes(app: FastifyInstance, deps: AdminDeps) {
   const { db } = deps;
@@ -77,22 +76,18 @@ export async function registerImportRoutes(app: FastifyInstance, deps: AdminDeps
       bundle: bundleName,
       responses: responses.length,
       endpoints: [...new Set(responses.map((r) => r.endpoint))].length,
-      normalized: false,
+      normalized: true,
     };
-    await db.insert(syncRun).values({
-      kind: "import_espn",
+    // The worker normalizes the stored bundle and derives (it records its own run, with the import report).
+    await deps.jobs.send("import-espn", {
       leagueSeasonId: target.season.id,
       triggeredBy: req.admin!.id,
-      status: "success",
-      finishedAt: new Date(),
-      stats,
-      log: "Archived in raw_payload. Normalizing ESPN data into the canonical tables is not built yet.",
     });
     await audit(db, req.admin!, "import.espn", "league_season", target.season.id, null, stats);
     return {
       ...stats,
       leagueSeasonId: target.season.id,
-      note: "Bundle archived. It will be normalized when the ESPN importer lands.",
+      note: "Bundle archived. Importing it now: the result appears under Jobs.",
     };
   });
 }
