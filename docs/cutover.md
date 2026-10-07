@@ -46,6 +46,12 @@ domain, and stays untouched afterwards, so it is also the rollback (section 10).
 - [ ] **The new server**: Docker with the compose plugin, this repo's `docker-compose.yml` and `.env` (no need for the
       source tree, only those two files, or a clone of `main`), and the GHCR images pullable (`docker login ghcr.io` if
       the packages are private). Open ports 80/443 only; Postgres is bound to 127.0.0.1.
+- [ ] **Automatic deploys (optional, recommended):** install the self-hosted runner on this server and every merge to
+      `main` deploys itself: `docs/deploy-runner.md`. Without it, deploy by hand (set `RFP_TAG`, `docker compose pull && docker compose up -d`).
+- [ ] **Reverse proxy:** forward **everything** for rawfootballpotential.com (and www) to `http://<server>:<WEB_PORT>`, no path
+      prefix or rewriting. The `web` container serves the site at `/` and proxies `/api/*` to the API itself, so the API has no
+      separate address or port and the browser only ever talks to the one origin (which is also why cookies and CORS just work).
+      Pass the usual `X-Forwarded-For` / `X-Forwarded-Proto` headers (most proxies do by default) and allow WebSocket/HTTP keep-alive defaults.
 - [ ] **HTTPS in front of `web`**: a reverse proxy or Cloudflare Tunnel on the new server, forwarding to `WEB_PORT`, with
       a certificate for rawfootballpotential.com. If the certificate is issued by HTTP challenge it can only be issued once
       DNS points at the server; use a DNS challenge (or Cloudflare) to have the certificate ready before the switch.

@@ -20,6 +20,7 @@ WEB_BIND="${WEB_BIND:-0.0.0.0}"      # 127.0.0.1 if your reverse proxy runs on t
 TZ_NAME="${TZ_NAME:-America/New_York}"
 LAN_CIDR="${LAN_CIDR:-}"             # e.g. 192.168.1.0/24: enables ufw, allows SSH + WEB_PORT from there only
 COMPOSE_URL="${COMPOSE_URL:-}"
+RUNNER_USER="${RUNNER_USER:-}"        # e.g. rfp-runner: create this user for the GitHub self-hosted runner (docs/deploy-runner.md)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log() { printf '\n==> %s\n' "$*"; }
@@ -91,6 +92,14 @@ ENV
   chmod 600 "$APP_DIR/.env"
 fi
 chmod 600 "$APP_DIR/.env"
+
+if [ -n "$RUNNER_USER" ]; then
+  log "User ${RUNNER_USER} for the GitHub Actions runner (owns $APP_DIR, member of the docker group)"
+  id "$RUNNER_USER" >/dev/null 2>&1 || useradd --create-home --shell /bin/bash "$RUNNER_USER"
+  usermod -aG docker "$RUNNER_USER"
+  chown -R "$RUNNER_USER:$RUNNER_USER" "$APP_DIR"
+  echo "note: members of the docker group are effectively root on this machine; keep this host for this purpose."
+fi
 
 if [ -n "$LAN_CIDR" ]; then
   log "Firewall (ufw): SSH and port $WEB_PORT from $LAN_CIDR only"

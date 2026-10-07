@@ -1,6 +1,6 @@
 import { recordCache, sql, dataVersion, eq } from "@rfp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { RECORD_CATALOG } from "@rfp/core";
+import { RECORD_CATALOG, getRecordDef } from "@rfp/core";
 import { prewarmLeague } from "../src/records/prewarm";
 import { runRecord } from "../src/records/run";
 import { createWorld, type World } from "./helpers";
@@ -266,5 +266,24 @@ describe("response cache keyed by data_version (doc §3.1)", () => {
     );
     void recordCache;
     void label;
+
+    // bumping the record's own metric version changes the key (and only that record's)
+    const def = getRecordDef("score.high") as { version?: number };
+    const before = (await runRecord(w.db, w.leagueId, "score.high", { limit: 3 })).dataVersion;
+    const other = (await runRecord(w.db, w.leagueId, "score.low", { limit: 3 })).dataVersion;
+    def.version = (def.version ?? 1) + 1;
+    try {
+      expect((await runRecord(w.db, w.leagueId, "score.high", { limit: 3 })).dataVersion).not.toBe(
+        before
+      );
+      expect((await runRecord(w.db, w.leagueId, "score.low", { limit: 3 })).dataVersion).toBe(
+        other
+      );
+    } finally {
+      def.version -= 1;
+    }
+    expect((await runRecord(w.db, w.leagueId, "score.high", { limit: 3 })).dataVersion).toBe(
+      before
+    );
   });
 });

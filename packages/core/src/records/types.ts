@@ -107,4 +107,10 @@ export interface RecordDef {
   txTypes?: readonly ("trade" | "waiver" | "free_agent" | "commissioner")[];
   /** Name in the legacy site, for the parity report. */
   legacyName?: string;
+  /**
+   * Metric version (default 1). Part of the response-cache key: increment it whenever this record's definition,
+   * query or output changes without the underlying data changing, so cached answers stop matching. Records that
+   * share an engine do not share a version; if you change the shared engine code, bump every record that uses it.
+   */
+  version?: number;
 }

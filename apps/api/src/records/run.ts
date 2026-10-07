@@ -61,7 +61,10 @@ import { extraTeamWeekRecord } from "./engines/team-week-extra";
 import { resolveRows, type Entities, type ResolvedRow } from "./entities";
 import { minGames } from "./engines/season-base";
 
-/** Bump when the shape or semantics of a record response changes; old cache rows then stop matching. */
+/**
+ * Bump when the shape of every record response changes; old cache rows then stop matching. A change to one record is
+ * a bump of that record's `version` in the catalog instead.
+ */
 export const RESPONSE_VERSION = 1;
 
 const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
@@ -188,7 +191,11 @@ async function eligibleSeasons(db: Db, leagueId: number, def: RecordDef, q: Reco
   };
 }
 
-async function versionKey(db: Db, seasonIds: readonly number[]): Promise<string> {
+async function versionKey(
+  db: Db,
+  seasonIds: readonly number[],
+  metricVersion: number
+): Promise<string> {
   const rows = seasonIds.length
     ? await db
         .select({ id: dataVersion.leagueSeasonId, version: dataVersion.version })
@@ -204,7 +211,7 @@ async function versionKey(db: Db, seasonIds: readonly number[]): Promise<string>
     .sort((a, b) => a - b)
     .map((id) => `${id}:${rows.find((r) => r.id === id)?.version ?? 0}`);
   return createHash("sha1")
-    .update(`${RESPONSE_VERSION}|${parts.join(",")}`)
+    .update(`${RESPONSE_VERSION}|${metricVersion}|${parts.join(",")}`)
     .digest("hex")
     .slice(0, 16);
 }
@@ -216,8 +223,8 @@ export interface RunOptions {
 
 /**
  * Run one record for a league. Responses are cached by (record, normalized params, version key), where the version
- * key is the hash of the data_versions of the seasons the query reads, so only a data change in those seasons
- * invalidates it (doc §3.1).
+ * key hashes the response version, the record's own `version` and the data_versions of the seasons the query reads, so a
+ * data change in those seasons or a bump of the record's version invalidates it (doc §3.1).
  */
 export async function runRecord(
   db: Db,
@@ -230,7 +237,7 @@ export async function runRecord(
   if (!def) throw new RecordError(404, `unknown record ${recordId}`);
   const q = normalizeForRecord(def, rawQuery);
   const eligible = await eligibleSeasons(db, leagueId, def, q);
-  const version = await versionKey(db, eligible.seasonIds);
+  const version = await versionKey(db, eligible.seasonIds, def.version ?? 1);
   const paramsHash = createHash("sha1")
     .update(`${leagueId}|${queryKey(q)}`)
     .digest("hex")
