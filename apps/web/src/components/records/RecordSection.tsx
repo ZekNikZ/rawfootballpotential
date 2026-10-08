@@ -103,6 +103,7 @@ function SectionBody({
         values={state.filters}
         params={params}
         minGamesDefault={def.qualifier?.minGames}
+        positionOptions={def.positionOptions}
         onChange={(patch) => state.update(patch)}
       />
       <RecordTable

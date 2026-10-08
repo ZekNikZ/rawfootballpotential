@@ -113,6 +113,7 @@ export const catalogRecordSchema = z.object({
   columns: z.array(columnSchema),
   filters: z.array(z.enum(FILTER_KEYS)),
   preset: z.record(z.string(), z.unknown()).optional(),
+  positionOptions: z.array(z.string()).optional(),
   displayAll: z.boolean().optional(),
   qualifier: z.object({ minGames: z.number() }).optional(),
   availableFrom: nullableNum,

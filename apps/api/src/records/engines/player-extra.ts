@@ -318,9 +318,17 @@ export async function draftValueRecord(ctx: RunContext): Promise<RankedRow[]> {
   const franchiseOnly = q.franchise ? sql`pk.franchise_id = ${q.franchise}` : sql`true`;
 
   if (id === "draft.steal" || id === "draft.bust") {
+    // With a position filter, steals are measured against that position's picks only (owner decision, 2026-10-07).
+    const covered = ctx.def.positionOptions ?? [];
+    const stealPositions = q.positions?.length
+      ? covered.filter((p) => q.positions!.includes(p))
+      : covered;
     const inner = sql`
       with ${base},
-      pool as (select * from picks where pos in ('QB', 'RB', 'WR', 'TE')),
+      pool as (select * from picks where pos in (${sql.join(
+        (stealPositions.length ? stealPositions : ["none"]).map((p) => sql`${p}`),
+        sql`, `
+      )})),
       ranked as (
         select pool.*,
                rank() over (partition by draft_id order by pts desc) as finish,

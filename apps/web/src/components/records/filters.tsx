@@ -97,6 +97,8 @@ interface Props {
   /** The server's normalized params, used to show defaults (e.g. exclude zero for "lowest"). */
   params: RecordResponse["params"] | undefined;
   minGamesDefault: number | undefined;
+  /** Positions the Position filter offers (default: all). */
+  positionOptions?: readonly string[] | undefined;
   onChange: (patch: FilterValues) => void;
 }
 
@@ -122,6 +124,7 @@ export function FilterBar({
   values,
   params,
   minGamesDefault,
+  positionOptions,
   onChange,
 }: Props) {
   const has = (k: FilterKey) => filters.includes(k) && !(preset && k in preset);
@@ -240,7 +243,7 @@ export function FilterBar({
             aria-label="Position"
             placeholder={values.positions ? undefined : "All positions"}
             w={220}
-            data={POSITION_OPTIONS}
+            data={positionOptions ? [...positionOptions] : POSITION_OPTIONS}
             value={values.positions ? values.positions.split(",") : []}
             onChange={(v) => onChange({ positions: v.length ? v.join(",") : undefined })}
             checkIconPosition="right"
