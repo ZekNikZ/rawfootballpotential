@@ -34,3 +34,9 @@ export const seasonLabel = (year: number) => `${year} - ${year + 1}`;
 
 export const asNumber = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
+
+/** Footnote for a lineup whose IR players are listed on the bench because the week predates IR recording. */
+export const irMissingNote = (n: number) =>
+  n === 1
+    ? "1 player on the bench was on IR, but data is missing for which player that was."
+    : `${n} players on the bench were on IR, but data is missing for which players those were.`;

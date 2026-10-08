@@ -1,8 +1,21 @@
-import { Anchor, Badge, Group, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
+import {
+  Anchor,
+  Avatar,
+  Badge,
+  Group,
+  Paper,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router";
 import { catalogQuery, franchiseQuery } from "../api/queries";
 import type { CatalogRecord, FranchiseProfile as Profile, Trophy } from "../api/schemas";
+import { FranchiseRoster } from "../components/FranchiseRoster";
 import { QueryError } from "../components/QueryState";
 import { numberText } from "../components/records/cells";
 import { fmtDecimal, fmtInt, ordinal } from "../lib/format";
@@ -66,19 +79,62 @@ export default function FranchiseProfile() {
     return <QueryError error={profile.error} onRetry={() => void profile.refetch()} />;
 
   const data = profile.data;
+  const rosterSeasons = data.seasons
+    .filter((s) => league.seasons.find((l) => l.year === s.season)?.data.playerData)
+    .map((s) => s.season)
+    .reverse();
   return (
-    <Stack gap={40}>
-      <Stack gap={2}>
-        <Title order={1}>{entity?.teamName ?? `Franchise ${id}`}</Title>
-        <Text c="dimmed">
-          {manager ?? "Unknown manager"} · {data.seasons.length} season
-          {data.seasons.length === 1 ? "" : "s"} · since {data.seasons[0]?.season}
-        </Text>
-      </Stack>
+    <Stack gap={32}>
+      <Group wrap="nowrap" gap="md">
+        <Avatar
+          src={data.seasons.at(-1)?.avatar ?? undefined}
+          name={entity?.teamName ?? undefined}
+          color="initials"
+          radius="md"
+          size={64}
+        />
+        <Stack gap={2} miw={0}>
+          <Title order={1}>{entity?.teamName ?? `Franchise ${id}`}</Title>
+          <Text c="dimmed">
+            {manager ?? "Unknown manager"} · since {data.seasons[0]?.season}
+          </Text>
+        </Stack>
+      </Group>
+      <Summary data={data} />
+      <FranchiseRoster franchiseId={id} seasons={rosterSeasons} />
       <Seasons data={data} />
-      <Standings data={data} columns={catalog.data?.records} />
       <Trophies data={data} />
+      <Standings data={data} columns={catalog.data?.records} />
     </Stack>
+  );
+}
+
+function Summary({ data }: { data: Profile }) {
+  const done = data.seasons.filter((s) => s.status === "complete");
+  const wins = data.seasons.reduce((n, s) => n + s.record.wins, 0);
+  const losses = data.seasons.reduce((n, s) => n + s.record.losses, 0);
+  const ties = data.seasons.reduce((n, s) => n + s.record.ties, 0);
+  const titles = done.filter((s) => s.finalPlace === 1).length;
+  const playoffs = done.filter((s) => s.madePlayoffs).length;
+  const stats = [
+    { label: "Seasons", value: fmtInt(data.seasons.length) },
+    { label: "All-time record", value: `${wins}-${losses}${ties ? `-${ties}` : ""}` },
+    { label: "Titles", value: fmtInt(titles) },
+    { label: "Playoff trips", value: fmtInt(playoffs) },
+  ];
+  return (
+    <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+      {stats.map((st) => (
+        <Paper key={st.label} withBorder radius="sm" p="sm">
+          <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+            {st.label}
+          </Text>
+          <Text fz={24} fw={700} lh={1.2}>
+            {st.value}
+          </Text>
+        </Paper>
+      ))}
+    </SimpleGrid>
   );
 }
 
@@ -145,45 +201,40 @@ function Standings({ data, columns }: { data: Profile; columns: CatalogRecord[] 
   return (
     <Stack gap={10}>
       <Title order={2}>Where this franchise ranks</Title>
-      <Table.ScrollContainer minWidth={480} type="native">
-        <Table withTableBorder className={classes.table}>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th className={classes.sticky}>Record</Table.Th>
-              <Table.Th data-numeric="">Value</Table.Th>
-              <Table.Th data-numeric="">Rank</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {[...sections].flatMap(([section, records]) => [
-              <Table.Tr key={`s-${section}`} className={classes.row}>
-                <Table.Td colSpan={3} fw={600}>
-                  {section}
-                </Table.Td>
-              </Table.Tr>,
-              ...records.map((r) => {
-                const def = columns?.find((c) => c.id === r.id);
-                const col = def?.columns.find((c) => c.key === def.sortKey);
-                const value = r.values[def?.sortKey ?? "value"];
-                return (
-                  <Table.Tr key={r.id} className={classes.row}>
-                    <Table.Td className={classes.sticky}>{r.title}</Table.Td>
-                    <Table.Td data-numeric="">
-                      {numberText({ type: col?.type ?? "decimal" }, value)}
-                    </Table.Td>
-                    <Table.Td data-numeric="">
-                      {ordinal(r.rank)}{" "}
-                      <Text span c="dimmed" fz="sm">
-                        of {r.of}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              }),
-            ])}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" verticalSpacing="md">
+        {[...sections].map(([section, records]) => (
+          <Paper key={section} withBorder radius="sm" className={classes.rankCard}>
+            <Text className={classes.rankHead} fw={700} size="sm">
+              {section}
+            </Text>
+            <Table className={classes.rankTable} verticalSpacing={6}>
+              <Table.Tbody>
+                {records.map((r) => {
+                  const def = columns?.find((c) => c.id === r.id);
+                  const col = def?.columns.find((c) => c.key === def.sortKey);
+                  const value = r.values[def?.sortKey ?? "value"];
+                  return (
+                    <Table.Tr key={r.id}>
+                      <Table.Td>{r.title}</Table.Td>
+                      <Table.Td data-numeric="">
+                        {numberText({ type: col?.type ?? "decimal" }, value)}
+                      </Table.Td>
+                      <Table.Td data-numeric="" w={96}>
+                        <Text span fw={r.rank <= 3 ? 700 : undefined}>
+                          {ordinal(r.rank)}
+                        </Text>{" "}
+                        <Text span c="dimmed" fz="sm">
+                          of {r.of}
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          </Paper>
+        ))}
+      </SimpleGrid>
     </Stack>
   );
 }

@@ -64,6 +64,13 @@
       "when": 1791425292492,
       "tag": "0008_record_config_folded_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791436726605,
+      "tag": "0009_fix_double_sleeper_avatar_prefix",
+      "breakpoints": true
     }
   ]
 }

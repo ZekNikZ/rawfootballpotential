@@ -57,7 +57,6 @@ export default function FuturePicks() {
           aria-label="Owner"
           placeholder="Everyone"
           clearable
-          searchable
           w={260}
           data={owners.map((id) => ({ value: String(id), label: nameOf(id) }))}
           value={owner}

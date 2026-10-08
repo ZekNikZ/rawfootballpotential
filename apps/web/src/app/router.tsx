@@ -47,6 +47,11 @@ const leagueRoutes: RouteObject[] = [
         handle: { title: "Manager Records" },
         ...lazyPage(() => import("../pages/ManagerRecords")),
       },
+      {
+        path: "power-rankings",
+        handle: { title: "Power Rankings" },
+        ...lazyPage(() => import("../pages/PowerRankings")),
+      },
     ],
   },
   {

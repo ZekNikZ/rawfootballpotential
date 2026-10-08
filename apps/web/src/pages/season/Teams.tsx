@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
 import { teamsQuery } from "../../api/queries";
 import type { Season, Teams as TeamsData } from "../../api/schemas";
+import { PositionBadge } from "../../components/PositionBadge";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import classes from "../../components/DataTable.module.css";
 import { fmtDecimal } from "../../lib/format";
@@ -128,13 +129,20 @@ function TeamsBody({ season }: { season: Season }) {
   );
 }
 
-const POS_COLOR: Record<string, string> = {
-  QB: "red",
-  RB: "green",
-  WR: "blue",
-  TE: "orange",
-  K: "grape",
-  DEF: "gray",
+const ROSTER_GROUPS = [
+  { kinds: ["starter"], title: "Starters" },
+  { kinds: ["bench"], title: "Bench" },
+  { kinds: ["ir", "taxi"], title: "IR / taxi" },
+];
+
+// Same colours as the transaction types on the Transactions page where they overlap.
+const ACQUIRED: Record<string, { label: string; color: string }> = {
+  draft: { label: "Draft", color: "yellow" },
+  waiver: { label: "Waiver", color: "blue" },
+  free_agent: { label: "Free agent", color: "teal" },
+  trade: { label: "Trade", color: "grape" },
+  commissioner: { label: "Commissioner", color: "orange" },
+  initial: { label: "Initial", color: "gray" },
 };
 
 function RostersBody({ season }: { season: Season }) {
@@ -172,41 +180,63 @@ function RostersBody({ season }: { season: Season }) {
                         <Table.Th w={60}>Slot</Table.Th>
                         <Table.Th>Player</Table.Th>
                         <Table.Th>NFL</Table.Th>
+                        <Table.Th>Status</Table.Th>
                         <Table.Th>Acquired</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
-                    <Table.Tbody>
-                      {(t.roster ?? []).map((p) => (
-                        <Table.Tr key={p.playerId}>
-                          <Table.Td c="dimmed">
-                            {p.slotKind === "starter"
-                              ? p.slot
-                              : p.slotKind === "bench"
-                                ? "BN"
-                                : p.slotKind.toUpperCase()}
-                          </Table.Td>
-                          <Table.Td>
-                            {p.name}{" "}
-                            {p.position && (
-                              <Badge
-                                size="xs"
-                                variant="light"
-                                color={POS_COLOR[p.position] ?? "gray"}
-                              >
-                                {p.position}
-                              </Badge>
-                            )}
-                            {p.injuryStatus && (
-                              <Badge ml={4} size="xs" variant="light" color="red">
-                                {p.injuryStatus}
-                              </Badge>
-                            )}
-                          </Table.Td>
-                          <Table.Td>{p.nflTeam ?? "FA"}</Table.Td>
-                          <Table.Td c="dimmed">{p.acquiredVia?.replace("_", " ") ?? "–"}</Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
+                    {ROSTER_GROUPS.map((g) => {
+                      const rows = (t.roster ?? []).filter((p) => g.kinds.includes(p.slotKind));
+                      if (rows.length === 0) return null;
+                      return (
+                        <Table.Tbody key={g.title}>
+                          <Table.Tr className={classes.group}>
+                            <Table.Td colSpan={5}>
+                              {g.title} · {rows.length}
+                            </Table.Td>
+                          </Table.Tr>
+                          {rows.map((p) => (
+                            <Table.Tr
+                              key={p.playerId}
+                              className={g.kinds[0] === "starter" ? undefined : classes.secondary}
+                            >
+                              <Table.Td c="dimmed">
+                                {p.slotKind === "starter"
+                                  ? p.slot
+                                  : p.slotKind === "bench"
+                                    ? "BN"
+                                    : p.slotKind.toUpperCase()}
+                              </Table.Td>
+                              <Table.Td>
+                                {p.name} <PositionBadge position={p.position} />
+                              </Table.Td>
+                              <Table.Td>{p.nflTeam ?? "FA"}</Table.Td>
+                              <Table.Td>
+                                {p.injuryStatus && (
+                                  <Badge size="xs" variant="light" color="red">
+                                    {p.injuryStatus}
+                                  </Badge>
+                                )}
+                              </Table.Td>
+                              <Table.Td>
+                                {p.acquiredVia ? (
+                                  <Badge
+                                    size="xs"
+                                    variant="light"
+                                    color={ACQUIRED[p.acquiredVia]?.color ?? "gray"}
+                                  >
+                                    {ACQUIRED[p.acquiredVia]?.label ?? p.acquiredVia}
+                                  </Badge>
+                                ) : (
+                                  <Text span c="dimmed">
+                                    –
+                                  </Text>
+                                )}
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      );
+                    })}
                   </Table>
                 </Table.ScrollContainer>
               )}

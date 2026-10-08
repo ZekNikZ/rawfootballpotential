@@ -4,6 +4,7 @@ import {
   blogResponse,
   catalogResponse,
   franchiseProfileResponse,
+  franchiseRosterResponse,
   franchisesResponse,
   h2hResponse,
   leaguesResponse,
@@ -11,7 +12,9 @@ import {
   matchupsResponse,
   picksResponse,
   placementsResponse,
+  superlativesResponse,
   teamsResponse,
+  topPerformersResponse,
   recordResponse,
   siteResponse,
   standingsResponse,
@@ -90,6 +93,19 @@ export const franchiseQuery = (league: string, id: number) =>
     staleTime: MINUTE,
   });
 
+export const franchiseRosterQuery = (league: string, id: number, season: number) =>
+  queryOptions({
+    queryKey: ["franchise-roster", league, id, season],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/leagues/${league}/franchises/${id}/roster`,
+        franchiseRosterResponse,
+        { season: String(season) },
+        signal
+      ),
+    staleTime: MINUTE,
+  });
+
 export const blogQuery = () =>
   queryOptions({
     queryKey: ["blog"],
@@ -164,3 +180,24 @@ export const picksQuery = (league: string) =>
 
 export const recentTransactionsQuery = (seasonId: number) =>
   transactionsQuery(seasonId, { limit: 8 });
+
+export const superlativesQuery = (seasonId: number) =>
+  queryOptions({
+    queryKey: ["superlatives", seasonId],
+    queryFn: ({ signal }) =>
+      getJson(`/seasons/${seasonId}/superlatives`, superlativesResponse, {}, signal),
+    staleTime: 60_000,
+  });
+
+export const topPerformersQuery = (seasonId: number, limit = 10) =>
+  queryOptions({
+    queryKey: ["top-performers", seasonId, limit],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/seasons/${seasonId}/top-performers`,
+        topPerformersResponse,
+        { limit: String(limit) },
+        signal
+      ),
+    staleTime: 60_000,
+  });

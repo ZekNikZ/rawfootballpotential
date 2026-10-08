@@ -1,6 +1,7 @@
 import { sql } from "@rfp/db";
 import type { Db } from "@rfp/db";
 import { HttpError } from "../lib/http";
+import { bySlot } from "../lib/slots";
 import { inList, type RankedRow } from "../records/context";
 import { resolveRows, type Entities } from "../records/entities";
 
@@ -45,7 +46,7 @@ export async function standings(db: Db, seasonId: number, week: number | undefin
           await db.execute<Record<string, unknown>>(sql`
             select tsw.team_season_id, ts.franchise_id, ts.division, tsw.week, tsw.wins, tsw.losses, tsw.ties,
                    tsw.pf::float8 as pf, tsw.pa::float8 as pa, tsw.rank, tsw.games_back::float8 as games_back,
-                   tsw.clinched, tsw.eliminated, ts.seed, ts.final_place, ts.made_playoffs
+                   tsw.clinched, tsw.eliminated, ts.seed, ts.final_place, ts.made_playoffs, ts.avatar
             from team_season_week tsw join team_season ts on ts.id = tsw.team_season_id
             where ts.league_season_id = ${seasonId} and tsw.week = ${chosen}
             order by tsw.rank`)
@@ -82,6 +83,20 @@ type LineupRow = {
   bye: boolean;
 };
 
+/**
+ * How many players on a roster were certainly on IR although the data does not say so: more non-starters than the
+ * bench has room for. Weeks before IR was recorded store every non-starter as bench, so this is the only trace.
+ */
+export function unrecordedIr(
+  rows: { slotKind: string }[],
+  slots: { benchSlots: number; irSlots: number }
+): number {
+  if (slots.irSlots <= 0) return 0;
+  const bench = rows.filter((r) => r.slotKind === "bench").length;
+  const recorded = rows.filter((r) => r.slotKind === "ir").length;
+  return Math.max(0, Math.min(bench - slots.benchSlots, slots.irSlots - recorded));
+}
+
 /** All games of a week (scores are live while the week is in progress), with optional lineups and projections. */
 export async function matchups(
   db: Db,
@@ -105,7 +120,7 @@ export async function matchups(
 
   const teamWeeks = (
     await db.execute<Record<string, unknown>>(sql`
-      select tw.id as team_week_id, tw.team_season_id, tw.matchup_id, tw.points::float8 as points, tw.counts, tw.result::text as result,
+      select tw.id as team_week_id, tw.team_season_id, (select x.avatar from team_season x where x.id = tw.team_season_id) as avatar, tw.matchup_id, tw.points::float8 as points, tw.counts, tw.result::text as result,
              tw.is_final, tw.points_overridden,
              (select sum(pw.projected_points)::float8 from player_week pw where pw.team_week_id = tw.id and pw.slot_kind = 'starter') as projected,
              m.game_type::text as game_type, m.bracket::text as bracket, m.bracket_round, m.placement_at_stake, m.is_championship, m.span_weeks
@@ -114,6 +129,11 @@ export async function matchups(
       order by tw.matchup_id nulls last, tw.team_season_id`)
   ).rows;
 
+  const slotCounts = (
+    await db.execute<{ bench_slots: number; ir_slots: number }>(
+      sql`select bench_slots, ir_slots from league_season where id = ${seasonId}`
+    )
+  ).rows[0];
   const lineups = new Map<number, LineupRow[]>();
   if (withPlayers && teamWeeks.length) {
     const lr = await db.execute<LineupRow>(sql`
@@ -132,24 +152,33 @@ export async function matchups(
 
   const team = (t: Record<string, unknown>) => ({
     teamSeasonId: Number(t.team_season_id),
+    avatar: (t.avatar as string | null) ?? null,
     points: Number(t.points),
     projected: num(t.projected),
     result: t.result as string | null,
     isFinal: Boolean(t.is_final),
     pointsOverridden: Boolean(t.points_overridden),
+    irUnrecorded: withPlayers
+      ? unrecordedIr(
+          (lineups.get(Number(t.team_week_id)) ?? []).map((l) => ({ slotKind: l.slot_kind })),
+          { benchSlots: slotCounts?.bench_slots ?? 0, irSlots: slotCounts?.ir_slots ?? 0 }
+        )
+      : 0,
     lineup: withPlayers
-      ? (lineups.get(Number(t.team_week_id)) ?? []).map((l) => ({
-          playerId: l.player_id,
-          name: l.name,
-          position: l.position,
-          nflTeam: l.nfl_team,
-          slot: l.slot,
-          slotKind: l.slot_kind,
-          points: num(l.points),
-          projected: num(l.projected),
-          nflStatus: l.nfl_status,
-          onBye: l.bye,
-        }))
+      ? (lineups.get(Number(t.team_week_id)) ?? [])
+          .map((l) => ({
+            playerId: l.player_id,
+            name: l.name,
+            position: l.position,
+            nflTeam: l.nfl_team,
+            slot: l.slot,
+            slotKind: l.slot_kind,
+            points: num(l.points),
+            projected: num(l.projected),
+            nflStatus: l.nfl_status,
+            onBye: l.bye,
+          }))
+          .sort(bySlot)
       : undefined,
   });
 
@@ -199,8 +228,9 @@ export async function teams(db: Db, seasonId: number, withRosters: boolean) {
   if (withRosters && rows.length) {
     const rr = await db.execute<Record<string, unknown>>(sql`
       select rc.team_season_id, rc.player_id, p.full_name as name, p.position, p.nfl_team, p.injury_status, p.status,
-             rc.slot, rc.slot_kind::text as slot_kind, rc.acquired_via::text as acquired_via
+             rc.slot, rc.slot_kind::text as slot_kind, coalesce(rc.acquired_via, pt.acquired_via)::text as acquired_via
       from roster_current rc join player p on p.id = rc.player_id
+      left join lateral (select t.acquired_via from player_tenure t where t.team_season_id = rc.team_season_id and t.player_id = rc.player_id order by t.from_week desc limit 1) pt on true
       where rc.team_season_id in (${inList(rows.map((r) => Number(r.team_season_id)))})
       order by rc.team_season_id, case rc.slot_kind when 'starter' then 0 when 'bench' then 1 when 'ir' then 2 else 3 end, p.full_name`);
     for (const r of rr.rows) {
@@ -221,6 +251,8 @@ export async function teams(db: Db, seasonId: number, withRosters: boolean) {
       ]);
     }
   }
+  for (const list of rosters.values())
+    (list as { slotKind: string; slot: string | null; name: string }[]).sort(bySlot);
   return {
     season: summary,
     teams: rows.map((r) => ({
@@ -390,5 +422,165 @@ export async function drafts(db: Db, seasonId: number) {
         })),
     })),
     entities: await entitiesFor(db, teamIds),
+  };
+}
+
+type SuperRow = {
+  team_season_id: number;
+  avatar: string | null;
+  opponent_team_season_id: number | null;
+  points: number;
+  margin: number | null;
+  result: string | null;
+  iq: number | null;
+  perfect: boolean | null;
+  left: number | null;
+};
+
+interface Holder {
+  teamSeasonId: number;
+  avatar: string | null;
+  opponentTeamSeasonId: number | null;
+  value: number;
+}
+
+/** Everyone sharing the best value (ties share the superlative). */
+function extremes(
+  rows: SuperRow[],
+  value: (r: SuperRow) => number | null,
+  best: "max" | "min",
+  keep: (r: SuperRow) => boolean = () => true
+): Holder[] {
+  const scored = rows.flatMap((r) => {
+    const v = keep(r) ? value(r) : null;
+    return v === null ? [] : [{ r, v: Math.round(v * 1000) / 1000 }];
+  });
+  if (scored.length === 0) return [];
+  const top = (best === "max" ? Math.max : Math.min)(...scored.map((s) => s.v));
+  return scored
+    .filter((s) => s.v === top)
+    .map((s) => ({
+      teamSeasonId: s.r.team_season_id,
+      avatar: s.r.avatar,
+      opponentTeamSeasonId: s.r.opponent_team_season_id,
+      value: s.v,
+    }));
+}
+
+/**
+ * Weekly superlatives for one finished week (default: the latest finished week): high and low score, biggest
+ * blowout, narrowest win, best lineup and most points left on the bench. Only counted one-week games take part (a
+ * two-week playoff game, a bye or an uncounted game does not), the same rule the single-game records use.
+ */
+export async function superlatives(db: Db, seasonId: number, week: number | undefined) {
+  const summary = await seasonSummary(db, seasonId);
+  if (!summary) throw new HttpError(404, "unknown season");
+  const chosen =
+    week ?? (summary.last_completed_week == null ? null : Number(summary.last_completed_week));
+  const rows =
+    chosen === null
+      ? []
+      : (
+          await db.execute<SuperRow>(sql`
+            select tw.team_season_id, (select x.avatar from team_season x where x.id = tw.team_season_id) as avatar,
+                   tw.opponent_team_season_id, tw.points::float8 as points, tw.margin::float8 as margin,
+                   tw.result::text as result, s.lineup_iq::float8 as iq, s.is_perfect as perfect,
+                   (s.optimal_points - (select sum(pw.points) from player_week pw
+                                        where pw.team_week_id = tw.id and pw.slot_kind = 'starter'))::float8 as "left"
+            from team_week tw
+            join matchup m on m.id = tw.matchup_id
+            left join team_week_stats s on s.team_week_id = tw.id
+            where tw.league_season_id = ${seasonId} and tw.week = ${chosen} and tw.counts and m.span_weeks = 1
+              and tw.result is not null`)
+        ).rows;
+  const won = (r: SuperRow) => r.result === "W";
+  const items = [
+    {
+      key: "high",
+      label: "Highest score",
+      unit: "points",
+      holders: extremes(rows, (r) => r.points, "max"),
+    },
+    {
+      key: "low",
+      label: "Lowest score",
+      unit: "points",
+      holders: extremes(rows, (r) => r.points, "min"),
+    },
+    {
+      key: "blowout",
+      label: "Biggest blowout",
+      unit: "margin",
+      holders: extremes(rows, (r) => r.margin, "max", won),
+    },
+    {
+      key: "closest",
+      label: "Narrowest win",
+      unit: "margin",
+      holders: extremes(rows, (r) => r.margin, "min", won),
+    },
+    { key: "iq", label: "Best lineup", unit: "pct", holders: extremes(rows, (r) => r.iq, "max") },
+    {
+      key: "bench",
+      label: "Most points left on the bench",
+      unit: "points",
+      holders: extremes(
+        rows,
+        (r) => r.left,
+        "max",
+        (r) => (r.left ?? 0) > 0.0005
+      ),
+    },
+  ].filter((i) => i.holders.length > 0);
+  const ids = items.flatMap((i) =>
+    i.holders.flatMap((h) => [h.teamSeasonId, h.opponentTeamSeasonId ?? h.teamSeasonId])
+  );
+  return {
+    season: summary,
+    week: chosen,
+    items,
+    entities: await entitiesFor(db, ids),
+  };
+}
+
+/** The highest single-week player scores of a week (default: the latest finished week; none before one finishes). */
+export async function topPerformers(
+  db: Db,
+  seasonId: number,
+  week: number | undefined,
+  limit: number
+) {
+  const summary = await seasonSummary(db, seasonId);
+  if (!summary) throw new HttpError(404, "unknown season");
+  const chosen =
+    week ?? (summary.last_completed_week == null ? null : Number(summary.last_completed_week));
+  if (chosen === null)
+    return { season: summary, week: null, players: [], entities: await entitiesFor(db, []) };
+  const rows = (
+    await db.execute<Record<string, unknown>>(sql`
+      select pw.player_id, p.full_name as name, pw.position, pw.nfl_team, pw.points::float8 as points,
+             pw.slot_kind::text as slot_kind, tw.team_season_id
+      from player_week pw
+      join team_week tw on tw.id = pw.team_week_id
+      join player p on p.id = pw.player_id
+      where tw.league_season_id = ${seasonId} and tw.week = ${chosen} and tw.counts and pw.points > 0
+      order by pw.points desc, p.full_name limit ${limit}`)
+  ).rows;
+  return {
+    season: summary,
+    week: chosen,
+    players: rows.map((r) => ({
+      playerId: Number(r.player_id),
+      name: String(r.name),
+      position: (r.position as string | null) ?? null,
+      nflTeam: (r.nfl_team as string | null) ?? null,
+      points: Number(r.points),
+      slotKind: String(r.slot_kind),
+      teamSeasonId: Number(r.team_season_id),
+    })),
+    entities: await entitiesFor(
+      db,
+      rows.map((r) => Number(r.team_season_id))
+    ),
   };
 }

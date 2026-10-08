@@ -209,6 +209,13 @@ export async function syncSleeperSeason(
       completeWeeks,
       players,
       projections,
+      reserveByRoster: new Map(rosters.map((r) => [r.roster_id, new Set(r.reserve ?? [])])),
+      liveWeek:
+        season.status === "complete" ||
+        frozen ||
+        (stateWeek !== null && completeWeeks.has(stateWeek))
+          ? null
+          : stateWeek,
     });
     summary.games = g.gamesByType;
     summary.teamWeeks = g.teamWeeks;

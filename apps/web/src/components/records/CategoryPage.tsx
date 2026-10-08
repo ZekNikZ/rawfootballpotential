@@ -11,9 +11,15 @@ import { slugify } from "./section-state";
 /** All record sections of one category, in catalog order. */
 export function CategoryPage({
   category,
+  only,
+  exclude = [],
   children,
 }: {
   category: CatalogRecord["category"];
+  /** Show just this section (by title). */
+  only?: string;
+  /** Hide these sections (by title); they live on another page. */
+  exclude?: readonly string[];
   children?: React.ReactNode;
 }) {
   const { league } = useLeague();
@@ -31,7 +37,12 @@ export function CategoryPage({
     return <QueryError error={catalog.error} onRetry={() => void catalog.refetch()} />;
 
   const sections = new Map<string, CatalogRecord[]>();
-  for (const r of catalog.data.records.filter((x) => x.category === category)) {
+  for (const r of catalog.data.records.filter(
+    (x) =>
+      x.category === category &&
+      (only === undefined || x.section === only) &&
+      !exclude.includes(x.section)
+  )) {
     const list = sections.get(r.section) ?? [];
     list.push(r);
     sections.set(r.section, list);

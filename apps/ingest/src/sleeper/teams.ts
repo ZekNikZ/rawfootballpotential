@@ -12,7 +12,7 @@ import { log } from "../lib/log";
 import type { SleeperBracketGame, SleeperLeague, SleeperRoster, SleeperUser } from "./schemas";
 
 const avatarUrl = (a: string | null | undefined) =>
-  a ? `https://sleepercdn.com/avatars/${a}` : null;
+  a ? (/^https?:\/\//.test(a) ? a : `https://sleepercdn.com/avatars/${a}`) : null;
 
 export interface TeamsResult {
   /** Sleeper roster_id -> team_season.id */

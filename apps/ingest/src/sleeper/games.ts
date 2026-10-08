@@ -35,6 +35,14 @@ export interface SyncGamesInput {
   players: PlayerResolver;
   /** week -> sleeper player id -> projected points (already scored with this league's settings). */
   projections?: ReadonlyMap<number, ReadonlyMap<string, number>>;
+  /** roster_id -> sleeper ids of the players on that roster's IR right now (from the roster fetch). */
+  reserveByRoster?: ReadonlyMap<number, ReadonlySet<string>>;
+  /**
+   * The one week whose IR is recorded from the live roster: the current week of a running season. Every sync of it
+   * rewrites the flag, so what stays is the IR as of the last sync before the week closes. Other weeks keep what
+   * they already had (an old week must never take today's IR).
+   */
+  liveWeek?: number | null;
 }
 
 export interface GamesStats {
@@ -253,6 +261,14 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
 
   // 4. player_week: replace the rows of the synced team-weeks.
   const twIds = [...teamWeekIds.values()];
+  // IR already recorded for these team-weeks survives the rewrite below.
+  const recordedIr = new Set<string>();
+  for (const batch of chunk(twIds, 2000))
+    for (const r of await db
+      .select({ tw: playerWeek.teamWeekId, p: playerWeek.playerId })
+      .from(playerWeek)
+      .where(and(inArray(playerWeek.teamWeekId, batch), eq(playerWeek.slotKind, "ir"))))
+      recordedIr.add(`${r.tw}:${r.p}`);
   for (const batch of chunk(twIds, 2000))
     await db.delete(playerWeek).where(inArray(playerWeek.teamWeekId, batch));
   const pwRows: (typeof playerWeek.$inferInsert)[] = [];
@@ -272,6 +288,11 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
         const playerId = input.players.get(pid);
         const slot = starterSlot.get(pid);
         const info = playerInfo.get(playerId);
+        const onIr =
+          !slot &&
+          (week === input.liveWeek
+            ? (input.reserveByRoster?.get(e.roster_id)?.has(pid) ?? false)
+            : recordedIr.has(`${teamWeekId}:${playerId}`));
         // Position snapshot. Sleeper has no per-week position, so start from the dump and add the slot a
         // starter actually filled as evidence of eligibility (nfl-reference later refines from nflverse).
         const eligible = new Set<string>(info?.fantasy ?? []);
@@ -280,8 +301,8 @@ export async function syncGames(db: Db, input: SyncGamesInput): Promise<GamesSta
         pwRows.push({
           teamWeekId,
           playerId,
-          slot: slot ?? "BN",
-          slotKind: slot ? "starter" : "bench",
+          slot: slot ?? (onIr ? "IR" : "BN"),
+          slotKind: slot ? "starter" : onIr ? "ir" : "bench",
           points: e.players_points?.[pid] ?? null,
           projectedPoints: proj?.get(pid) ?? null,
           position: info?.position ?? null,

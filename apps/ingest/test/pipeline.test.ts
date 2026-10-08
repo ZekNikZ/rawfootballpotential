@@ -278,6 +278,23 @@ describe("re-running ingest", () => {
     expect(await digest()).toBe(before);
   });
 
+  it("IR recorded for a week survives a re-sync (an old week never takes today's roster)", async () => {
+    const [row] = await q<{ team_week_id: number; player_id: number }>(sql`
+      select team_week_id, player_id from player_week where slot_kind = 'bench' order by team_week_id, player_id limit 1`);
+    expect(row).toBeDefined();
+    await db.execute(sql`
+      update player_week set slot_kind = 'ir', slot = 'IR'
+      where team_week_id = ${row!.team_week_id} and player_id = ${row!.player_id}`);
+    await syncSleeperSeason(db, client, seasonId, { mode: "full" });
+    const [after] = await q<{ slot_kind: string; slot: string }>(sql`
+      select slot_kind::text, slot from player_week
+      where team_week_id = ${row!.team_week_id} and player_id = ${row!.player_id}`);
+    expect(after).toEqual({ slot_kind: "ir", slot: "IR" });
+    await db.execute(sql`
+      update player_week set slot_kind = 'bench', slot = 'BN'
+      where team_week_id = ${row!.team_week_id} and player_id = ${row!.player_id}`);
+  });
+
   it("a score override survives re-ingest (applied during normalize)", async () => {
     await db.insert(override).values({
       entity: "team_week",

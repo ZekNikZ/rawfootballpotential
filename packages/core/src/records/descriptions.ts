@@ -30,7 +30,7 @@ export const RECORD_DESCRIPTIONS: Readonly<Record<string, string>> = {
   "player.starter.high":
     "Single-week scores by a player in a starting lineup slot. Ranked highest first; zero-point weeks are left out by default.",
   "player.bench.high":
-    "Single-week scores by a player left on the bench. Ranked highest first; zero-point weeks are left out by default.",
+    "Single-week scores by a player left on the bench (a player on IR counts as bench). Ranked highest first; zero-point weeks are left out by default.",
 
   // Transactions
   "waiver.faab-high":
@@ -45,7 +45,7 @@ export const RECORD_DESCRIPTIONS: Readonly<Record<string, string>> = {
 
   // Other
   "bench-season.player":
-    "The players who scored the most points for a team in a season while sitting on its bench. Ranked by bench points.",
+    "The players who scored the most points for a team in a season while sitting on its bench (IR counts as bench). Ranked by bench points.",
   "uncounted.best":
     "The highest scores that did not count toward a game: weeks with no opponent or outside the playoff brackets.",
 

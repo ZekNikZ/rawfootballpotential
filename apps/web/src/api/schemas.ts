@@ -269,6 +269,7 @@ export const franchiseProfileResponse = z.object({
     z.object({
       season: z.number(),
       status: z.string(),
+      avatar: z.string().nullable(),
       teamSeasonId: z.number(),
       teamName: z.string(),
       division: z.string().nullable(),
@@ -296,6 +297,30 @@ export const franchiseProfileResponse = z.object({
   entities: entitiesSchema,
 });
 export type FranchiseProfile = z.infer<typeof franchiseProfileResponse>;
+
+export const franchiseRosterResponse = z.object({
+  franchiseId: z.number(),
+  season: z.number(),
+  /** live = current roster; final-week = lineup of the last week played; none = nothing on file. */
+  source: z.enum(["live", "final-week", "none"]),
+  week: nullableNum,
+  irUnrecorded: z.number(),
+  players: z.array(
+    z.object({
+      playerId: z.number(),
+      name: z.string(),
+      position: z.string().nullable(),
+      nflTeam: z.string().nullable(),
+      injuryStatus: z.string().nullable(),
+      slot: z.string().nullable(),
+      slotKind: z.string(),
+      points: z.number().nullable(),
+      weeks: z.number(),
+      starts: z.number(),
+    })
+  ),
+});
+export type FranchiseRoster = z.infer<typeof franchiseRosterResponse>;
 
 // ---- blog ----
 
@@ -350,6 +375,7 @@ export const standingsResponse = z.object({
       seed: nullableNum,
       final_place: nullableNum,
       made_playoffs: z.boolean().nullable(),
+      avatar: z.string().nullable(),
     })
   ),
   entities: entitiesSchema,
@@ -377,6 +403,9 @@ const matchupTeam = z.object({
   result: z.string().nullable(),
   isFinal: z.boolean(),
   pointsOverridden: z.boolean(),
+  avatar: z.string().nullable(),
+  /** Players certainly on IR that the data lists as bench (older weeks). */
+  irUnrecorded: z.number(),
   lineup: z.array(lineupEntry).optional(),
 });
 export type MatchupTeam = z.infer<typeof matchupTeam>;
@@ -518,3 +547,43 @@ export const draftsResponse = z.object({
   entities: entitiesSchema,
 });
 export type Drafts = z.infer<typeof draftsResponse>;
+
+// ---- home page panels ----
+
+export const superlativesResponse = z.object({
+  week: nullableNum,
+  items: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      unit: z.enum(["points", "margin", "pct"]),
+      holders: z.array(
+        z.object({
+          teamSeasonId: z.number(),
+          avatar: z.string().nullable(),
+          opponentTeamSeasonId: nullableNum,
+          value: z.number(),
+        })
+      ),
+    })
+  ),
+  entities: entitiesSchema,
+});
+export type Superlatives = z.infer<typeof superlativesResponse>;
+
+export const topPerformersResponse = z.object({
+  week: nullableNum,
+  players: z.array(
+    z.object({
+      playerId: z.number(),
+      name: z.string(),
+      position: z.string().nullable(),
+      nflTeam: z.string().nullable(),
+      points: z.number(),
+      slotKind: z.string(),
+      teamSeasonId: z.number(),
+    })
+  ),
+  entities: entitiesSchema,
+});
+export type TopPerformers = z.infer<typeof topPerformersResponse>;
