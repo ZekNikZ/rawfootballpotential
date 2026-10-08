@@ -16,22 +16,15 @@ const hasPlayers = sql`tw.optimal_points is not null`;
 
 const SPECS: Record<string, Spec> = {
   "score.high": { value: sql`tw.points` },
-  "score.low": { value: sql`tw.points` },
   // Winner-side records: ties (result T) are not wins, so they never appear (doc §1.4 bug 2).
   blowout: { value: sql`tw.margin`, where: sql`tw.result = 'W'` },
-  "narrow-win": { value: sql`tw.margin`, where: sql`tw.result = 'W'` },
   "loss.high-score": { value: sql`tw.points`, where: sql`tw.result = 'L'` },
   "win.low-score": { value: sql`tw.points`, where: sql`tw.result = 'W'` },
   "teamwide.high": { value: teamwide, where: hasPlayers },
-  "teamwide.low": { value: teamwide, where: hasPlayers },
   "bench.high": { value: bench, where: hasPlayers },
-  "bench.low": { value: bench, where: hasPlayers },
   "potential.high": { value: sql`tw.optimal_points`, where: hasPlayers },
-  "potential.low": { value: sql`tw.optimal_points`, where: hasPlayers },
   "actual.high": { value: sql`tw.points`, where: hasPlayers },
-  "actual.low": { value: sql`tw.points`, where: hasPlayers },
   "ratio.high": { value: sql`tw.lineup_iq`, where: hasPlayers },
-  "ratio.low": { value: sql`tw.lineup_iq`, where: hasPlayers },
 };
 
 /** Team-week records: one candidate row per counted team in a completed week. */

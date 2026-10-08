@@ -49,6 +49,15 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
       shell. React/react-router and TanStack Query now have their own long-lived chunks (`apps/web/vite.config.ts`), so the size warning is gone and
       returning visitors re-download only the small app chunk after a deploy. First-load size is unchanged (about 190 kB gzipped).
 
+## Records pages (owner request, 2026-10-07)
+
+- [x] Sticky table headers, a sticky section tab bar with scroll-spy, "Back to top" links, a record picker with one-line summaries, sortable columns (server-side) and the high/low records folded together; section names reworked (`records-architecture.md` section 3.11.3).
+- [ ] **Tier 2 merges** (same engine, different sort column, e.g. one "Team seasons" table for PF/PA/wins/losses/win %/lineup IQ, one table per manager section, `potential`/`actual`/`ratio` as one "Lineup efficiency" table). Not done: waiting for the owner's go-ahead.
+- [ ] Entity columns (team, manager, opponent) are not sortable (resolved after the query). Sorting them would need the names in SQL.
+- [ ] Old shared links with section-prefixed URL params (`single-week-scores.rec=...`) are not redirected; record ids still resolve in the API through `RECORD_ALIASES`.
+- [ ] Optional: a Version History entry announcing sortable tables and the new section names (`changelog-entry` skill).
+- [ ] The "Players" tab (moving player-related Overall records into their own page) was dropped for now; the section renames cover it.
+
 ## Product ideas that were deliberately not built
 
 - [x] **Power rating** built as `career.power` and revised on 2026-10-07 (half margin, zero-sum medians in all seasons, 1.5x playoff wins and toilet-bowl losses, consistency and placement adjustments, 25% blend with average weighted placement, dynamic 1500 / 250-per-sd scale; see `docs/records-architecture.md` section 3.11.3). Tried and dropped because they barely moved anything: new managers starting at the league average, a first-season boost. Candidate follow-ups: a Version History entry announcing the power rating and the point-differential records; a regular-season-only variant; a "±" or minimum-games note for one-season managers; an all-play Elo.

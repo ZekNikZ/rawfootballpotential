@@ -3,48 +3,34 @@
 // The test in records.test.ts requires every record to end up with one.
 export const RECORD_DESCRIPTIONS: Readonly<Record<string, string>> = {
   // Single Week Scores
-  "score.high": "The highest single-week scores. Ranked by points scored.",
-  "score.low": "The lowest single-week scores. Ranked by fewest points scored.",
-  blowout: "The largest margins of victory in a single game. Ranked by the winning margin.",
-  "narrow-win": "The closest wins in a single game. Ranked by the smallest winning margin.",
+  "score.high":
+    "Single-week team scores. Ranked highest first; click the Score header to rank lowest first.",
+  blowout:
+    "Margins of victory in a single game. Ranked largest first; click the Score header to rank the narrowest wins first.",
   "loss.high-score": "The highest scores that still lost the game. Ranked by points scored.",
   "win.low-score": "The lowest scores that still won the game. Ranked by fewest points scored.",
 
   // Single Week Teamwide Scores
   "teamwide.high":
-    "The highest combined score of a team's whole roster in a week: starters plus bench. Ranked by the combined total.",
-  "teamwide.low":
-    "The lowest combined score of a team's whole roster in a week: starters plus bench. Ranked by the combined total.",
-  "bench.high": "The most points scored by a team's bench in a single week.",
-  "bench.low": "The fewest points scored by a team's bench in a single week.",
+    "The combined score of a team's whole roster in a week: starters plus bench. Ranked highest first; click the header to flip it.",
+  "bench.high":
+    "The points scored by a team's bench in a single week. Ranked highest first; click the header to flip it.",
 
   // Single Week Potential Score
   "potential.high":
-    "The highest potential score in a week: the points of the best lineup the roster could have started. Ranked by potential points.",
-  "potential.low":
-    "The lowest potential score in a week: the points of the best lineup the roster could have started. Ranked by potential points.",
+    "The potential score in a week: the points of the best lineup the roster could have started. Ranked highest first; click the header to flip it.",
   "actual.high":
-    "The highest points actually scored by the starting lineup in a week, shown with the potential score and the share realized.",
-  "actual.low":
-    "The lowest points actually scored by the starting lineup in a week, shown with the potential score and the share realized.",
+    "The points the starting lineup actually scored in a week, shown with the potential score and the share realized. Ranked highest first; click the header to flip it.",
   "ratio.high":
-    "The highest share of potential points realized in a week: points scored divided by the best possible lineup's points.",
-  "ratio.low":
-    "The lowest share of potential points realized in a week: points scored divided by the best possible lineup's points.",
+    "The share of potential points realized in a week: points scored divided by the best possible lineup's points. Ranked highest first; click the header to flip it.",
 
   // Player Performances
   "player.roster.high":
-    "The highest single-week scores by any player on a roster, starting or on the bench. Ranked by the player's points.",
-  "player.roster.low":
-    "The lowest single-week scores by any player on a roster, starting or on the bench. Ranked by the player's points.",
+    "Single-week scores by any player on a roster, starting or on the bench. Ranked highest first; zero-point weeks are left out by default.",
   "player.starter.high":
-    "The highest single-week scores by a player in a starting lineup slot. Ranked by the player's points.",
-  "player.starter.low":
-    "The lowest single-week scores by a player in a starting lineup slot. Ranked by the player's points.",
+    "Single-week scores by a player in a starting lineup slot. Ranked highest first; zero-point weeks are left out by default.",
   "player.bench.high":
-    "The highest single-week scores by a player left on the bench. Ranked by the player's points.",
-  "player.bench.low":
-    "The lowest single-week scores by a player left on the bench. Ranked by the player's points.",
+    "Single-week scores by a player left on the bench. Ranked highest first; zero-point weeks are left out by default.",
 
   // Transactions
   "waiver.faab-high":
@@ -64,36 +50,28 @@ export const RECORD_DESCRIPTIONS: Readonly<Record<string, string>> = {
     "The highest scores that did not count toward a game: weeks with no opponent or outside the playoff brackets.",
 
   // Single Season
-  "season.pf.high": "The most points scored by a team in a season (PF).",
-  "season.pf.low": "The fewest points scored by a team in a season (PF).",
-  "season.pa.high": "The most points scored against a team in a season (PA).",
-  "season.pa.low": "The fewest points scored against a team in a season (PA).",
+  "season.pf.high":
+    "Points scored by a team in a season (PF). Ranked most first; click the PF header for the fewest (completed seasons only).",
+  "season.pa.high":
+    "Points scored against a team in a season (PA). Ranked most first; click the PA header for the fewest (completed seasons only).",
   "season.wins.high": "The most wins by a team in a season.",
   "season.losses.high": "The most losses by a team in a season.",
   "season.winpct.high":
-    "The highest win percentage by a team in a season. Ties count as half a win.",
-  "season.winpct.low": "The lowest win percentage by a team in a season. Ties count as half a win.",
+    "Win percentage by a team in a season; ties count as half a win. Ranked highest first; click the header for the lowest.",
   "season.iq.high":
-    "The highest lineup IQ in a season: points scored divided by the points of the best possible lineups each week.",
-  "season.iq.low":
-    "The lowest lineup IQ in a season: points scored divided by the points of the best possible lineups each week.",
+    "Lineup IQ in a season: points scored divided by the points of the best possible lineups each week. Ranked highest first; click the header for the lowest.",
   "season.player.high":
     "The most points scored by one player in a season while on a team, shown with points per game and the best and worst weeks.",
 
   // Single Season Transactions
-  "season.trades.most": "The most trades completed by a team in a season.",
-  "season.trades.fewest": "The fewest trades completed by a team in a season, including none.",
-  "season.claims.most": "The most successful waiver claims by a team in a season.",
-  "season.claims.fewest":
-    "The fewest successful waiver claims by a team in a season, including none.",
+  "season.trades.most":
+    "Trades completed by a team in a season. Ranked most first; click the Trades header for the fewest, including none (completed seasons only).",
+  "season.claims.most":
+    "Successful waiver claims by a team in a season. Ranked most first; click the header for the fewest, including none (completed seasons only).",
   "season.faab.most":
-    "The most auction (FAAB) dollars spent on waiver claims by a team in a season.",
-  "season.faab.least":
-    "The fewest auction (FAAB) dollars spent on waiver claims by a team in a season.",
+    "Auction (FAAB) dollars spent on waiver claims by a team in a season. Ranked most first; click the header for the fewest (completed seasons only).",
   "season.retention.high":
-    "The highest share of a team's drafted players still on its roster at the end of the season.",
-  "season.retention.low":
-    "The lowest share of a team's drafted players still on its roster at the end of the season.",
+    "The share of a team's drafted players still on its roster at the end of the season. Ranked highest first; click the header for the lowest.",
 
   // Career Standings
   "career.wins": "Total wins across a manager's career, for the selected time scope.",

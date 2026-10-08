@@ -26,6 +26,10 @@ export function useSectionState(key: string) {
     if (v) filters[f] = v;
   }
   const rec = search.get(`${prefix}rec`);
+  const sort = search.get(`${prefix}sort`) || undefined;
+  const dirParam = search.get(`${prefix}dir`);
+  const dir: "asc" | "desc" | undefined =
+    dirParam === "asc" || dirParam === "desc" ? dirParam : undefined;
   const page = Math.max(1, Number(search.get(`${prefix}page`)) || 1);
   const size = Number(search.get(`${prefix}size`)) || DEFAULT_PAGE_SIZE;
 
@@ -48,6 +52,6 @@ export function useSectionState(key: string) {
   );
 
   /** Filter params as the API expects them. */
-  const apiParams: Params = { ...filters };
-  return { rec, filters, apiParams, page, size, update };
+  const apiParams: Params = { ...filters, ...(sort ? { sort, ...(dir ? { dir } : {}) } : {}) };
+  return { rec, filters, apiParams, sort, dir, page, size, update };
 }

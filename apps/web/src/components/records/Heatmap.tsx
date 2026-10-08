@@ -1,4 +1,5 @@
 import { Anchor, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
+import { BackToTop } from "./BackToTop";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { h2hQuery } from "../../api/queries";
@@ -94,6 +95,7 @@ export function Heatmap() {
           </Text>
         </>
       )}
+      <BackToTop />
     </Stack>
   );
 }

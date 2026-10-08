@@ -11,6 +11,20 @@ export const NUMERIC_TYPES: ReadonlySet<Column["type"]> = new Set([
   "currency",
 ]);
 
+/** Columns the API can order by (entity columns are resolved after the query); mirrors SORTABLE_COLUMN_TYPES in core. */
+export const SORTABLE_TYPES: ReadonlySet<Column["type"]> = new Set([
+  "int",
+  "decimal",
+  "points",
+  "pct",
+  "currency",
+  "text",
+  "player",
+  "season",
+  "week",
+  "scoreline",
+]);
+
 interface CellContext {
   leagueSlug: string;
   entities: Entities;

@@ -1,5 +1,6 @@
 import { EXTRA_RECORDS } from "./catalog-extra";
 import { RECORD_DESCRIPTIONS } from "./descriptions";
+import { RECORD_SUMMARIES } from "./summaries";
 import type { ActivePolicy, ColumnDef, FilterKey, RecordDef, Requirement } from "./types";
 
 // Column building blocks ------------------------------------------------------------------------------------
@@ -87,47 +88,32 @@ const gameBase = (section: string, extra: Partial<Base> = {}): Base => ({
 });
 const gameColumns = [TEAM, WEEK, OPPONENT, c("points", "Score", "scoreline")];
 
+// Records that used to come as a "highest" and a "lowest" (or "largest" and "narrowest") version are one record
+// now: the table sorts by any column, and sorting the ranked column the other way gives the other version. The old
+// ids still work (RECORD_ALIASES in query.ts).
 const singleWeekScores: RecordDef[] = [
   rec(
     "score.high",
-    "Highest score",
-    gameBase("Single Week Scores"),
+    "Team score",
+    gameBase("Matchup Scores"),
     "points",
     "desc",
     gameColumns,
     "Highest score"
   ),
   rec(
-    "score.low",
-    "Lowest score",
-    gameBase("Single Week Scores"),
-    "points",
-    "asc",
-    gameColumns,
-    "Lowest score"
-  ),
-  rec(
     "blowout",
-    "Largest blowout",
-    gameBase("Single Week Scores"),
+    "Margin of victory",
+    gameBase("Matchup Scores"),
     "margin",
     "desc",
     [TEAM, WEEK, OPPONENT, c("margin", "Score", "scoreline")],
     "Largest blowout"
   ),
   rec(
-    "narrow-win",
-    "Narrowest win",
-    gameBase("Single Week Scores"),
-    "margin",
-    "asc",
-    [TEAM, WEEK, OPPONENT, c("margin", "Score", "scoreline")],
-    "Narrowest win"
-  ),
-  rec(
     "loss.high-score",
     "Highest scoring loss",
-    gameBase("Single Week Scores"),
+    gameBase("Matchup Scores"),
     "points",
     "desc",
     gameColumns,
@@ -136,7 +122,7 @@ const singleWeekScores: RecordDef[] = [
   rec(
     "win.low-score",
     "Lowest scoring win",
-    gameBase("Single Week Scores"),
+    gameBase("Matchup Scores"),
     "points",
     "asc",
     gameColumns,
@@ -156,39 +142,21 @@ const teamwideColumns = (sort: string) =>
 const teamwide: RecordDef[] = [
   rec(
     "teamwide.high",
-    "Highest teamwide score",
-    gameBase("Single Week Teamwide Scores", { requires: req("playerData") }),
+    "Teamwide score",
+    gameBase("Teamwide Matchup Scores", { requires: req("playerData") }),
     "teamwide",
     "desc",
     teamwideColumns("teamwide"),
     "Highest teamwide score"
   ),
   rec(
-    "teamwide.low",
-    "Lowest teamwide score",
-    gameBase("Single Week Teamwide Scores", { requires: req("playerData") }),
-    "teamwide",
-    "asc",
-    teamwideColumns("teamwide"),
-    "Lowest teamwide score"
-  ),
-  rec(
     "bench.high",
-    "Highest bench score",
-    gameBase("Single Week Teamwide Scores", { requires: req("playerData") }),
+    "Bench score",
+    gameBase("Teamwide Matchup Scores", { requires: req("playerData") }),
     "bench",
     "desc",
     teamwideColumns("bench"),
     "Highest bench score"
-  ),
-  rec(
-    "bench.low",
-    "Lowest bench score",
-    gameBase("Single Week Teamwide Scores", { requires: req("playerData") }),
-    "bench",
-    "asc",
-    teamwideColumns("bench"),
-    "Lowest bench score"
   ),
 ];
 
@@ -200,11 +168,11 @@ const potentialColumns = [
   c("points", "Actual Score", "points"),
   c("ratio", "Realized", "pct"),
 ];
-const potentialBase = gameBase("Single Week Potential Score", { requires: req("playerData") });
+const potentialBase = gameBase("Lineup Efficiency", { requires: req("playerData") });
 const potential: RecordDef[] = [
   rec(
     "potential.high",
-    "Highest potential points",
+    "Potential points",
     potentialBase,
     "potential",
     "desc",
@@ -212,17 +180,8 @@ const potential: RecordDef[] = [
     "Highest potential points"
   ),
   rec(
-    "potential.low",
-    "Lowest potential points",
-    potentialBase,
-    "potential",
-    "asc",
-    potentialColumns,
-    "Lowest potential points"
-  ),
-  rec(
     "actual.high",
-    "Highest actual points",
+    "Actual points",
     potentialBase,
     "points",
     "desc",
@@ -230,58 +189,35 @@ const potential: RecordDef[] = [
     "Highest actual points"
   ),
   rec(
-    "actual.low",
-    "Lowest actual points",
-    potentialBase,
-    "points",
-    "asc",
-    potentialColumns,
-    "Lowest actual points"
-  ),
-  rec(
     "ratio.high",
-    "Highest realized points ratio",
+    "Realized points ratio",
     potentialBase,
     "ratio",
     "desc",
     potentialColumns,
     "Highest realized points ratio"
   ),
-  rec(
-    "ratio.low",
-    "Lowest realized points ratio",
-    potentialBase,
-    "ratio",
-    "asc",
-    potentialColumns,
-    "Lowest realized points ratio"
-  ),
 ];
 
-// One highest and one lowest record each for the whole roster, starters only and bench only. Position, week,
-// franchise and non-zero are user filters; the lowest records exclude zero-point weeks unless asked not to.
+// Whole roster, starters only and bench only. Position, week, franchise and non-zero are user filters; zero-point
+// weeks are left out by default (they would top the lowest-first view).
 const PLAYER_WEEK_FILTERS: FilterKey[] = PLAYER_FILTERS.filter((f) => f !== "slots");
-function playerWeekRecord(
-  id: string,
-  title: string,
-  direction: "asc" | "desc",
-  slots?: ("starter" | "bench")[]
-): RecordDef {
+function playerWeekRecord(id: string, title: string, slots?: ("starter" | "bench")[]): RecordDef {
   return rec(
     id,
     title,
     {
       category: "overall",
-      section: "Player Performances",
+      section: "Player Scores",
       grain: "player_week",
       engine: "playerWeek",
       filters: PLAYER_WEEK_FILTERS,
       requires: req("playerData"),
       ...(slots ? { preset: { slots } } : {}),
-      ...(direction === "asc" ? { defaults: { excludeZero: true } } : {}),
+      defaults: { excludeZero: true },
     },
     "points",
-    direction,
+    "desc",
     [
       c("player", "Player", "player"),
       TEAM,
@@ -293,12 +229,9 @@ function playerWeekRecord(
   );
 }
 const players: RecordDef[] = [
-  playerWeekRecord("player.roster.high", "Highest scoring rostered player", "desc"),
-  playerWeekRecord("player.roster.low", "Lowest scoring rostered player", "asc"),
-  playerWeekRecord("player.starter.high", "Highest scoring starter", "desc", ["starter"]),
-  playerWeekRecord("player.starter.low", "Lowest scoring starter", "asc", ["starter"]),
-  playerWeekRecord("player.bench.high", "Highest scoring benched player", "desc", ["bench"]),
-  playerWeekRecord("player.bench.low", "Lowest scoring benched player", "asc", ["bench"]),
+  playerWeekRecord("player.roster.high", "Rostered player score"),
+  playerWeekRecord("player.starter.high", "Starter score", ["starter"]),
+  playerWeekRecord("player.bench.high", "Benched player score", ["bench"]),
 ];
 
 const transactions: RecordDef[] = [
@@ -307,7 +240,7 @@ const transactions: RecordDef[] = [
     "Highest $ on a single waiver claim",
     {
       category: "overall",
-      section: "Transactions",
+      section: "Waivers & Trades",
       grain: "transaction",
       engine: "faabClaim",
       filters: ["seasons", "scope"],
@@ -323,7 +256,7 @@ const transactions: RecordDef[] = [
     "Highest $ on a single draft pick",
     {
       category: "overall",
-      section: "Transactions",
+      section: "Draft Results",
       grain: "draft_pick",
       engine: "draftPrice",
       filters: ["seasons"],
@@ -344,7 +277,7 @@ const transactions: RecordDef[] = [
     "Most moved player",
     {
       category: "overall",
-      section: "Transactions",
+      section: "Player Tenures",
       grain: "transaction",
       engine: "mostMoved",
       filters: ["seasons"],
@@ -363,7 +296,7 @@ const transactions: RecordDef[] = [
     "Largest trade",
     {
       category: "overall",
-      section: "Transactions",
+      section: "Waivers & Trades",
       grain: "transaction",
       engine: "trade",
       filters: ["seasons", "scope"],
@@ -386,7 +319,7 @@ const transactions: RecordDef[] = [
     "Broadest trade",
     {
       category: "overall",
-      section: "Transactions",
+      section: "Waivers & Trades",
       grain: "transaction",
       engine: "trade",
       filters: ["seasons", "scope"],
@@ -411,7 +344,7 @@ const other: RecordDef[] = [
     "Biggest benchwarmer",
     {
       category: "overall",
-      section: "Other",
+      section: "Player Scores",
       grain: "player_season",
       engine: "playerSeason",
       filters: ["seasons", "positions", "franchise", "combineTeams"],
@@ -435,7 +368,7 @@ const other: RecordDef[] = [
     "Best score that didn't count",
     {
       category: "overall",
-      section: "Other",
+      section: "Matchup Scores",
       grain: "team_week",
       engine: "uncounted",
       filters: ["seasons", "franchise"],
@@ -456,7 +389,7 @@ const other: RecordDef[] = [
 // ---- Single-season records (the season is a column; onePer = "season max") -------------------------------------
 const seasonBase = (extra: Partial<Base> = {}): Base => ({
   category: "single-season",
-  section: "Single Season",
+  section: "Team Seasons",
   grain: "team_season",
   engine: "teamSeason",
   filters: SEASON_FILTERS,
@@ -485,34 +418,18 @@ const active = (a: ActivePolicy): Partial<Base> => ({ active: a });
 const seasonRecords: RecordDef[] = [
   rec(
     "season.pf.high",
-    "Most points in a season",
-    seasonBase(active("flag")),
+    "Points scored in a season",
+    seasonBase({ active: "flag", activeReverse: "complete_only" }),
     "pf",
     "desc",
-    pfCols
-  ),
-  rec(
-    "season.pf.low",
-    "Fewest points in a season",
-    seasonBase(active("complete_only")),
-    "pf",
-    "asc",
     pfCols
   ),
   rec(
     "season.pa.high",
-    "Most points against in a season",
-    seasonBase(active("flag")),
+    "Points against in a season",
+    seasonBase({ active: "flag", activeReverse: "complete_only" }),
     "pa",
     "desc",
-    pfCols
-  ),
-  rec(
-    "season.pa.low",
-    "Fewest points against in a season",
-    seasonBase(active("complete_only")),
-    "pa",
-    "asc",
     pfCols
   ),
   rec(
@@ -533,23 +450,15 @@ const seasonRecords: RecordDef[] = [
   ),
   rec(
     "season.winpct.high",
-    "Highest win % in a season",
+    "Win % in a season",
     seasonBase({ active: "complete_only", qualifier: { minGames: 10 } }),
     "winPct",
     "desc",
-    recordCols
-  ),
-  rec(
-    "season.winpct.low",
-    "Lowest win % in a season",
-    seasonBase({ active: "complete_only", qualifier: { minGames: 10 } }),
-    "winPct",
-    "asc",
     recordCols
   ),
   rec(
     "season.iq.high",
-    "Highest lineup IQ in a season",
+    "Lineup IQ in a season",
     seasonBase({
       active: "complete_only",
       requires: req("playerData"),
@@ -557,18 +466,6 @@ const seasonRecords: RecordDef[] = [
     }),
     "lineupIq",
     "desc",
-    iqCols
-  ),
-  rec(
-    "season.iq.low",
-    "Lowest lineup IQ in a season",
-    seasonBase({
-      active: "complete_only",
-      requires: req("playerData"),
-      qualifier: { minGames: 10 },
-    }),
-    "lineupIq",
-    "asc",
     iqCols
   ),
   rec(
@@ -576,7 +473,7 @@ const seasonRecords: RecordDef[] = [
     "Highest scoring player season",
     {
       category: "single-season",
-      section: "Single Season",
+      section: "Team Seasons",
       grain: "player_season",
       engine: "playerSeason",
       filters: ["seasons", "scope", "positions", "franchise", "combineTeams", "onePer"],
@@ -600,7 +497,7 @@ const seasonRecords: RecordDef[] = [
 ];
 const txSeasonBase = (extra: Partial<Base> = {}): Base => ({
   category: "single-season",
-  section: "Single Season Transactions",
+  section: "Transactions",
   grain: "team_season",
   engine: "seasonTransactions",
   filters: ["seasons", "scope", "franchise", "onePer"],
@@ -615,62 +512,39 @@ const txCols = seasonRecord([
 const txRecords: RecordDef[] = [
   rec(
     "season.trades.most",
-    "Most trades in a season",
-    txSeasonBase(active("flag")),
+    "Trades in a season",
+    txSeasonBase({ active: "flag", activeReverse: "complete_only" }),
     "trades",
     "desc",
-    txCols
-  ),
-  rec(
-    "season.trades.fewest",
-    "Fewest trades in a season",
-    txSeasonBase(active("complete_only")),
-    "trades",
-    "asc",
     txCols
   ),
   rec(
     "season.claims.most",
-    "Most waiver claims in a season",
-    txSeasonBase({ active: "flag", txTypes: ["waiver"] }),
+    "Waiver claims in a season",
+    txSeasonBase({ active: "flag", activeReverse: "complete_only", txTypes: ["waiver"] }),
     "claims",
     "desc",
-    txCols
-  ),
-  rec(
-    "season.claims.fewest",
-    "Fewest waiver claims in a season",
-    txSeasonBase({ active: "complete_only", txTypes: ["waiver"] }),
-    "claims",
-    "asc",
     txCols
   ),
   rec(
     "season.faab.most",
-    "Most $ spent on waiver claims",
-    txSeasonBase({ active: "flag", requires: req("transactions", "faab"), txTypes: ["waiver"] }),
-    "spent",
-    "desc",
-    txCols
-  ),
-  rec(
-    "season.faab.least",
-    "Least $ spent on waiver claims",
+    "$ spent on waiver claims in a season",
     txSeasonBase({
-      active: "complete_only",
+      active: "flag",
+      activeReverse: "complete_only",
       requires: req("transactions", "faab"),
       txTypes: ["waiver"],
     }),
     "spent",
-    "asc",
+    "desc",
     txCols
   ),
   rec(
     "season.retention.high",
-    "Highest % of drafted players kept to season's end",
+    "% of drafted players kept to season's end",
     {
       category: "single-season",
-      section: "Single Season Transactions",
+      section: "Draft Results",
       grain: "team_season",
       engine: "draftRetention",
       filters: ["seasons", "franchise", "onePer"],
@@ -679,26 +553,6 @@ const txRecords: RecordDef[] = [
     },
     "retentionPct",
     "desc",
-    seasonRecord([
-      c("retentionPct", "Kept", "pct", { hint: "kept" }),
-      c("kept", "Kept", "int"),
-      c("drafted", "Drafted", "int"),
-    ])
-  ),
-  rec(
-    "season.retention.low",
-    "Lowest % of drafted players kept to season's end",
-    {
-      category: "single-season",
-      section: "Single Season Transactions",
-      grain: "team_season",
-      engine: "draftRetention",
-      filters: ["seasons", "franchise", "onePer"],
-      requires: req("draft", "transactions"),
-      active: "complete_only",
-    },
-    "retentionPct",
-    "asc",
     seasonRecord([
       c("retentionPct", "Kept", "pct", { hint: "kept" }),
       c("kept", "Kept", "int"),
@@ -731,7 +585,7 @@ const standings: RecordDef[] = [
   rec(
     "career.wins",
     "Most wins",
-    careerBase("Career Standings", "careerStandings", { filters: CAREER_FILTERS }),
+    careerBase("Standings", "careerStandings", { filters: CAREER_FILTERS }),
     "wins",
     "desc",
     standingsCols,
@@ -740,7 +594,7 @@ const standings: RecordDef[] = [
   rec(
     "career.losses",
     "Most losses",
-    careerBase("Career Standings", "careerStandings"),
+    careerBase("Standings", "careerStandings"),
     "losses",
     "desc",
     standingsCols,
@@ -749,7 +603,7 @@ const standings: RecordDef[] = [
   rec(
     "career.years",
     "Most years in league (YiL)",
-    careerBase("Career Standings", "careerStandings"),
+    careerBase("Standings", "careerStandings"),
     "years",
     "desc",
     standingsCols,
@@ -758,7 +612,7 @@ const standings: RecordDef[] = [
   rec(
     "career.winpct",
     "Highest win percentage",
-    careerBase("Career Standings", "careerStandings", { qualifier: { minGames: 10 } }),
+    careerBase("Standings", "careerStandings", { qualifier: { minGames: 10 } }),
     "winPct",
     "desc",
     standingsCols,
@@ -767,7 +621,7 @@ const standings: RecordDef[] = [
   rec(
     "career.win-streak",
     "Highest win streak",
-    careerBase("Career Standings", "careerStandings"),
+    careerBase("Standings", "careerStandings"),
     "winStreak",
     "desc",
     standingsCols,
@@ -776,7 +630,7 @@ const standings: RecordDef[] = [
   rec(
     "career.loss-streak",
     "Highest loss streak",
-    careerBase("Career Standings", "careerStandings"),
+    careerBase("Standings", "careerStandings"),
     "lossStreak",
     "desc",
     standingsCols,
@@ -792,7 +646,7 @@ const placementCols = [
   c("playoffs", "Playoff Appearances", "int"),
   c("toiletBowls", "Toilet Bowl Appearances", "int"),
 ];
-const placementBase = careerBase("Career Placements", "careerPlacements", {
+const placementBase = careerBase("Placements", "careerPlacements", {
   filters: ["seasons"],
   active: "complete_only",
   version: 2, // 2: the average placement column became the league-size-weighted placement (placePct)
@@ -851,7 +705,7 @@ const lineupCols = [
   c("missed", "Total Missed Points", "points"),
   c("lineupIq", "Lineup IQ", "pct"),
 ];
-const lineupBase = careerBase("Career Lineup IQ", "careerLineups", {
+const lineupBase = careerBase("Lineup IQ", "careerLineups", {
   filters: ["seasons", "scope"],
   requires: req("playerData"),
 });
@@ -895,7 +749,7 @@ const scoringCols = [
   c("pfpg", "PFPG", "decimal"),
   c("papg", "PAPG", "decimal"),
 ];
-const scoringBase = careerBase("Career Scores", "careerScoring", { filters: ["seasons", "scope"] });
+const scoringBase = careerBase("Scoring", "careerScoring", { filters: ["seasons", "scope"] });
 const scoring: RecordDef[] = [
   rec(
     "career.score.high",
@@ -959,7 +813,7 @@ const careerTxCols = [
   c("claims", "Waiver claims", "int"),
   c("spent", "$ spent", "currency"),
 ];
-const careerTxBase = careerBase("Career Transactions", "careerTransactions", {
+const careerTxBase = careerBase("Transactions", "careerTransactions", {
   filters: ["seasons", "scope"],
   requires: req("transactions"),
   txTypes: ["waiver"],
@@ -994,10 +848,12 @@ const ALL_RECORDS: readonly RecordDef[] = [
   ...EXTRA_RECORDS,
 ];
 
-/** Every record has a description: its own, or the one in descriptions.ts. */
-export const RECORD_CATALOG: readonly RecordDef[] = ALL_RECORDS.map((r) =>
-  r.description ? r : { ...r, description: RECORD_DESCRIPTIONS[r.id] }
-);
+/** Every record has a description (its own, or the one in descriptions.ts) and a picker summary. */
+export const RECORD_CATALOG: readonly RecordDef[] = ALL_RECORDS.map((r) => ({
+  ...r,
+  description: r.description ?? RECORD_DESCRIPTIONS[r.id],
+  summary: r.summary ?? RECORD_SUMMARIES[r.id],
+}));
 
 const byId = new Map(RECORD_CATALOG.map((r) => [r.id, r]));
 export const getRecordDef = (id: string): RecordDef | undefined => byId.get(id);

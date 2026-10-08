@@ -6,18 +6,11 @@ import { minGames, seasonStatsCte, winPctExpr } from "./season-base";
 
 const VALUES: Record<string, { value: SQL; where?: (min: number) => SQL }> = {
   "season.pf.high": { value: sql`pf` },
-  "season.pf.low": { value: sql`pf` },
   "season.pa.high": { value: sql`pa` },
-  "season.pa.low": { value: sql`pa` },
   "season.wins.high": { value: sql`w` },
   "season.losses.high": { value: sql`l` },
   "season.winpct.high": { value: winPctExpr, where: (min) => sql`(w + l + t) >= ${min}` },
-  "season.winpct.low": { value: winPctExpr, where: (min) => sql`(w + l + t) >= ${min}` },
   "season.iq.high": {
-    value: sql`(pts_player / nullif(optimal, 0))`,
-    where: (min) => sql`player_games >= ${min}`,
-  },
-  "season.iq.low": {
     value: sql`(pts_player / nullif(optimal, 0))`,
     where: (min) => sql`player_games >= ${min}`,
   },

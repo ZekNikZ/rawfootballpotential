@@ -103,6 +103,7 @@ export type FilterKey = (typeof FILTER_KEYS)[number];
 export const catalogRecordSchema = z.object({
   id: z.string(),
   title: z.string(),
+  summary: z.string().optional(),
   description: z.string().optional(),
   category: z.enum(["overall", "single-season", "manager"]),
   section: z.string(),
@@ -172,6 +173,8 @@ export const recordResponse = z.object({
     countedOnly: z.boolean(),
     combineTeams: z.boolean(),
     minGames: z.number().optional(),
+    sort: z.string().optional(),
+    dir: z.enum(["asc", "desc"]).optional(),
     limit: z.number(),
     offset: z.number(),
   }),
