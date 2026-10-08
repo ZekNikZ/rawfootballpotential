@@ -32,8 +32,6 @@ export function RecordSection({ sectionKey, title, records }: Props) {
           aria-label={`${title} record`}
           value={def.id}
           allowDeselect={false}
-          searchable
-          nothingFoundMessage="No matching record"
           maxDropdownHeight={420}
           data={records.map((r) => ({ value: r.id, label: r.title }))}
           renderOption={({ option, checked }) => (
