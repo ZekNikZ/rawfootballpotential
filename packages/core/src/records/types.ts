@@ -118,6 +118,8 @@ export interface RecordDef {
   activeReverse?: ActivePolicy;
   /** Show every row (manager tables), not a paged top list. */
   displayAll?: boolean;
+  /** Positions the Position filter offers (default: all); the record's query only ever covers these. */
+  positionOptions?: readonly (typeof POSITIONS)[number][];
   /** Presets baked into the record (e.g. player "benched highest" = bench slot); the user can't change these. */
   preset?: Partial<Record<FilterKey, unknown>>;
   /** Filter values used when the request does not set them (unlike `preset`, the user can change these). */

@@ -253,6 +253,18 @@ describe("draft value (2031 snake draft: round 1 QBs, round 2 RBs, round 3 WRs, 
     );
   });
 
+  it("a position filter ranks steals within that position only", async () => {
+    const all = await w.run("draft.steal", { limit: 50 });
+    const rb = await w.run("draft.steal", { positions: "RB", limit: 50 });
+    expect(rb.total).toBeGreaterThan(0);
+    expect(rb.total).toBeLessThan(all.total);
+    expect(rb.rows.every((r) => r.values.pick && String(r.values.player).length > 0)).toBe(true);
+    // Only RBs: finishes are ranks among the six RBs, so none exceeds six.
+    expect(Math.max(...rb.rows.map((r) => r.values.finish as number))).toBeLessThanOrEqual(6);
+    const kicker = await w.run("draft.steal", { positions: "K", limit: 5 });
+    expect(kicker.rows).toEqual([]);
+  });
+
   it("best pick of each round, and the best and worst draft classes", async () => {
     // Team 3's players lead every round: QB 275, RB 165, WR 110 over 2031's five weeks.
     const byRound = await w.run("draft.best-by-round");

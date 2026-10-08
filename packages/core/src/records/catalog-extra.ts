@@ -750,7 +750,8 @@ const drafts: RecordDef[] = [
       section: "Draft Results",
       grain: "draft_pick",
       engine: "draftValue",
-      filters: ["seasons", "franchise", "onePer"],
+      filters: ["seasons", "franchise", "positions", "onePer"],
+      positionOptions: ["QB", "RB", "WR", "TE"],
       requires: req("playerData", "draft"),
       active: "complete_only",
     },
@@ -765,7 +766,7 @@ const drafts: RecordDef[] = [
       c("finish", "Finished as #", "int"),
       c("gain", "Places gained", "int"),
     ],
-    "Picks that outscored (steal) or underperformed (bust) their draft slot, among QB, RB, WR and TE drafted in the same draft. Ranked by places gained, biggest steal first."
+    "Picks that outscored (steal) or underperformed (bust) their draft slot, among QB, RB, WR and TE drafted in the same draft (with a position selected, ranked only against that position's picks). Ranked by places gained, biggest steal first."
   ),
   rec(
     "draft.best-by-round",
