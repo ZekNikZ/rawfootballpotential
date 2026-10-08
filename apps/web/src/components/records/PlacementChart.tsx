@@ -1,4 +1,5 @@
 import { Button, Group, SegmentedControl, Skeleton, Stack, Text, Title } from "@mantine/core";
+import { BackToTop } from "./BackToTop";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { placementsQuery } from "../../api/queries";
@@ -112,6 +113,7 @@ export function PlacementChart() {
           </Text>
         </>
       )}
+      <BackToTop />
     </Stack>
   );
 }

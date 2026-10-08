@@ -69,6 +69,9 @@ export const recordQuerySchema = z.object({
   /** Player season records: sum a player across the teams he played for. */
   combineTeams: bool.default(false),
   minGames: z.coerce.number().int().min(1).max(40).optional(),
+  /** Column key to order the rows by; the rank column keeps the record's own ranking (see rank.ts). */
+  sort: z.string().min(1).max(40).optional(),
+  dir: z.enum(["asc", "desc"]).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(25),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -82,3 +85,36 @@ export function queryKey(q: RecordQuery): string {
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(entries);
 }
+
+/**
+ * Records that were folded into another record when the table became sortable: the old id still works in the API and
+ * runs the surviving record sorted the other way (the ranked column flipped).
+ */
+export const RECORD_ALIASES: Readonly<
+  Record<string, { id: string; sort: string; dir: "asc" | "desc" }>
+> = {
+  "score.low": { id: "score.high", sort: "points", dir: "asc" },
+  "narrow-win": { id: "blowout", sort: "margin", dir: "asc" },
+  "teamwide.low": { id: "teamwide.high", sort: "teamwide", dir: "asc" },
+  "bench.low": { id: "bench.high", sort: "bench", dir: "asc" },
+  "potential.low": { id: "potential.high", sort: "potential", dir: "asc" },
+  "actual.low": { id: "actual.high", sort: "points", dir: "asc" },
+  "ratio.low": { id: "ratio.high", sort: "ratio", dir: "asc" },
+  "player.roster.low": { id: "player.roster.high", sort: "points", dir: "asc" },
+  "player.starter.low": { id: "player.starter.high", sort: "points", dir: "asc" },
+  "player.bench.low": { id: "player.bench.high", sort: "points", dir: "asc" },
+  "season.pf.low": { id: "season.pf.high", sort: "pf", dir: "asc" },
+  "season.pa.low": { id: "season.pa.high", sort: "pa", dir: "asc" },
+  "season.winpct.low": { id: "season.winpct.high", sort: "winPct", dir: "asc" },
+  "season.iq.low": { id: "season.iq.high", sort: "lineupIq", dir: "asc" },
+  "season.trades.fewest": { id: "season.trades.most", sort: "trades", dir: "asc" },
+  "season.claims.fewest": { id: "season.claims.most", sort: "claims", dir: "asc" },
+  "season.faab.least": { id: "season.faab.most", sort: "spent", dir: "asc" },
+  "season.retention.low": { id: "season.retention.high", sort: "retentionPct", dir: "asc" },
+  "season.luck.low": { id: "season.luck.high", sort: "luck", dir: "asc" },
+  "season.schedule.worst": { id: "season.schedule.best", sort: "winPct", dir: "asc" },
+  "draft.class.worst": { id: "draft.class.best", sort: "classPoints", dir: "asc" },
+  "draft.bust": { id: "draft.steal", sort: "gain", dir: "asc" },
+  "projection.bust": { id: "projection.boom", sort: "delta", dir: "asc" },
+  "projection.player.bust": { id: "projection.player.boom", sort: "delta", dir: "asc" },
+};

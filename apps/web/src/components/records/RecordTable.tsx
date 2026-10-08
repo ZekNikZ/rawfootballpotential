@@ -8,12 +8,14 @@ import {
   Table,
   Text,
 } from "@mantine/core";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { recordQuery } from "../../api/queries";
-import type { CatalogRecord } from "../../api/schemas";
+import type { CatalogRecord, Column } from "../../api/schemas";
 import type { Params } from "../../api/client";
 import { EmptyState, QueryError } from "../QueryState";
-import { NUMERIC_TYPES, renderCell } from "./cells";
+import { CaretDown, CaretUp } from "@phosphor-icons/react";
+import { NUMERIC_TYPES, SORTABLE_TYPES, renderCell } from "./cells";
 import classes from "./RecordTable.module.css";
 
 export const PAGE_SIZES = [5, 10, 20, 50, 100];
@@ -27,11 +29,28 @@ interface Props {
   size: number;
   onPage: (page: number) => void;
   onSize: (size: number) => void;
+  /** Column key and direction the user sorted by (URL state); undefined = the record's own order. */
+  sort?: string;
+  dir?: "asc" | "desc";
+  onSort: (key: string, dir: "asc" | "desc") => void;
 }
 
 const SKELETON_ROWS = 8;
 
-export function RecordTable({ leagueSlug, def, filters, page, size, onPage, onSize }: Props) {
+export function RecordTable({
+  leagueSlug,
+  def,
+  filters,
+  page,
+  size,
+  onPage,
+  onSize,
+  sort,
+  dir,
+  onSort,
+}: Props) {
+  const activeKey = sort ?? def.sortKey;
+  const activeDir = dir ?? (activeKey === def.sortKey ? def.direction : "desc");
   const paged = !def.displayAll;
   const params: Params = paged
     ? { ...filters, limit: size, offset: (page - 1) * size }
@@ -40,6 +59,20 @@ export function RecordTable({ leagueSlug, def, filters, page, size, onPage, onSi
   const data = query.data;
   const columns = data?.meta.columns ?? def.columns;
   const pages = data ? Math.max(1, Math.ceil(data.total / size)) : 1;
+  // A table wider than its column scrolls inside a height-limited box (so its header can still stick); a table that
+  // fits sticks to the page instead.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const check = () => setScrolls(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [query.isError, columns.length]);
   const inProgressSeason = data && !paged && data.rows.some((r) => r.inProgress);
 
   return (
@@ -47,7 +80,7 @@ export function RecordTable({ leagueSlug, def, filters, page, size, onPage, onSi
       {query.isError && !data ? (
         <QueryError error={query.error} onRetry={() => void query.refetch()} />
       ) : (
-        <Table.ScrollContainer minWidth={420} type="native">
+        <div ref={wrapRef} className={classes.wrap} data-scroll={scrolls ? "" : undefined}>
           <Table
             withTableBorder
             className={classes.table}
@@ -61,8 +94,21 @@ export function RecordTable({ leagueSlug, def, filters, page, size, onPage, onSi
                     key={col.key}
                     className={i === 0 ? classes.sticky : undefined}
                     data-numeric={NUMERIC_TYPES.has(col.type) ? "" : undefined}
+                    aria-sort={
+                      col.key === activeKey && SORTABLE_TYPES.has(col.type)
+                        ? activeDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : undefined
+                    }
                   >
-                    {col.title}
+                    <SortHeader
+                      col={col}
+                      active={col.key === activeKey}
+                      dir={activeDir}
+                      firstDir={firstSortDir(col, def)}
+                      onSort={onSort}
+                    />
                   </Table.Th>
                 ))}
               </Table.Tr>
@@ -107,7 +153,7 @@ export function RecordTable({ leagueSlug, def, filters, page, size, onPage, onSi
               ))}
             </Table.Tbody>
           </Table>
-        </Table.ScrollContainer>
+        </div>
       )}
       {data && data.rows.length === 0 && <EmptyState>No results for these filters.</EmptyState>}
       <Group gap="md" align="center" justify="space-between">
@@ -135,5 +181,40 @@ export function RecordTable({ leagueSlug, def, filters, page, size, onPage, onSi
         </Text>
       </Group>
     </Stack>
+  );
+}
+
+/** The direction a first click on a column sorts by: the ranked column keeps the record's own, text goes A-Z. */
+function firstSortDir(col: Column, def: CatalogRecord): "asc" | "desc" {
+  if (col.key === def.sortKey) return def.direction;
+  return col.type === "text" || col.type === "player" ? "asc" : "desc";
+}
+
+function SortHeader({
+  col,
+  active,
+  dir,
+  firstDir,
+  onSort,
+}: {
+  col: Column;
+  active: boolean;
+  dir: "asc" | "desc";
+  firstDir: "asc" | "desc";
+  onSort: (key: string, dir: "asc" | "desc") => void;
+}) {
+  if (!SORTABLE_TYPES.has(col.type)) return <>{col.title}</>;
+  const Icon = dir === "asc" ? CaretUp : CaretDown;
+  return (
+    <button
+      type="button"
+      className={classes.sortButton}
+      data-active={active ? "" : undefined}
+      title={`Sort by ${col.title}`}
+      onClick={() => onSort(col.key, active ? (dir === "asc" ? "desc" : "asc") : firstDir)}
+    >
+      {col.title}
+      <Icon size={12} weight="bold" className={classes.sortIcon} aria-hidden />
+    </button>
   );
 }

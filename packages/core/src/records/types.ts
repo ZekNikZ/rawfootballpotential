@@ -76,11 +76,27 @@ export interface ColumnDef {
   ranked?: boolean;
 }
 
+/** Column types the table can be sorted by (entity columns are resolved after the query, so they cannot be). */
+export const SORTABLE_COLUMN_TYPES: ReadonlySet<ColumnType> = new Set<ColumnType>([
+  "int",
+  "decimal",
+  "points",
+  "pct",
+  "currency",
+  "text",
+  "player",
+  "season",
+  "week",
+  "scoreline",
+]);
+
 export type RecordCategory = "overall" | "single-season" | "manager";
 
 export interface RecordDef {
   id: string;
   title: string;
+  /** One short line for the record picker (about 60 characters); `description` is the full text. */
+  summary?: string;
   description?: string;
   category: RecordCategory;
   /** Heading shown above the record picker (the legacy category names). */
@@ -95,6 +111,11 @@ export interface RecordDef {
   filters: readonly FilterKey[];
   requires: readonly Requirement[];
   active: ActivePolicy;
+  /**
+   * Policy used instead of `active` when the ranked column is sorted against the record's own direction (e.g. the
+   * "fewest" view of a "most" record, which must not show a partial season).
+   */
+  activeReverse?: ActivePolicy;
   /** Show every row (manager tables), not a paged top list. */
   displayAll?: boolean;
   /** Presets baked into the record (e.g. player "benched highest" = bench slot); the user can't change these. */

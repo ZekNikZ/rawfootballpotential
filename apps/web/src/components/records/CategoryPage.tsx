@@ -4,6 +4,7 @@ import { catalogQuery } from "../../api/queries";
 import type { CatalogRecord } from "../../api/schemas";
 import { useLeague } from "../../lib/league-context";
 import { QueryError } from "../QueryState";
+import { SectionNav } from "./SectionNav";
 import { RecordSection } from "./RecordSection";
 import { slugify } from "./section-state";
 
@@ -37,12 +38,14 @@ export function CategoryPage({
   }
 
   return (
-    <Stack gap={40}>
-      {[...sections].map(([title, records]) => (
-        <RecordSection key={title} sectionKey={slugify(title)} title={title} records={records} />
-      ))}
-      {sections.size === 0 && <Title order={3}>No records in this category yet.</Title>}
-      {children}
-    </Stack>
+    <SectionNav>
+      <Stack gap={40}>
+        {[...sections].map(([title, records]) => (
+          <RecordSection key={title} sectionKey={slugify(title)} title={title} records={records} />
+        ))}
+        {sections.size === 0 && <Title order={3}>No records in this category yet.</Title>}
+        {children}
+      </Stack>
+    </SectionNav>
   );
 }

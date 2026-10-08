@@ -69,11 +69,6 @@ const SPECS: Record<string, Spec> = {
     where: sql`tw.projected_points > 0`,
     data: sql`jsonb_build_object('projected', tw.projected_points::float8, 'delta', (tw.points - tw.projected_points)::float8)`,
   },
-  "projection.bust": {
-    value: sql`(tw.points - tw.projected_points)`,
-    where: sql`tw.projected_points > 0`,
-    data: sql`jsonb_build_object('projected', tw.projected_points::float8, 'delta', (tw.points - tw.projected_points)::float8)`,
-  },
   // A win despite the largest projected deficit.
   "projection.upset": {
     value: sql`(tw.opp_projected - tw.projected_points)`,

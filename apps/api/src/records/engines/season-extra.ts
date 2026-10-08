@@ -1,7 +1,7 @@
 import { sql } from "@rfp/db";
 import type { SQL } from "@rfp/db";
 import { scopeCond, seasonCond, weeksCond, type RankedRow, type RunContext } from "../context";
-import { rankRows } from "../rank";
+import { rankDirection, rankRows } from "../rank";
 import { minGames, seasonStatsCte } from "./season-base";
 
 const seasonRefs = sql`jsonb_build_object('franchiseId', franchise_id, 'teamSeasonId', team_season_id, 'leagueSeasonId', league_season_id, 'season', season)`;
@@ -58,7 +58,8 @@ export async function allPlayRecord(ctx: RunContext): Promise<RankedRow[]> {
  * opponent each week is faced in its place; weeks where that opponent was the team itself are skipped.
  */
 export async function scheduleSwapRecord(ctx: RunContext): Promise<RankedRow[]> {
-  const best = ctx.def.id === "season.schedule.best";
+  // Each team is paired with its best schedule when ranking best-first, its worst when ranking worst-first.
+  const best = rankDirection(ctx) === "desc";
   const order = best
     ? sql`pct desc, l asc, sched_team_season_id`
     : sql`pct asc, l desc, sched_team_season_id`;

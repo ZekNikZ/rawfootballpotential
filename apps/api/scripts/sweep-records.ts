@@ -1,6 +1,6 @@
 // Runs every record in the catalog against the dev database with a handful of filter combinations and reports
 // errors and timings. Usage: pnpm --filter @rfp/api sweep-records [id-prefix]
-import { RECORD_CATALOG } from "@rfp/core";
+import { RECORD_CATALOG, SORTABLE_COLUMN_TYPES } from "@rfp/core";
 import { createDb, league, loadEnvFile } from "@rfp/db";
 import { runRecord } from "../src/records/run";
 
@@ -21,8 +21,12 @@ let failures = 0;
 let runs = 0;
 let slowest = { ms: 0, label: "" };
 for (const def of RECORD_CATALOG.filter((r) => r.id.startsWith(prefix))) {
+  // Every sortable column both ways, as the table headers send it.
+  const sorts = def.columns
+    .filter((col) => SORTABLE_COLUMN_TYPES.has(col.type))
+    .flatMap((col) => (["asc", "desc"] as const).map((dir) => ({ sort: col.key, dir })));
   for (const l of leagues) {
-    for (const combo of combos) {
+    for (const combo of [...combos, ...sorts]) {
       const started = Date.now();
       try {
         await runRecord(db, l.id, def.id, combo, { noCache: true });

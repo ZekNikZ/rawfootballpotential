@@ -75,7 +75,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "luck.unluckiest-loss",
     "Unluckiest loss",
-    gameBase("Luck and Regret"),
+    gameBase("Luck & Misses"),
     "rankText",
     "asc",
     luckCols,
@@ -84,7 +84,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "luck.luckiest-win",
     "Luckiest win",
-    gameBase("Luck and Regret"),
+    gameBase("Luck & Misses"),
     "rankText",
     "desc",
     luckCols,
@@ -93,7 +93,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "shouldve-won",
     "Should've won",
-    gameBase("Luck and Regret", { requires: req("playerData") }),
+    gameBase("Luck & Misses", { requires: req("playerData") }),
     "left",
     "desc",
     leftCols,
@@ -102,7 +102,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "contender.eliminated",
     "Coulda been a contender",
-    gameBase("Luck and Regret", {
+    gameBase("Luck & Misses", {
       filters: ["seasons", "weeks", "franchise", "opponent", "onePer"],
       requires: req("playerData"),
     }),
@@ -114,7 +114,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "median.won-h2h-lost",
     "Won the game, lost the median",
-    gameBase("Luck and Regret"),
+    gameBase("Luck & Misses"),
     "gap",
     "asc",
     [TEAM, WEEK, OPPONENT, SCORE, c("median", "Median", "points"), c("gap", "Vs median", "points")],
@@ -123,7 +123,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "median.lost-h2h-won",
     "Lost the game, won the median",
-    gameBase("Luck and Regret"),
+    gameBase("Luck & Misses"),
     "gap",
     "desc",
     [TEAM, WEEK, OPPONENT, SCORE, c("median", "Median", "points"), c("gap", "Vs median", "points")],
@@ -132,7 +132,7 @@ const luckAndRegret: RecordDef[] = [
   rec(
     "heartbreak.playoff-loss",
     "Closest playoff loss",
-    gameBase("Luck and Regret", {
+    gameBase("Luck & Misses", {
       filters: ["seasons", "weeks", "franchise", "opponent", "onePer"],
       preset: { scope: "playoffs" },
     }),
@@ -146,7 +146,7 @@ const luckAndRegret: RecordDef[] = [
 const projections: RecordDef[] = [
   rec(
     "projection.boom",
-    "Biggest team boom",
+    "Team score vs. projection",
     gameBase("Projections", { requires: req("playerData", "projections") }),
     "delta",
     "desc",
@@ -158,23 +158,7 @@ const projections: RecordDef[] = [
       c("projected", "Projected", "points"),
       c("delta", "Over", "points"),
     ],
-    "Team score above the starters' projections."
-  ),
-  rec(
-    "projection.bust",
-    "Biggest team bust",
-    gameBase("Projections", { requires: req("playerData", "projections") }),
-    "delta",
-    "asc",
-    [
-      TEAM,
-      WEEK,
-      OPPONENT,
-      SCORE,
-      c("projected", "Projected", "points"),
-      c("delta", "Over", "points"),
-    ],
-    "Team score below the starters' projections."
+    "Team score above (boom) or below (bust) the starters' projections. Ranked by the difference, biggest boom first."
   ),
   rec(
     "projection.upset",
@@ -195,7 +179,7 @@ const projections: RecordDef[] = [
   ),
 ];
 
-const playerProjection = (id: string, title: string, direction: "asc" | "desc", text: string) =>
+const playerProjection = (id: string, title: string, text: string) =>
   rec(
     id,
     title,
@@ -209,7 +193,7 @@ const playerProjection = (id: string, title: string, direction: "asc" | "desc", 
       preset: { slots: ["starter"] },
     },
     "delta",
-    direction,
+    "desc",
     [
       c("player", "Player", "player"),
       TEAM,
@@ -224,15 +208,8 @@ const playerProjection = (id: string, title: string, direction: "asc" | "desc", 
 const playerProjections: RecordDef[] = [
   playerProjection(
     "projection.player.boom",
-    "Biggest player boom",
-    "desc",
-    "A starter's points above his projection. Starters who were on a bye or inactive are left out."
-  ),
-  playerProjection(
-    "projection.player.bust",
-    "Biggest player bust",
-    "asc",
-    "A starter's points below his projection. Starters who were on a bye or inactive are left out."
+    "Player score vs. projection",
+    "A starter's points above (boom) or below (bust) his projection. Ranked by the difference, biggest boom first. Starters who were on a bye or inactive are left out."
   ),
 ];
 
@@ -240,7 +217,7 @@ const gameOther: RecordDef[] = [
   rec(
     "oneman.high",
     "One-man show",
-    gameBase("Other", { requires: req("playerData") }),
+    gameBase("Matchup Scores", { requires: req("playerData") }),
     "share",
     "desc",
     [
@@ -257,7 +234,7 @@ const gameOther: RecordDef[] = [
   rec(
     "era.score",
     "Highest score, era-adjusted",
-    gameBase("Other"),
+    gameBase("Matchup Scores"),
     "zscore",
     "desc",
     [TEAM, WEEK, OPPONENT, SCORE, c("zscore", "Weekly z-score", "decimal")],
@@ -271,7 +248,7 @@ const deadCols = [
   c("pointsLost", "Lost", "points"),
 ];
 const nflBase = (extra: Partial<Base> = {}): Base =>
-  gameBase("NFL Byes and Inactives", { requires: req("playerData"), ...extra });
+  gameBase("Byes & Inactives", { requires: req("playerData"), ...extra });
 const nflReference: RecordDef[] = [
   rec(
     "asleep.week",
@@ -323,7 +300,7 @@ const nflReference: RecordDef[] = [
     "NFL game stack",
     {
       category: "overall",
-      section: "NFL Byes and Inactives",
+      section: "Byes & Inactives",
       grain: "team_week",
       engine: "nflStack",
       filters: GAME_FILTERS,
@@ -364,7 +341,7 @@ const allplay: RecordDef[] = [
   rec(
     "season.allplay.high",
     "Best all-play record",
-    seasonBase("Luck and Schedule", "allPlay", {
+    seasonBase("Luck & Schedule", "allPlay", {
       active: "flag",
       qualifier: { minGames: 8 },
       preset: { scope: "regular" },
@@ -377,9 +354,10 @@ const allplay: RecordDef[] = [
   ),
   rec(
     "season.luck.high",
-    "Luckiest season",
-    seasonBase("Luck and Schedule", "allPlay", {
+    "Luck in a season",
+    seasonBase("Luck & Schedule", "allPlay", {
       active: "flag",
+      activeReverse: "complete_only",
       qualifier: { minGames: 8 },
       preset: { scope: "regular" },
       filters: ["seasons", "franchise", "onePer", "minGames"],
@@ -387,21 +365,7 @@ const allplay: RecordDef[] = [
     "luck",
     "desc",
     seasonLuckCols,
-    "Actual wins minus the wins the all-play record predicts."
-  ),
-  rec(
-    "season.luck.low",
-    "Unluckiest season",
-    seasonBase("Luck and Schedule", "allPlay", {
-      active: "complete_only",
-      qualifier: { minGames: 8 },
-      preset: { scope: "regular" },
-      filters: ["seasons", "franchise", "onePer", "minGames"],
-    }),
-    "luck",
-    "asc",
-    seasonLuckCols,
-    "Actual wins minus the wins the all-play record predicts."
+    "Actual wins minus the wins the all-play record predicts. Ranked luckiest first; sort the other way for the unluckiest."
   ),
 ];
 const scheduleCols = [
@@ -415,27 +379,15 @@ const scheduleCols = [
 const schedule: RecordDef[] = [
   rec(
     "season.schedule.best",
-    "Best possible record",
-    seasonBase("Luck and Schedule", "scheduleSwap", {
+    "Record with every other schedule",
+    seasonBase("Luck & Schedule", "scheduleSwap", {
       active: "complete_only",
       filters: ["seasons", "franchise", "onePer"],
     }),
     "winPct",
     "desc",
     scheduleCols,
-    "Your regular-season scores against each other team's schedule. Games where that schedule faced you are skipped."
-  ),
-  rec(
-    "season.schedule.worst",
-    "Worst possible record",
-    seasonBase("Luck and Schedule", "scheduleSwap", {
-      active: "complete_only",
-      filters: ["seasons", "franchise", "onePer"],
-    }),
-    "winPct",
-    "asc",
-    scheduleCols,
-    "Your regular-season scores against each other team's schedule. Games where that schedule faced you are skipped."
+    "Your regular-season scores against each other team's schedule. Games where that schedule faced you are skipped. Ranked best possible record first; sort the other way for the worst."
   ),
 ];
 
@@ -450,7 +402,7 @@ const weeklyCounts: RecordDef[] = [
   rec(
     "season.top-scorer",
     "Most weeks as the top scorer",
-    seasonBase("Weekly Highs and Lows", "weeklyCounts", { active: "flag" }),
+    seasonBase("Weekly Highs & Lows", "weeklyCounts", { active: "flag" }),
     "count",
     "desc",
     weeklyCols,
@@ -459,7 +411,7 @@ const weeklyCounts: RecordDef[] = [
   rec(
     "season.bottom-scorer",
     "Most weeks as the lowest scorer",
-    seasonBase("Weekly Highs and Lows", "weeklyCounts", { active: "flag" }),
+    seasonBase("Weekly Highs & Lows", "weeklyCounts", { active: "flag" }),
     "count",
     "desc",
     weeklyCols,
@@ -479,7 +431,7 @@ const seedFinish: RecordDef[] = [
   rec(
     "seed.lowest-champion",
     "Lowest seed to win the title",
-    seasonBase("Seeds and Finishes", "seedFinish", {
+    seasonBase("Seeds & Finishes", "seedFinish", {
       active: "complete_only",
       preset: { scope: "regular" },
       filters: ["seasons", "franchise", "onePer"],
@@ -491,7 +443,7 @@ const seedFinish: RecordDef[] = [
   rec(
     "seed.top-worst",
     "Worst finish by a top seed",
-    seasonBase("Seeds and Finishes", "seedFinish", {
+    seasonBase("Seeds & Finishes", "seedFinish", {
       active: "complete_only",
       preset: { scope: "regular" },
       filters: ["seasons", "franchise", "onePer"],
@@ -503,7 +455,7 @@ const seedFinish: RecordDef[] = [
   rec(
     "seed.worst-record-playoffs",
     "Worst record to make the playoffs",
-    seasonBase("Seeds and Finishes", "seedFinish", {
+    seasonBase("Seeds & Finishes", "seedFinish", {
       active: "complete_only",
       preset: { scope: "regular" },
       filters: ["seasons", "median", "franchise", "onePer"],
@@ -515,7 +467,7 @@ const seedFinish: RecordDef[] = [
   rec(
     "seed.best-record-missed",
     "Best record to miss the playoffs",
-    seasonBase("Seeds and Finishes", "seedFinish", {
+    seasonBase("Seeds & Finishes", "seedFinish", {
       active: "complete_only",
       preset: { scope: "regular" },
       filters: ["seasons", "median", "franchise", "onePer"],
@@ -527,7 +479,7 @@ const seedFinish: RecordDef[] = [
   rec(
     "champ.worst",
     "Worst champion",
-    seasonBase("Seeds and Finishes", "seedFinish", {
+    seasonBase("Seeds & Finishes", "seedFinish", {
       active: "complete_only",
       preset: { scope: "regular" },
       filters: ["seasons", "franchise", "onePer"],
@@ -540,7 +492,7 @@ const seedFinish: RecordDef[] = [
   rec(
     "champ.best-non",
     "Best team that didn't win the title",
-    seasonBase("Seeds and Finishes", "seedFinish", {
+    seasonBase("Seeds & Finishes", "seedFinish", {
       active: "complete_only",
       preset: { scope: "regular" },
       filters: ["seasons", "franchise", "onePer"],
@@ -563,7 +515,7 @@ const trajectory: RecordDef[] = [
   rec(
     "trajectory.weeks-first",
     "Most weeks in first place without winning the title",
-    seasonBase("Seeds and Finishes", "trajectory", {
+    seasonBase("Seeds & Finishes", "trajectory", {
       active: "complete_only",
       filters: ["seasons", "franchise", "onePer"],
     }),
@@ -575,7 +527,7 @@ const trajectory: RecordDef[] = [
   rec(
     "trajectory.fall",
     "Biggest fall from first place",
-    seasonBase("Seeds and Finishes", "trajectory", {
+    seasonBase("Seeds & Finishes", "trajectory", {
       active: "complete_only",
       filters: ["seasons", "weeks", "franchise", "onePer"],
     }),
@@ -586,17 +538,18 @@ const trajectory: RecordDef[] = [
   ),
 ];
 
-const draftClass = (id: string, title: string, direction: "asc" | "desc") =>
+const draftClass = (id: string, title: string) =>
   rec(
     id,
     title,
-    seasonBase("Draft", "draftClass", {
-      active: direction === "asc" ? "complete_only" : "flag",
+    seasonBase("Draft Results", "draftClass", {
+      active: "flag",
+      activeReverse: "complete_only",
       filters: ["seasons", "scope", "franchise", "onePer"],
       requires: req("playerData", "draft"),
     }),
     "classPoints",
-    direction,
+    "desc",
     [
       TEAM,
       SEASON,
@@ -605,12 +558,9 @@ const draftClass = (id: string, title: string, direction: "asc" | "desc") =>
       c("starters", "Started", "int"),
       c("bestPick", "Best pick", "text"),
     ],
-    "Starter points the team got from the players it drafted that season, while it rostered them."
+    "Starter points the team got from the players it drafted that season, while it rostered them. Ranked best class first; sort the other way for the worst."
   );
-const draftClasses: RecordDef[] = [
-  draftClass("draft.class.best", "Best draft class", "desc"),
-  draftClass("draft.class.worst", "Worst draft class", "asc"),
-];
+const draftClasses: RecordDef[] = [draftClass("draft.class.best", "Draft class")];
 
 // ---- Overall: players, drafts, transactions ---------------------------------------------------------------------
 const pickupBase = (section: string, extra: Partial<Base> = {}): Base => ({
@@ -634,7 +584,7 @@ const pickups: RecordDef[] = [
   rec(
     "pickup.best",
     "Best waiver pickup",
-    pickupBase("Pickups and Trades"),
+    pickupBase("Waivers & Trades"),
     "starterPoints",
     "desc",
     pickupCols,
@@ -643,7 +593,7 @@ const pickups: RecordDef[] = [
   rec(
     "pickup.value",
     "Best value pickup",
-    pickupBase("Pickups and Trades", { requires: req("transactions", "playerData", "faab") }),
+    pickupBase("Waivers & Trades", { requires: req("transactions", "playerData", "faab") }),
     "pointsPerDollar",
     "desc",
     [...pickupCols, c("pointsPerDollar", "Points per $", "decimal")],
@@ -652,7 +602,7 @@ const pickups: RecordDef[] = [
   rec(
     "pickup.faab-per-point",
     "Most FAAB per point",
-    pickupBase("Pickups and Trades", { requires: req("transactions", "playerData", "faab") }),
+    pickupBase("Waivers & Trades", { requires: req("transactions", "playerData", "faab") }),
     "dollarsPerPoint",
     "desc",
     [...pickupCols, c("dollarsPerPoint", "$ per point", "decimal")],
@@ -661,7 +611,7 @@ const pickups: RecordDef[] = [
   rec(
     "drop-regret",
     "Drop regret",
-    pickupBase("Pickups and Trades", { grain: "player_season", engine: "dropRegret" }),
+    pickupBase("Waivers & Trades", { grain: "player_season", engine: "dropRegret" }),
     "points",
     "desc",
     [
@@ -686,7 +636,7 @@ const trades: RecordDef[] = [
   rec(
     "trade.best",
     "Best trade",
-    pickupBase("Pickups and Trades", { grain: "transaction", engine: "tradeValue" }),
+    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
     "sidePoints",
     "desc",
     tradeCols,
@@ -695,7 +645,7 @@ const trades: RecordDef[] = [
   rec(
     "trade.lopsided",
     "Most lopsided trade",
-    pickupBase("Pickups and Trades", { grain: "transaction", engine: "tradeValue" }),
+    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
     "difference",
     "desc",
     tradeCols,
@@ -715,7 +665,7 @@ const tenureRecords: RecordDef[] = [
     "Journeyman: most franchises",
     {
       category: "overall",
-      section: "Players",
+      section: "Player Tenures",
       grain: "player_season",
       engine: "journeyman",
       filters: ["seasons"],
@@ -736,7 +686,7 @@ const tenureRecords: RecordDef[] = [
     "Journeyman: most teams in a season",
     {
       category: "overall",
-      section: "Players",
+      section: "Player Tenures",
       grain: "player_season",
       engine: "journeyman",
       filters: ["seasons", "onePer"],
@@ -757,7 +707,7 @@ const tenureRecords: RecordDef[] = [
     "Loyalty: longest stint with one franchise",
     {
       category: "overall",
-      section: "Players",
+      section: "Player Tenures",
       grain: "player_season",
       engine: "loyalty",
       filters: ["seasons", "franchise"],
@@ -773,7 +723,7 @@ const tenureRecords: RecordDef[] = [
     "Boomerang: longest time away",
     {
       category: "overall",
-      section: "Players",
+      section: "Player Tenures",
       grain: "player_season",
       engine: "loyalty",
       filters: ["seasons", "franchise"],
@@ -794,10 +744,10 @@ const tenureRecords: RecordDef[] = [
 const drafts: RecordDef[] = [
   rec(
     "draft.steal",
-    "Draft steal",
+    "Draft steals and busts",
     {
       category: "overall",
-      section: "Draft",
+      section: "Draft Results",
       grain: "draft_pick",
       engine: "draftValue",
       filters: ["seasons", "franchise", "onePer"],
@@ -815,39 +765,14 @@ const drafts: RecordDef[] = [
       c("finish", "Finished as #", "int"),
       c("gain", "Places gained", "int"),
     ],
-    "Picks that outscored their draft slot most, among QB, RB, WR and TE drafted in the same draft."
-  ),
-  rec(
-    "draft.bust",
-    "Draft bust",
-    {
-      category: "overall",
-      section: "Draft",
-      grain: "draft_pick",
-      engine: "draftValue",
-      filters: ["seasons", "franchise", "onePer"],
-      requires: req("playerData", "draft"),
-      active: "complete_only",
-    },
-    "gain",
-    "asc",
-    [
-      c("player", "Player", "player"),
-      TEAM,
-      SEASON,
-      c("pick", "Pick", "text"),
-      c("points", "Season points", "points"),
-      c("finish", "Finished as #", "int"),
-      c("gain", "Places gained", "int"),
-    ],
-    "Picks that fell furthest short of their draft slot, among QB, RB, WR and TE drafted in the same draft."
+    "Picks that outscored (steal) or underperformed (bust) their draft slot, among QB, RB, WR and TE drafted in the same draft. Ranked by places gained, biggest steal first."
   ),
   rec(
     "draft.best-by-round",
     "Best pick of each round",
     {
       category: "overall",
-      section: "Draft",
+      section: "Draft Results",
       grain: "draft_pick",
       engine: "draftValue",
       filters: ["seasons", "franchise"],
@@ -871,7 +796,7 @@ const drafts: RecordDef[] = [
     "Best auction value",
     {
       category: "overall",
-      section: "Draft",
+      section: "Draft Results",
       grain: "draft_pick",
       engine: "draftValue",
       filters: ["seasons", "franchise", "onePer"],
@@ -895,7 +820,7 @@ const drafts: RecordDef[] = [
     "Worst auction value",
     {
       category: "overall",
-      section: "Draft",
+      section: "Draft Results",
       grain: "draft_pick",
       engine: "draftValue",
       filters: ["seasons", "franchise", "onePer"],
@@ -994,7 +919,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.shouldve-won",
     "Most should've-won losses",
-    careerBase("Luck and Regret", "careerRegret", { requires: req("playerData") }),
+    careerBase("Luck & Misses", "careerRegret", { requires: req("playerData") }),
     "count",
     "desc",
     regretCols,
@@ -1003,7 +928,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.contender",
     "Most coulda-been-a-contender eliminations",
-    careerBase("Luck and Regret", "careerRegret", {
+    careerBase("Luck & Misses", "careerRegret", {
       requires: req("playerData"),
       filters: ["seasons"],
     }),
@@ -1015,7 +940,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.blunders",
     "Most bye-week blunders that cost a game",
-    careerBase("NFL Byes and Inactives", "careerRegret", { requires: req("playerData") }),
+    careerBase("Byes & Inactives", "careerRegret", { requires: req("playerData") }),
     "count",
     "desc",
     regretCols,
@@ -1024,7 +949,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.close.wins",
     "Most close-game wins",
-    careerBase("Close Games and Blowouts", "careerMargins"),
+    careerBase("Close Games & Blowouts", "careerMargins"),
     "wins",
     "desc",
     marginCols,
@@ -1033,7 +958,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.close.losses",
     "Most close-game losses",
-    careerBase("Close Games and Blowouts", "careerMargins"),
+    careerBase("Close Games & Blowouts", "careerMargins"),
     "losses",
     "desc",
     marginCols,
@@ -1042,7 +967,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.blowout.wins",
     "Most blowout wins",
-    careerBase("Close Games and Blowouts", "careerMargins"),
+    careerBase("Close Games & Blowouts", "careerMargins"),
     "wins",
     "desc",
     marginCols,
@@ -1051,7 +976,7 @@ const careerLuck: RecordDef[] = [
   rec(
     "career.blowout.losses",
     "Most blowout losses",
-    careerBase("Close Games and Blowouts", "careerMargins"),
+    careerBase("Close Games & Blowouts", "careerMargins"),
     "losses",
     "desc",
     marginCols,
@@ -1068,7 +993,7 @@ const careerWeekly: RecordDef[] = [
   rec(
     "career.top-scorer",
     "Most weeks as the top scorer",
-    careerBase("Weekly Highs and Lows", "careerWeekly"),
+    careerBase("Weekly Highs & Lows", "careerWeekly"),
     "count",
     "desc",
     weeklyCareerCols,
@@ -1077,7 +1002,7 @@ const careerWeekly: RecordDef[] = [
   rec(
     "career.bottom-scorer",
     "Most weeks as the lowest scorer",
-    careerBase("Weekly Highs and Lows", "careerWeekly"),
+    careerBase("Weekly Highs & Lows", "careerWeekly"),
     "count",
     "desc",
     weeklyCareerCols,
@@ -1086,7 +1011,7 @@ const careerWeekly: RecordDef[] = [
   rec(
     "career.asleep",
     "Most starters on a bye or inactive",
-    careerBase("NFL Byes and Inactives", "careerWeekly", { requires: req("playerData") }),
+    careerBase("Byes & Inactives", "careerWeekly", { requires: req("playerData") }),
     "count",
     "desc",
     [
@@ -1109,7 +1034,7 @@ const careerRuns: RecordDef[] = [
   rec(
     "drought.title",
     "Longest title drought",
-    careerBase("Droughts and Dynasties", "careerRuns", { filters: ["seasons"] }),
+    careerBase("Droughts & Dynasties", "careerRuns", { filters: ["seasons"] }),
     "run",
     "desc",
     runCols,
@@ -1118,7 +1043,7 @@ const careerRuns: RecordDef[] = [
   rec(
     "streak.playoffs",
     "Most consecutive playoff appearances",
-    careerBase("Droughts and Dynasties", "careerRuns", { filters: ["seasons"] }),
+    careerBase("Droughts & Dynasties", "careerRuns", { filters: ["seasons"] }),
     "run",
     "desc",
     runCols
@@ -1126,7 +1051,7 @@ const careerRuns: RecordDef[] = [
   rec(
     "streak.toilet-bowl",
     "Most consecutive toilet bowl appearances",
-    careerBase("Droughts and Dynasties", "careerRuns", { filters: ["seasons"] }),
+    careerBase("Droughts & Dynasties", "careerRuns", { filters: ["seasons"] }),
     "run",
     "desc",
     runCols
@@ -1145,7 +1070,7 @@ const careerDifferentials: RecordDef[] = [
   rec(
     "career.diff.avg",
     "Highest average point differential",
-    careerBase("Point Differential", "careerDifferential"),
+    careerBase("Point Differentials", "careerDifferential"),
     "avg",
     "desc",
     diffCols,
@@ -1154,7 +1079,7 @@ const careerDifferentials: RecordDef[] = [
   rec(
     "career.diff.min",
     "Worst single-game point differential",
-    careerBase("Point Differential", "careerDifferential"),
+    careerBase("Point Differentials", "careerDifferential"),
     "min",
     "asc",
     diffCols,
@@ -1163,7 +1088,7 @@ const careerDifferentials: RecordDef[] = [
   rec(
     "career.diff.max",
     "Best single-game point differential",
-    careerBase("Point Differential", "careerDifferential"),
+    careerBase("Point Differentials", "careerDifferential"),
     "max",
     "desc",
     diffCols,
@@ -1172,7 +1097,7 @@ const careerDifferentials: RecordDef[] = [
   rec(
     "career.diff.stddev",
     "Most volatile point differential",
-    careerBase("Point Differential", "careerDifferential"),
+    careerBase("Point Differentials", "careerDifferential"),
     "stddev",
     "desc",
     diffCols,

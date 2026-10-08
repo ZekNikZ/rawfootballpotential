@@ -3,10 +3,13 @@ import { dataVersion, leagueSeason, recordCache, and, eq, sql } from "@rfp/db";
 import type { Db } from "@rfp/db";
 import {
   FILTER_KEYS,
+  RECORD_ALIASES,
+  SORTABLE_COLUMN_TYPES,
   getRecordDef,
   queryKey,
   recordQuerySchema,
   selectSeasons,
+  type ActivePolicy,
   type RecordDef,
   type RecordQuery,
   type Requirement,
@@ -67,7 +70,7 @@ import { minGames } from "./engines/season-base";
  * Bump when the shape of every record response changes; old cache rows then stop matching. A change to one record is
  * a bump of that record's `version` in the catalog instead.
  */
-export const RESPONSE_VERSION = 1;
+export const RESPONSE_VERSION = 2;
 
 const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
   teamWeek: teamWeekRecord,
@@ -170,7 +173,31 @@ export function normalizeForRecord(def: RecordDef, raw: Record<string, unknown>)
     if (!def.filters.includes(key)) q[key] = (defaults as Record<string, unknown>)[key];
   }
   for (const [key, value] of Object.entries(def.preset ?? {})) q[key] = value;
+  normalizeSort(def, q);
   return q as RecordQuery;
+}
+
+/** Validate `sort` / `dir` against the record's columns and drop them when they equal the default order (cache key). */
+function normalizeSort(def: RecordDef, q: Record<string, unknown>) {
+  if (q.sort === undefined && q.dir === undefined) return;
+  const key = (q.sort as string | undefined) ?? def.sortKey;
+  const col = def.columns.find((c) => c.key === key);
+  if (!col || !SORTABLE_COLUMN_TYPES.has(col.type))
+    throw new RecordError(400, `sort: ${key} is not a sortable column of ${def.id}`);
+  const ranked = key === def.sortKey;
+  const dir = (q.dir as "asc" | "desc" | undefined) ?? (ranked ? def.direction : "desc");
+  if (ranked && dir === def.direction) {
+    delete q.sort;
+    delete q.dir;
+  } else {
+    q.sort = key;
+    q.dir = dir;
+  }
+}
+
+/** The in-progress-season policy for this query: sorting the ranked column against the default direction may use another. */
+function activePolicy(def: RecordDef, q: RecordQuery): ActivePolicy {
+  return q.sort === def.sortKey && def.activeReverse ? def.activeReverse : def.active;
 }
 
 async function eligibleSeasons(db: Db, leagueId: number, def: RecordDef, q: RecordQuery) {
@@ -186,7 +213,9 @@ async function eligibleSeasons(db: Db, leagueId: number, def: RecordDef, q: Reco
     satisfying.map((s) => s.year)
   );
   const picked = satisfying.filter(
-    (s) => years.includes(s.year) && (def.active !== "complete_only" || s.status === "complete")
+    (s) =>
+      years.includes(s.year) &&
+      (activePolicy(def, q) !== "complete_only" || s.status === "complete")
   );
   return {
     seasonIds: picked.map((s) => s.id),
@@ -238,6 +267,17 @@ export async function runRecord(
   rawQuery: Record<string, unknown>,
   options: RunOptions = {}
 ): Promise<RecordResponse> {
+  const alias = RECORD_ALIASES[recordId];
+  if (alias) {
+    // A record folded into another: run the survivor sorted the way the old one was.
+    return runRecord(
+      db,
+      leagueId,
+      alias.id,
+      { sort: alias.sort, dir: alias.dir, ...rawQuery },
+      options
+    );
+  }
   const def = getRecordDef(recordId);
   if (!def) throw new RecordError(404, `unknown record ${recordId}`);
   const q = normalizeForRecord(def, rawQuery);
@@ -285,7 +325,7 @@ export async function runRecord(
       direction: def.direction,
       sortKey: def.sortKey,
       columns: def.columns,
-      active: def.active,
+      active: activePolicy(def, q),
       requires: def.requires,
       displayAll: def.displayAll ?? false,
       qualifier: def.qualifier

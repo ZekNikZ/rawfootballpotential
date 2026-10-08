@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { RECORD_CATALOG, getRecordDef } from "./catalog";
+import { SORTABLE_COLUMN_TYPES } from "./types";
 import { RECORD_DESCRIPTIONS } from "./descriptions";
-import { parseSeasons, queryKey, recordQuerySchema, selectSeasons } from "./query";
+import { RECORD_SUMMARIES } from "./summaries";
+import { RECORD_ALIASES, parseSeasons, queryKey, recordQuerySchema, selectSeasons } from "./query";
 
 describe("record catalog", () => {
   it("gives every record a description, and descriptions.ts has no stale ids", () => {
@@ -10,6 +12,16 @@ describe("record catalog", () => {
     const ids = new Set(RECORD_CATALOG.map((r) => r.id));
     for (const id of Object.keys(RECORD_DESCRIPTIONS))
       expect(ids.has(id), `${id} exists`).toBe(true);
+  });
+
+  it("gives every record a short picker summary, and summaries.ts has no stale ids", () => {
+    for (const r of RECORD_CATALOG) {
+      const len = r.summary?.trim().length ?? 0;
+      expect(len, `${r.id} has a summary`).toBeGreaterThan(5);
+      expect(len, `${r.id} summary is one short line`).toBeLessThanOrEqual(70);
+    }
+    const ids = new Set(RECORD_CATALOG.map((r) => r.id));
+    for (const id of Object.keys(RECORD_SUMMARIES)) expect(ids.has(id), `${id} exists`).toBe(true);
   });
 
   it("has unique ids, and every record ranks by one of its own columns", () => {
@@ -70,7 +82,17 @@ describe("record catalog", () => {
       "Highest average points against per game (PAPG)",
     ];
     const names = new Set(RECORD_CATALOG.map((r) => r.legacyName));
-    for (const n of legacy) expect(names.has(n), n).toBe(true);
+    // Legacy records that became the other direction of a sortable record (see RECORD_ALIASES).
+    const folded = new Set([
+      "Lowest score",
+      "Narrowest win",
+      "Lowest teamwide score",
+      "Lowest bench score",
+      "Lowest potential points",
+      "Lowest actual points",
+      "Lowest realized points ratio",
+    ]);
+    for (const n of legacy) expect(names.has(n) || folded.has(n), n).toBe(true);
     expect(legacy.length).toBe(36);
   });
 
@@ -92,11 +114,30 @@ describe("record catalog", () => {
   });
 
   it("declares data requirements and active-season policies (doc 3.3)", () => {
-    expect(getRecordDef("season.pf.low")?.active).toBe("complete_only");
+    expect(getRecordDef("season.pf.high")?.activeReverse).toBe("complete_only");
     expect(getRecordDef("season.pf.high")?.active).toBe("flag");
     expect(getRecordDef("score.high")?.active).toBe("include");
     expect(getRecordDef("waiver.faab-high")?.requires).toContain("faab");
     expect(getRecordDef("potential.high")?.requires).toContain("playerData");
+  });
+
+  it("keeps the old ids of folded records working as sorted views of the survivor", () => {
+    for (const [oldId, alias] of Object.entries(RECORD_ALIASES)) {
+      expect(getRecordDef(oldId), `${oldId} is gone from the catalog`).toBeUndefined();
+      const target = getRecordDef(alias.id);
+      expect(target, `${oldId} -> ${alias.id}`).toBeDefined();
+      expect(alias.sort, `${oldId} sorts the ranked column`).toBe(target?.sortKey);
+      expect(alias.dir, `${oldId} flips the direction`).not.toBe(target?.direction);
+    }
+  });
+
+  it("only offers sorting on columns the API can order by", () => {
+    for (const r of RECORD_CATALOG) {
+      const ranked = r.columns.find((col) => col.key === r.sortKey);
+      expect(SORTABLE_COLUMN_TYPES.has(ranked!.type), `${r.id} ranked column is sortable`).toBe(
+        true
+      );
+    }
   });
 
   it("transaction records declare which types count (doc 2)", () => {

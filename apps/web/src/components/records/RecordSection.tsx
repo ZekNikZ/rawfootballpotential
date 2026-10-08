@@ -1,8 +1,10 @@
-import { NativeSelect, Stack, Text, Title } from "@mantine/core";
+import { Group, Select, Stack, Text, Title } from "@mantine/core";
+import { Check } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { recordQuery } from "../../api/queries";
 import type { CatalogRecord } from "../../api/schemas";
 import { useLeague } from "../../lib/league-context";
+import { BackToTop } from "./BackToTop";
 import { FilterBar } from "./filters";
 import { RecordTable } from "./RecordTable";
 import { DEFAULT_PAGE_SIZE, useSectionState } from "./section-state";
@@ -26,13 +28,35 @@ export function RecordSection({ sectionKey, title, records }: Props) {
         {title}
       </Title>
       {records.length > 1 && (
-        <NativeSelect
+        <Select
           aria-label={`${title} record`}
           value={def.id}
-          onChange={(e) =>
-            state.update({ rec: e.target.value === records[0]?.id ? undefined : e.target.value })
-          }
+          allowDeselect={false}
+          searchable
+          nothingFoundMessage="No matching record"
+          maxDropdownHeight={420}
           data={records.map((r) => ({ value: r.id, label: r.title }))}
+          renderOption={({ option, checked }) => (
+            <Group gap="xs" wrap="nowrap" justify="space-between" w="100%">
+              <div>
+                <Text size="sm" fw={checked ? 600 : 400}>
+                  {option.label}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {records.find((r) => r.id === option.value)?.summary}
+                </Text>
+              </div>
+              {checked && <Check size={14} weight="bold" aria-hidden />}
+            </Group>
+          )}
+          onChange={(value) => {
+            if (!value) return;
+            state.update({
+              rec: value === records[0]?.id ? undefined : value,
+              sort: undefined,
+              dir: undefined,
+            });
+          }}
         />
       )}
       {def.description && (
@@ -47,6 +71,7 @@ export function RecordSection({ sectionKey, title, records }: Props) {
         state={state}
         leagueSlug={league.slug}
       />
+      <BackToTop />
     </Stack>
   );
 }
@@ -86,6 +111,15 @@ function SectionBody({
         leagueSlug={leagueSlug}
         def={def}
         filters={state.apiParams}
+        sort={state.sort}
+        dir={state.dir}
+        onSort={(key, dir) =>
+          state.update(
+            key === def.sortKey && dir === def.direction
+              ? { sort: undefined, dir: undefined }
+              : { sort: key, dir }
+          )
+        }
         page={state.page}
         size={state.size === DEFAULT_PAGE_SIZE ? DEFAULT_PAGE_SIZE : state.size}
         onPage={(p) => state.update({ page: p === 1 ? undefined : String(p) }, { keepPage: true })}

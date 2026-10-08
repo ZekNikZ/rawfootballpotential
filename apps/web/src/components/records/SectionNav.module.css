@@ -1,0 +1,64 @@
+.root {
+  /* Where sticky table headers stick: below the app header and this bar. */
+  --table-sticky-top: calc(var(--app-shell-header-offset, 60px) + var(--section-nav-height));
+  --section-nav-height: 46px;
+}
+
+.bar {
+  position: sticky;
+  top: var(--app-shell-header-offset, 60px);
+  z-index: 20;
+  height: var(--section-nav-height);
+  /* Cancel the page padding above the bar so it sits flush under the app header. */
+  margin-top: calc(var(--mantine-spacing-md) * -1);
+  margin-bottom: var(--mantine-spacing-lg);
+  background-color: var(--mantine-color-body);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.scroller {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.tab {
+  flex: none;
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--mantine-color-dimmed);
+  font: inherit;
+  font-size: var(--mantine-font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+
+  &[data-active] {
+    color: var(--mantine-color-text);
+    border-bottom-color: var(--mantine-primary-color-filled);
+    font-weight: 600;
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      color: var(--mantine-color-text);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mantine-primary-color-filled);
+    outline-offset: -2px;
+  }
+}
+
+.root :global(h2[id^="h-"]) {
+  scroll-margin-top: calc(var(--table-sticky-top) + 12px);
+}

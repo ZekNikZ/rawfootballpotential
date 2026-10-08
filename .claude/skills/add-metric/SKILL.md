@@ -27,6 +27,8 @@ have, e.g. lineups, so ESPN 2020 weeks without lineups are excluded) and `active
 URLs: never rename one casually.
 **Every record needs a description** (shown under the picker): in `catalog-extra.ts` pass it as the 7th argument of `rec(...)`; in `catalog.ts` the 7th
 argument is the legacy name, so put the description in `packages/core/src/records/descriptions.ts` instead. A test fails without one.
+**Every record also needs a `summary`** (one line, at most 70 characters, shown under its name in the picker): add it to `packages/core/src/records/summaries.ts`. A test fails without one.
+**Do not add a separate "lowest" version of a record.** Tables sort by any column, and sorting the ranked column the other way is the opposite ranking. Add one record, name it neutrally, and if the two directions need different in-progress-season handling set `activeReverse`. If you fold or remove a record id, add it to `RECORD_ALIASES` (query.ts) and delete its admin settings in a migration (see 0008).
 
 ## 3. Engine (`apps/api/src/records/engines/*`)
 
