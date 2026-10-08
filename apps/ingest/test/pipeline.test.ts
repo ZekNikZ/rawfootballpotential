@@ -81,6 +81,13 @@ describe("season normalization from Sleeper payloads", () => {
     });
   });
 
+  it("ignores the stale per-roster division when the league has divisions off", async () => {
+    const [row] = await q<{ n: string }>(
+      sql`select count(*) n from team_season where league_season_id = ${seasonId} and division is not null`
+    );
+    expect(Number(row?.n)).toBe(0);
+  });
+
   it("classifies games from the brackets; the unbracketed playoff-week game is 'none' (doc §2)", async () => {
     const rows = await q<{ game_type: string; n: string }>(
       sql`select game_type::text, count(*) n from matchup where league_season_id = ${seasonId} group by 1`

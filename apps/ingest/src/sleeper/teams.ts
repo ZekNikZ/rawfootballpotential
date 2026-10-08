@@ -11,6 +11,20 @@ import { and, eq, inArray } from "@rfp/db";
 import { log } from "../lib/log";
 import type { SleeperBracketGame, SleeperLeague, SleeperRoster, SleeperUser } from "./schemas";
 
+/**
+ * A team's division name, or null. The league's own `divisions` setting decides whether divisions exist at all: a
+ * league that turned them off keeps the old per-roster `division` numbers, which Sleeper ignores and so must we.
+ */
+export function divisionLabel(
+  leagueDivisions: number | null | undefined,
+  metadata: Record<string, unknown> | null | undefined,
+  rosterDivision: number | null | undefined
+): string | null {
+  if (!leagueDivisions || leagueDivisions < 1 || !rosterDivision) return null;
+  const v = metadata?.[`division_${rosterDivision}`];
+  return typeof v === "string" ? v : `Division ${rosterDivision}`;
+}
+
 const avatarUrl = (a: string | null | undefined) =>
   a ? (/^https?:\/\//.test(a) ? a : `https://sleepercdn.com/avatars/${a}`) : null;
 
@@ -117,11 +131,8 @@ export async function syncTeams(db: Db, input: SyncTeamsInput): Promise<TeamsRes
     for (const t of [g.t1, g.t2]) if (typeof t === "number") inBracket.add(t);
   const bracketKnown = (input.winners?.length ?? 0) > 0;
 
-  const divisionName = (n: number | null | undefined) => {
-    if (!n) return null;
-    const v = league.metadata?.[`division_${n}`];
-    return typeof v === "string" ? v : `Division ${n}`;
-  };
+  const divisionName = (n: number | null | undefined) =>
+    divisionLabel(league.settings.divisions, league.metadata, n);
 
   const result: TeamsResult = { teamSeasonByRoster: new Map(), franchiseByRoster: new Map() };
 

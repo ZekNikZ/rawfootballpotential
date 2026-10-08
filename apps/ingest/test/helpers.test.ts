@@ -3,6 +3,7 @@ import { canonicalTeam } from "../src/nfl/reference";
 import { hashParams } from "../src/lib/raw-store";
 import { scoreProjection } from "../src/sleeper/projections";
 import { lastWeekOf, playoffRounds, weekStatuses } from "../src/sleeper/season";
+import { divisionLabel } from "../src/sleeper/teams";
 
 describe("weekStatuses", () => {
   const clock = (season: number, week: number, seasonType: string) => ({
@@ -81,5 +82,22 @@ describe("raw-store hashing and team aliases", () => {
     expect(canonicalTeam("SD")).toBe("LAC");
     expect(canonicalTeam("kc")).toBe("KC");
     expect(canonicalTeam(null)).toBeNull();
+  });
+});
+
+describe("divisionLabel", () => {
+  it("is null when the league has divisions turned off, whatever the roster still says", () => {
+    expect(divisionLabel(0, null, 1)).toBeNull();
+    expect(divisionLabel(0, { division_1: "East" }, 2)).toBeNull();
+    expect(divisionLabel(undefined, null, 1)).toBeNull();
+    expect(divisionLabel(null, null, 1)).toBeNull();
+  });
+  it("names the division when the league uses them (metadata name or a numbered default)", () => {
+    expect(divisionLabel(2, null, 1)).toBe("Division 1");
+    expect(divisionLabel(2, { division_2: "West" }, 2)).toBe("West");
+  });
+  it("is null for a roster with no division", () => {
+    expect(divisionLabel(2, null, null)).toBeNull();
+    expect(divisionLabel(2, null, 0)).toBeNull();
   });
 });
