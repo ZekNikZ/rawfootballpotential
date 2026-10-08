@@ -1133,6 +1133,27 @@ const careerRuns: RecordDef[] = [
   ),
 ];
 
+// ---- Power rankings ---------------------------------------------------------------------------------------------
+const powerCols = [
+  MANAGER,
+  c("rating", "Power Rating", "int"),
+  c("winChance", "Win % vs Average", "pct"),
+  c("games", "Games", "int"),
+  c("seasons", "Seasons", "int"),
+  c("missed", "Missed Seasons", "int"),
+];
+const powerRankings: RecordDef[] = [
+  rec(
+    "career.power",
+    "Power rating",
+    careerBase("Power Rankings", "careerPower", { filters: ["seasons"], active: "flag" }),
+    "rating",
+    "desc",
+    powerCols,
+    "An Elo rating built from every head-to-head game (regular season, playoffs and toilet bowl): everyone starts at 1500, each game moves the rating by up to 32 points times a margin factor (a blowout counts more than a squeaker, a favourite winning big counts less), and beating a stronger manager is worth more. Each season a manager sits out fades the rating 25% of the way toward 1400, so missing seasons always costs rating. Seasons still in progress are included and flagged."
+  ),
+];
+
 export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...luckAndRegret,
   ...projections,
@@ -1153,4 +1174,5 @@ export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...careerLuck,
   ...careerWeekly,
   ...careerRuns,
+  ...powerRankings,
 ];
