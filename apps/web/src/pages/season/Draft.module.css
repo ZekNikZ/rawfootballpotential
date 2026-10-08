@@ -22,9 +22,40 @@
   font-size: var(--mantine-font-size-sm);
 }
 
+/* The whole cell is tinted by the drafted player's position (same colours as the position pill). Light mode mixes the
+   colour into white, dark mode into the dark surface, so the text keeps its contrast in both. */
 .cell {
+  --pos: var(--mantine-color-gray-6);
   min-width: 128px;
   padding: var(--mantine-spacing-xs);
+  background-color: light-dark(
+    color-mix(in oklab, var(--pos) 20%, var(--mantine-color-white)),
+    color-mix(in oklab, var(--pos) 34%, var(--mantine-color-dark-7))
+  );
+
+  &[data-pos="QB"] {
+    --pos: var(--mantine-color-red-6);
+  }
+
+  &[data-pos="RB"] {
+    --pos: var(--mantine-color-green-6);
+  }
+
+  &[data-pos="WR"] {
+    --pos: var(--mantine-color-blue-6);
+  }
+
+  &[data-pos="TE"] {
+    --pos: var(--mantine-color-orange-6);
+  }
+
+  &[data-pos="K"] {
+    --pos: var(--mantine-color-grape-6);
+  }
+
+  &[data-pos="DEF"] {
+    --pos: var(--mantine-color-gray-6);
+  }
 }
 
 .empty {

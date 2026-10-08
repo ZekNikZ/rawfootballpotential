@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { sql } from "@rfp/db";
 import { buildApp } from "../src/app";
 import { parseFeed } from "../src/info/blog";
 import { createWorld, type World } from "./helpers";
@@ -153,6 +154,49 @@ describe("head-to-head, trophies and franchise profile", () => {
     expect((await get("/api/leagues/fx/trophies?season=2031")).body.seasonsIncluded).toEqual([
       2031,
     ]);
+  });
+
+  it("placement history: one final place per franchise and completed season", async () => {
+    const { status, body } = await get("/api/leagues/fx/placements");
+    expect(status).toBe(200);
+    const pts = body.points as Json[];
+    const name = (p: Json) => body.entities.franchises[p.franchiseId].teamName;
+    expect(body.seasonsIncluded).toEqual([2030, 2031]);
+    expect(
+      pts
+        .filter((p) => p.season === 2030 && p.place <= 3)
+        .map((p) => [p.place, name(p), p.teamCount])
+    ).toEqual([
+      [1, "Team 3", 6],
+      [2, "Team 1", 6],
+      [3, "Team 2", 6],
+    ]);
+    expect(pts.filter((p) => p.season === 2031)).toHaveLength(6);
+    expect(new Set(body.franchises).size).toBe(body.franchises.length);
+  });
+
+  it("draft picks carry the bye week of the player's NFL team that season", async () => {
+    const url = `/api/seasons/${w.fixture.seasonIds[2031]}/draft`;
+    const picks = (await get(url)).body.drafts[0].picks as Json[];
+    expect(picks.every((p) => p.byeWeek === null)).toBe(true); // no schedule data yet
+    const first = picks[0];
+    try {
+      await w.db.execute(sql`update player set nfl_team = 'ZZZ' where id = ${first.playerId}`);
+      await w.db.execute(
+        sql`insert into nfl_team_week (season, week, nfl_team, is_bye) values (2031, 7, 'ZZZ', true), (2031, 8, 'ZZZ', false)`
+      );
+      const after = (await get(url)).body.drafts[0].picks as Json[];
+      expect(after.find((p) => p.pickNo === first.pickNo)).toMatchObject({
+        nflTeam: "ZZZ",
+        byeWeek: 7,
+      });
+      expect(after.filter((p) => p.byeWeek !== null)).toHaveLength(
+        picks.filter((p) => p.playerId === first.playerId).length
+      );
+    } finally {
+      await w.db.execute(sql`delete from nfl_team_week where nfl_team = 'ZZZ'`);
+      await w.db.execute(sql`update player set nfl_team = null where id = ${first.playerId}`);
+    }
   });
 
   it("franchise profile: seasons, rank in every manager record, trophies", async () => {

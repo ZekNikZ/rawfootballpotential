@@ -1133,11 +1133,59 @@ const careerRuns: RecordDef[] = [
   ),
 ];
 
+const diffCols = [
+  MANAGER,
+  c("avg", "Average", "points"),
+  c("min", "Worst", "points"),
+  c("max", "Best", "points"),
+  c("stddev", "Std dev", "points"),
+  c("games", "Games", "int"),
+];
+const careerDifferentials: RecordDef[] = [
+  rec(
+    "career.diff.avg",
+    "Highest average point differential",
+    careerBase("Point Differential", "careerDifferential"),
+    "avg",
+    "desc",
+    diffCols,
+    "Average of points scored minus points allowed over a manager's head-to-head games (positive means they usually outscore their opponents). Two-week games and median games are not counted."
+  ),
+  rec(
+    "career.diff.min",
+    "Worst single-game point differential",
+    careerBase("Point Differential", "careerDifferential"),
+    "min",
+    "asc",
+    diffCols,
+    "The most lopsided loss: the lowest points scored minus points allowed in any one head-to-head game. Two-week games and median games are not counted."
+  ),
+  rec(
+    "career.diff.max",
+    "Best single-game point differential",
+    careerBase("Point Differential", "careerDifferential"),
+    "max",
+    "desc",
+    diffCols,
+    "The most lopsided win: the highest points scored minus points allowed in any one head-to-head game. Two-week games and median games are not counted."
+  ),
+  rec(
+    "career.diff.stddev",
+    "Most volatile point differential",
+    careerBase("Point Differential", "careerDifferential"),
+    "stddev",
+    "desc",
+    diffCols,
+    "Standard deviation of a manager's point differential across head-to-head games: high means results swing between blowouts and close games, low means steady margins. Needs at least two games. Two-week games and median games are not counted."
+  ),
+];
+
 // ---- Power rankings ---------------------------------------------------------------------------------------------
 const powerCols = [
   MANAGER,
   c("rating", "Power Rating", "int"),
-  c("winChance", "Win % vs Average", "pct"),
+  c("winPct", "Win %", "pct"),
+  c("placePct", "Weighted Placement", "pct"),
   c("games", "Games", "int"),
   c("seasons", "Seasons", "int"),
   c("missed", "Missed Seasons", "int"),
@@ -1146,11 +1194,16 @@ const powerRankings: RecordDef[] = [
   rec(
     "career.power",
     "Power rating",
-    careerBase("Power Rankings", "careerPower", { filters: ["seasons"], active: "flag" }),
+    careerBase("Power Rankings", "careerPower", {
+      filters: ["seasons"],
+      active: "flag",
+      version: 2,
+      readsAllSeasons: true,
+    }),
     "rating",
     "desc",
     powerCols,
-    "An Elo rating built from every head-to-head game (regular season, playoffs and toilet bowl): everyone starts at 1500, each game moves the rating by up to 32 points times a margin factor (a blowout counts more than a squeaker, a favourite winning big counts less), and beating a stronger manager is worth more. Each season a manager sits out fades the rating 25% of the way toward 1400, so missing seasons always costs rating. Seasons still in progress are included and flagged."
+    "A rating built from every head-to-head game (regular season, playoffs and toilet bowl) and every week's median score. It starts as an Elo: each game moves a rating by up to 32 points, more for a bigger margin (half as much weight on the margin as on the result), more when the underdog wins, and beating a stronger manager is worth more. Playoff wins and toilet-bowl losses count 1.5x, and medians count at half weight in every season. Each season a manager sits out fades the rating a quarter of the way toward a floor. The Elo is then adjusted for consistency (uneven season-to-season margins cost points for managers with 3+ seasons) and for final placements (each completed season adds or subtracts points for how it finished, scaled to league size, 1.5x), blended 75/25 with the career average weighted placement, and shown on a scale where the league average is 1500 and each standard deviation is 250 points, measured on the league's full history so a Seasons filter does not stretch it. Seasons still in progress are included and flagged."
   ),
 ];
 
@@ -1174,5 +1227,6 @@ export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...careerLuck,
   ...careerWeekly,
   ...careerRuns,
+  ...careerDifferentials,
   ...powerRankings,
 ];

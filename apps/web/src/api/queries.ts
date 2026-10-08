@@ -10,6 +10,7 @@ import {
   draftsResponse,
   matchupsResponse,
   picksResponse,
+  placementsResponse,
   teamsResponse,
   recordResponse,
   siteResponse,
@@ -55,6 +56,14 @@ export const h2hQuery = (league: string, params: Params) =>
     queryKey: ["h2h", league, params],
     queryFn: ({ signal }) => getJson(`/leagues/${league}/h2h`, h2hResponse, params, signal),
     placeholderData: keepPreviousData,
+    staleTime: MINUTE,
+  });
+
+export const placementsQuery = (league: string) =>
+  queryOptions({
+    queryKey: ["placements", league],
+    queryFn: ({ signal }) =>
+      getJson(`/leagues/${league}/placements`, placementsResponse, {}, signal),
     staleTime: MINUTE,
   });
 

@@ -51,7 +51,8 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 
 ## Product ideas that were deliberately not built
 
-- [x] **Power rating** built as `career.power` (Elo over actual games with log margin, K=32, 25% fade toward 1400 per missed season). Candidate follow-ups: a Version History entry announcing it; a regular-season-only variant; showing a "±" or a minimum-games note for one-season managers.
+- [x] **Power rating** built as `career.power` and revised on 2026-10-07 (half margin, zero-sum medians in all seasons, 1.5x playoff wins and toilet-bowl losses, consistency and placement adjustments, 25% blend with average weighted placement, dynamic 1500 / 250-per-sd scale; see `docs/records-architecture.md` section 3.11.3). Tried and dropped because they barely moved anything: new managers starting at the league average, a first-season boost. Candidate follow-ups: a Version History entry announcing the power rating and the point-differential records; a regular-season-only variant; a "±" or minimum-games note for one-season managers; an all-play Elo.
+- [x] **Point differential records** (`career.diff.avg/min/max/stddev`) and a placement-over-time chart on the managers page.
 
 - [ ] Cross-season streaks (currently per season; decided in `records-architecture.md` section 2).
 - [ ] TOTP second factor for admins (optional in the design; better-auth supports it).

@@ -1,5 +1,6 @@
 import { sql } from "@rfp/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runRecord } from "../src/records/run";
 import { createWorld, type World } from "./helpers";
 
 let w: World;
@@ -213,23 +214,113 @@ describe("a franchise that changed hands (doc §2: current manager in general, t
   });
 });
 
-describe("power rating (Elo over every counted game)", () => {
-  it("rates every manager, is zero-sum when nobody sat out, and honours the seasons filter", async () => {
+describe("power rating", () => {
+  it("rates every manager on the 1500 / 250-per-sd scale and honours the seasons filter", async () => {
     const res = await w.run("career.power");
     expect(res.rows.length).toBe(6);
     expect(res.meta.sortKey).toBe("rating");
     expect(res.rows.map((r) => r.rank)).toEqual([1, 2, 3, 4, 5, 6]);
-    const sum = res.rows.reduce((s, r) => s + (r.values.value as number), 0);
-    expect(sum).toBeCloseTo(6 * 1500, 2); // both seasons played by everyone: no fade
+    const values = res.rows.map((r) => r.values.value as number);
+    expect(values).toEqual([...values].sort((a, b) => b - a));
+    // calibrated on itself, the display scale averages 1500 with a standard deviation of 250
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    expect(mean).toBeCloseTo(1500, 1);
+    expect(Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length)).toBeCloseTo(
+      250,
+      0
+    );
     for (const r of res.rows) expect(r.values).toMatchObject({ seasons: 2, missed: 0 });
-    expect(res.rows[0]!.values.winChance as number).toBeGreaterThan(0.5);
-    expect(res.rows[5]!.values.winChance as number).toBeLessThan(0.5);
-    const games = (i: number) => res.rows[i]!.values.games as number;
-    expect(games(0)).toBeGreaterThan(5);
+    expect(res.rows[0]!.values.winPct as number).toBeGreaterThan(
+      res.rows[5]!.values.winPct as number
+    );
+    expect(res.rows[0]!.values.games as number).toBeGreaterThan(5);
+    expect(res.rows.every((r) => r.values.placePct !== undefined)).toBe(true);
 
+    // one season, scored on the full history's scale: the same managers, a different (narrower) spread
     const one = await w.run("career.power", { seasons: "2030" });
+    expect(one.rows.length).toBe(6);
     for (const r of one.rows) expect(r.values.seasons).toBe(1);
-    expect(one.rows.reduce((s, r) => s + (r.values.value as number), 0)).toBeCloseTo(6 * 1500, 2);
-    expect(one.rows.map((r) => r.values.value)).not.toEqual(res.rows.map((r) => r.values.value));
+    expect(one.rows.map((r) => r.values.value)).not.toEqual(values);
+    const ones = one.rows.map((r) => r.values.value as number);
+    const oneMean = ones.reduce((s, v) => s + v, 0) / ones.length;
+    expect(Math.sqrt(ones.reduce((s, v) => s + (v - oneMean) ** 2, 0) / ones.length)).toBeLessThan(
+      250
+    );
+  });
+});
+
+describe("power rating cache key", () => {
+  it("covers every season (it calibrates on the full history), unlike a record that reads only the filtered ones", async () => {
+    const season2031 = w.fixture.seasonIds[2031]!;
+    const key = async (id: string) =>
+      (await runRecord(w.db, w.fixture.leagueId, id, { seasons: "2030" }, { noCache: true }))
+        .dataVersion;
+    const power = await key("career.power");
+    const pf = await key("career.pf");
+    await w.db.execute(
+      sql`update data_version set version = version + 1 where league_season_id = ${season2031}`
+    );
+    expect(await key("career.power")).not.toBe(power);
+    expect(await key("career.pf")).toBe(pf);
+  });
+});
+
+describe("point differential records", () => {
+  /** Independent computation from the raw per-team game rows. */
+  async function truth() {
+    const rows = (
+      await w.db.execute<{ f: number; m: number }>(
+        sql`select franchise_id as f, margin::float8 as m from rec_team_week where margin is not null and span_weeks = 1`
+      )
+    ).rows;
+    const by = new Map<number, number[]>();
+    for (const r of rows) by.set(Number(r.f), [...(by.get(Number(r.f)) ?? []), Number(r.m)]);
+    return by;
+  }
+  const sd = (v: number[]) => {
+    const mu = v.reduce((s, x) => s + x, 0) / v.length;
+    return Math.sqrt(v.reduce((s, x) => s + (x - mu) ** 2, 0) / (v.length - 1));
+  };
+
+  it("reports the average, worst, best and standard deviation of each manager's game margins", async () => {
+    const t = await truth();
+    const res = await w.run("career.diff.avg");
+    expect(res.rows.length).toBe(6);
+    for (const r of res.rows) {
+      const f = r.refs.franchiseId as number;
+      const m = t.get(f)!;
+      expect(r.values.games).toBe(m.length);
+      expect(r.values.avg as number).toBeCloseTo(m.reduce((s, x) => s + x, 0) / m.length, 3);
+      expect(r.values.min as number).toBeCloseTo(Math.min(...m), 3);
+      expect(r.values.max as number).toBeCloseTo(Math.max(...m), 3);
+      expect(r.values.stddev as number).toBeCloseTo(sd(m), 3);
+    }
+    // every game has a winner and a loser, so margins cancel across the league
+    const total = res.rows.reduce(
+      (s, r) => s + (r.values.avg as number) * (r.values.games as number),
+      0
+    );
+    expect(total).toBeCloseTo(0, 2);
+  });
+
+  it("ranks highest average first, worst single game first, best single game first, most volatile first", async () => {
+    const avg = (await w.run("career.diff.avg")).rows.map((r) => r.values.value as number);
+    expect(avg).toEqual([...avg].sort((a, b) => b - a));
+    const min = (await w.run("career.diff.min")).rows.map((r) => r.values.value as number);
+    expect(min).toEqual([...min].sort((a, b) => a - b));
+    expect(min[0]!).toBeLessThan(0);
+    const max = (await w.run("career.diff.max")).rows.map((r) => r.values.value as number);
+    expect(max).toEqual([...max].sort((a, b) => b - a));
+    expect(max[0]!).toBeGreaterThan(0);
+    const dev = (await w.run("career.diff.stddev")).rows.map((r) => r.values.value as number);
+    expect(dev).toEqual([...dev].sort((a, b) => b - a));
+  });
+
+  it("honours the scope filter", async () => {
+    const reg = await w.run("career.diff.max", { scope: "regular" });
+    const all = await w.run("career.diff.max");
+    const top = (res: typeof reg) => Math.max(...res.rows.map((r) => r.values.max as number));
+    expect(top(reg)).toBeLessThanOrEqual(top(all));
+    for (const r of reg.rows) expect(r.values.games as number).toBeGreaterThan(0);
   });
 });

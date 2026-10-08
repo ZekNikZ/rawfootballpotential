@@ -19,7 +19,7 @@ import { RECORD_CATALOG, queryKey, recordQuerySchema, type Requirement } from "@
 import { z } from "zod";
 import type { Config } from "./config";
 import { blogPosts } from "./info/blog";
-import { franchiseEntities, headToHead, trophyCase } from "./info/league-data";
+import { franchiseEntities, headToHead, placementHistory, trophyCase } from "./info/league-data";
 import { franchiseProfile } from "./info/profile";
 import {
   drafts,
@@ -234,6 +234,11 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
       return sendCacheable(req, reply, await headToHead(db, lg.id, q), 60);
     }
   );
+
+  app.get<{ Params: { league: string } }>("/api/leagues/:league/placements", async (req, reply) => {
+    const lg = await leagueBySlug(db, req.params.league);
+    return sendCacheable(req, reply, await placementHistory(db, lg.id), 60);
+  });
 
   app.get<{ Params: { league: string }; Querystring: { season?: string } }>(
     "/api/leagues/:league/trophies",

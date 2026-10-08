@@ -261,4 +261,34 @@ export async function trophyCase(db: Db, leagueId: number, query: { season?: num
   };
 }
 
+export interface PlacementHistory {
+  /** One point per franchise and completed season: the final place out of that season's team count. */
+  points: { franchiseId: number; season: number; place: number; teamCount: number }[];
+  franchises: number[];
+  entities: Entities;
+  seasonsIncluded: number[];
+}
+
+/** Final placements of every franchise in every completed season (source of the placement-over-time chart). */
+export async function placementHistory(db: Db, leagueId: number): Promise<PlacementHistory> {
+  const res = await db.execute<{ f: number; season: number; place: number; teams: number }>(sql`
+    select franchise_id as f, season, final_place as place, team_count as teams
+    from rec_team_season
+    where league_id = ${leagueId} and season_complete and final_place is not null
+    order by season, final_place`);
+  const points = res.rows.map((r) => ({
+    franchiseId: Number(r.f),
+    season: Number(r.season),
+    place: Number(r.place),
+    teamCount: Number(r.teams),
+  }));
+  const franchises = [...new Set(points.map((p) => p.franchiseId))];
+  return {
+    points,
+    franchises,
+    entities: await franchiseEntities(db, franchises),
+    seasonsIncluded: [...new Set(points.map((p) => p.season))].sort((a, b) => a - b),
+  };
+}
+
 void inList;

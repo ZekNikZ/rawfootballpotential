@@ -76,5 +76,6 @@ changed. Commit on a branch; open a PR only if asked. In your answer say which c
 - **changed definition of an existing record:** increment its `version` in the catalog (`RecordDef.version`, default 1). It is part of
   the response-cache key (`versionKey` in `apps/api/src/records/run.ts`), so old cached answers stop matching on deploy and the API
   pre-warms the new ones at startup; no recompute is needed. Records sharing an engine do not share a version: if you change shared
-  engine code, bump every record that uses that engine. Bump `RESPONSE_VERSION` in `run.ts` only when the shape of _every_
+  engine code, bump every record that uses that engine. If the engine reads seasons outside the Seasons filter (as the power rating
+  does to calibrate its scale), set `readsAllSeasons: true` on the record so its cache key covers every season. Bump `RESPONSE_VERSION` in `run.ts` only when the shape of _every_
   response changes. A _derive_ change bumps `DERIVE_VERSION` (see step 4) instead.

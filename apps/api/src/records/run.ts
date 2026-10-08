@@ -42,6 +42,7 @@ import {
 } from "./engines/season-extra";
 import {
   careerMarginsRecord,
+  careerDifferentialRecord,
   careerRegretRecord,
   careerRunsRecord,
   careerWeeklyRecord,
@@ -102,6 +103,7 @@ const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
   draftValue: draftValueRecord,
   careerRegret: careerRegretRecord,
   careerMargins: careerMarginsRecord,
+  careerDifferential: careerDifferentialRecord,
   careerWeekly: careerWeeklyRecord,
   careerRuns: careerRunsRecord,
   careerPower: careerPowerRecord,
@@ -190,6 +192,7 @@ async function eligibleSeasons(db: Db, leagueId: number, def: RecordDef, q: Reco
     seasonIds: picked.map((s) => s.id),
     years: picked.map((s) => s.year).sort((a, b) => a - b),
     availableFrom: satisfying.length ? Math.min(...satisfying.map((s) => s.year)) : null,
+    allSeasonIds: all.map((s) => s.id),
   };
 }
 
@@ -239,7 +242,11 @@ export async function runRecord(
   if (!def) throw new RecordError(404, `unknown record ${recordId}`);
   const q = normalizeForRecord(def, rawQuery);
   const eligible = await eligibleSeasons(db, leagueId, def, q);
-  const version = await versionKey(db, eligible.seasonIds, def.version ?? 1);
+  const version = await versionKey(
+    db,
+    def.readsAllSeasons ? eligible.allSeasonIds : eligible.seasonIds,
+    def.version ?? 1
+  );
   const paramsHash = createHash("sha1")
     .update(`${leagueId}|${queryKey(q)}`)
     .digest("hex")
