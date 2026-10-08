@@ -1,0 +1,81 @@
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* keep the chart and its legend on one screen */
+  max-height: 44vh;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid {
+  stroke: var(--mantine-color-default-border);
+  stroke-width: 1;
+}
+
+.axis {
+  fill: var(--mantine-color-dimmed);
+  font-size: 11px;
+}
+
+.line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: opacity 120ms;
+
+  &[data-dim] {
+    opacity: 0.12;
+  }
+
+  &[data-active] {
+    stroke-width: 3.5;
+  }
+}
+
+.dot {
+  stroke: var(--mantine-color-body);
+  stroke-width: 1.5;
+  transition: opacity 120ms;
+
+  &[data-dim] {
+    opacity: 0.12;
+  }
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 5px;
+  border: 0;
+  border-radius: var(--mantine-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--mantine-font-size-xs);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--mantine-color-default-hover);
+  }
+
+  &[data-off] {
+    opacity: 0.45;
+    text-decoration: line-through;
+  }
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+}

@@ -70,6 +70,33 @@ export async function careerMarginsRecord(ctx: RunContext): Promise<RankedRow[]>
   return rankRows(ctx, inner);
 }
 
+/**
+ * Point differential per head-to-head game (points for minus points against; positive = outscored the opponent): the
+ * average, the worst (most negative) and best (most positive) single game, and the sample standard deviation. Two-week
+ * games and median games are not single matchups and are left out. One engine, four records (the sort key picks one).
+ */
+export async function careerDifferentialRecord(ctx: RunContext): Promise<RankedRow[]> {
+  const key = ctx.def.sortKey as "avg" | "min" | "max" | "stddev";
+  const r4 = (x: SQL) => sql`round((${x})::numeric, 4)::float8`;
+  const inner = sql`
+    with c as (
+      select tw.franchise_id, count(*) as games,
+             avg(tw.margin) as avg, min(tw.margin) as min, max(tw.margin) as max, stddev_samp(tw.margin) as stddev,
+             bool_or(ls.status <> 'complete') as in_progress
+      from rec_team_week tw join league_season ls on ls.id = tw.league_season_id
+      where ${seasonCond(sql`tw.league_season_id`, ctx.seasonIds)}
+        and ${scopeCond(sql`tw.game_type`, ctx.q.scope)}
+        and tw.margin is not null and tw.span_weeks = 1
+      group by tw.franchise_id
+    )
+    select ${r4(sql.raw(key))} as sort_value, 0 as season, franchise_id,
+           jsonb_build_object('avg', ${r4(sql`avg`)}, 'min', ${r4(sql`min`)}, 'max', ${r4(sql`max`)},
+                              'stddev', ${r4(sql`stddev`)}, 'games', games::int) as data,
+           ${franchiseRefs} as refs, in_progress, ${tieKey} as tie_key
+    from c`;
+  return rankRows(ctx, inner);
+}
+
 /** Weeks as top or lowest scorer, and starters on a bye or inactive, over a career. */
 export async function careerWeeklyRecord(ctx: RunContext): Promise<RankedRow[]> {
   const id = ctx.def.id;

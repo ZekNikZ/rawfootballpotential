@@ -26,7 +26,7 @@ code on the `rewrite` branch (commit hashes at the end). Design and definitions 
 | M4        | record engine and API, parity harness                                                                  |
 | M5, M7    | public site (records, franchises, trophies, standings, live matchups, teams, rosters, transactions...) |
 | M6        | better-auth, invite-only admin (config, corrections, thresholds, players, jobs, import, users, audit)  |
-| M8        | the remaining doc 4.5 records: 140 records in all                                                      |
+| M8        | the remaining doc 4.5 records: 140 records in all (144 after the point-differential records)                                                      |
 | M9        | ESPN scraper (desktop) and importer; 2020 and 2021 imported from real bundles                          |
 
 Tests: core 74, db 2, ingest 44, api 193, scraper 8, web 5; lint, typecheck and `prettier --check` are clean. CI

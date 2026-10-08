@@ -347,8 +347,14 @@ export async function drafts(db: Db, seasonId: number) {
     ? (
         await db.execute<Record<string, unknown>>(sql`
           select dp.draft_id, dp.pick_no, dp.round, dp.slot, dp.team_season_id, dp.original_team_season_id, dp.player_id, p.full_name as player,
-                 p.position, p.nfl_team, dp.amount, dp.is_keeper
-          from draft_pick dp left join player p on p.id = dp.player_id
+                 p.position, p.nfl_team, dp.amount, dp.is_keeper,
+                 (select min(b.week) from nfl_team_week b
+                   where b.season = ls.year and b.is_bye
+                     and b.nfl_team = coalesce((select a.nfl_team from nfl_team_alias a where a.alias = p.nfl_team limit 1), p.nfl_team)) as bye_week
+          from draft_pick dp
+          join draft dr on dr.id = dp.draft_id
+          join league_season ls on ls.id = dr.league_season_id
+          left join player p on p.id = dp.player_id
           where dp.draft_id in (${inList(ds.map((d) => Number(d.id)))}) order by dp.draft_id, dp.pick_no`)
       ).rows
     : [];
@@ -377,6 +383,8 @@ export async function drafts(db: Db, seasonId: number) {
           player: p.player,
           position: p.position,
           nflTeam: p.nfl_team,
+          // Bye week of the player's current NFL team in that season (no schedule data before 2021).
+          byeWeek: num(p.bye_week),
           amount: num(p.amount),
           isKeeper: Boolean(p.is_keeper),
         })),

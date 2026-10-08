@@ -113,4 +113,9 @@ export interface RecordDef {
    * share an engine do not share a version; if you change the shared engine code, bump every record that uses it.
    */
   version?: number;
+  /**
+   * The record reads every enabled season of the league, whatever the Seasons filter (e.g. it calibrates a scale on the
+   * full history), so its cache key covers all of them and a change in any season invalidates it.
+   */
+  readsAllSeasons?: boolean;
 }

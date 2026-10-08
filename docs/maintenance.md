@@ -31,6 +31,7 @@ nflverse ────┘   (every response cached)           (league, season, te
 | You changed | Bump | Why |
 | --- | --- | --- |
 | a record's query, columns, definition or ranking | that record's `version` in the catalog | cached answers stop matching on deploy |
+| a record that reads seasons outside its Seasons filter (the power rating calibrates on the full history) | set `readsAllSeasons: true` on it | its cache key then covers every season, so a change in any season invalidates it |
 | shared engine code (several records) | `version` of every record using that engine | records do not share a version |
 | only a record's description or title text | nothing | not part of the cached response (descriptions come from the catalog list) |
 | what derive computes (new stats column, changed logic) | `DERIVE_VERSION` (+ migration) | the worker re-derives stale seasons on start and bumps data versions |

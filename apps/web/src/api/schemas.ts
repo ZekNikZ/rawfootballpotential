@@ -239,6 +239,21 @@ export const trophiesResponse = z.object({
 });
 export type TrophiesResponse = z.infer<typeof trophiesResponse>;
 
+export const placementsResponse = z.object({
+  points: z.array(
+    z.object({
+      franchiseId: z.number(),
+      season: z.number(),
+      place: z.number(),
+      teamCount: z.number(),
+    })
+  ),
+  franchises: z.array(z.number()),
+  entities: entitiesSchema,
+  seasonsIncluded: z.array(z.number()),
+});
+export type PlacementHistory = z.infer<typeof placementsResponse>;
+
 export const franchisesResponse = z.object({
   franchises: z.array(z.number()),
   entities: entitiesSchema,
@@ -489,6 +504,7 @@ export const draftsResponse = z.object({
           player: z.string().nullable(),
           position: z.string().nullable(),
           nflTeam: z.string().nullable(),
+          byeWeek: nullableNum,
           amount: nullableNum,
           isKeeper: z.boolean(),
         })

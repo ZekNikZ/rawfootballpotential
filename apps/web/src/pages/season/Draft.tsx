@@ -69,13 +69,18 @@ function Board({ draft, entities }: { draft: Draft; entities: Drafts["entities"]
                     </Text>
                     <Group gap={4} wrap="nowrap">
                       {p.position && (
-                        <Badge size="xs" variant="light" color={POS_COLOR[p.position] ?? "gray"}>
+                        <Badge size="xs" variant="filled" color={POS_COLOR[p.position] ?? "gray"}>
                           {p.position}
                         </Badge>
                       )}
                       <Text fz="xs" c="dimmed">
                         {p.nflTeam ?? ""}
                       </Text>
+                      {p.byeWeek !== null && (
+                        <Text fz="xs" c="dimmed" title={`NFL bye week ${p.byeWeek}`}>
+                          · Bye {p.byeWeek}
+                        </Text>
+                      )}
                       {p.isKeeper && (
                         <Badge size="xs" variant="outline">
                           keeper
