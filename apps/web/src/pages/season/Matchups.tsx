@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Avatar,
   Badge,
   Card,
   Collapse,
@@ -11,6 +12,7 @@ import {
   Stack,
   Table,
   Text,
+  UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { CaretDown, CaretLeft, CaretRight } from "@phosphor-icons/react";
@@ -24,10 +26,11 @@ import type {
   Matchups as MatchupsData,
   Season,
 } from "../../api/schemas";
+import { PositionBadge } from "../../components/PositionBadge";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import { TeamLabel } from "../../components/TeamLabel";
 import classes from "./Matchups.module.css";
-import { fmtDecimal } from "../../lib/format";
+import { fmtDecimal, irMissingNote } from "../../lib/format";
 import { useLeague } from "../../lib/league-context";
 import { SeasonShell } from "./SeasonShell";
 
@@ -93,26 +96,35 @@ function LineupTable({ team, entities }: { team: MatchupTeam; entities: Entities
             {groups.map((g) => (
               <Table.Tbody key={g.title}>
                 <Table.Tr className={classes.group}>
-                  <Table.Td colSpan={4}>{g.title}</Table.Td>
+                  <Table.Td colSpan={4}>
+                    {g.title}
+                    {g.title === "Bench" && team.irUnrecorded > 0 ? "*" : ""} · {g.rows.length}
+                  </Table.Td>
                 </Table.Tr>
                 {g.rows.map((l) => (
-                  <Table.Tr key={`${l.slot}-${l.playerId}`}>
+                  <Table.Tr
+                    key={`${l.slot}-${l.playerId}`}
+                    className={l.slotKind === "starter" ? undefined : classes.secondary}
+                  >
                     <Table.Td c="dimmed">{l.slot === "BN" ? "BN" : l.slot}</Table.Td>
                     <Table.Td>
-                      {l.name}{" "}
-                      <Text span c="dimmed" fz="xs">
-                        {[l.position, l.nflTeam].filter(Boolean).join(" · ")}
-                      </Text>
-                      {l.onBye && (
-                        <Badge ml={4} size="xs" variant="light" color="gray">
-                          bye
-                        </Badge>
-                      )}
-                      {l.nflStatus && l.nflStatus.toUpperCase() !== "ACT" && !l.onBye && (
-                        <Badge ml={4} size="xs" variant="light" color="red">
-                          {l.nflStatus}
-                        </Badge>
-                      )}
+                      <Group gap={6} wrap="nowrap">
+                        <PositionBadge position={l.position} />
+                        <Text span>{l.name}</Text>
+                        <Text span c="dimmed" fz="xs">
+                          {l.nflTeam}
+                        </Text>
+                        {l.onBye && (
+                          <Badge ml={4} size="xs" variant="light" color="gray">
+                            bye
+                          </Badge>
+                        )}
+                        {l.nflStatus && l.nflStatus.toUpperCase() !== "ACT" && !l.onBye && (
+                          <Badge ml={4} size="xs" variant="light" color="red">
+                            {l.nflStatus}
+                          </Badge>
+                        )}
+                      </Group>
                     </Table.Td>
                     <Table.Td data-numeric="">
                       {l.points === null ? "–" : fmtDecimal(l.points)}
@@ -127,95 +139,126 @@ function LineupTable({ team, entities }: { team: MatchupTeam; entities: Entities
           </Table>
         </Table.ScrollContainer>
       )}
+      {team.irUnrecorded > 0 && (
+        <Text size="xs" c="dimmed">
+          * {irMissingNote(team.irUnrecorded)}
+        </Text>
+      )}
     </Stack>
   );
 }
 
-function GameCard({ game, entities, final }: { game: Game; entities: Entities; final: boolean }) {
+function Side({
+  team,
+  entities,
+  right,
+}: {
+  team: MatchupTeam;
+  entities: Entities;
+  right: boolean;
+}) {
+  const ts = entities.teamSeasons[String(team.teamSeasonId)];
+  const manager =
+    ts?.managerId == null ? null : (entities.managers[String(ts.managerId)]?.name ?? null);
+  const won = team.result === "W";
+  const dim = team.result === "L" ? "dimmed" : undefined;
+  const extra = [
+    team.projected !== null ? `proj ${fmtDecimal(team.projected)}` : null,
+    team.pointsOverridden ? "adjusted" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const avatar = (
+    <Avatar
+      src={team.avatar}
+      name={ts?.name}
+      color="initials"
+      radius="sm"
+      size={40}
+      className={classes.avatar}
+    />
+  );
+  const names = (
+    <Stack gap={0} miw={0} flex={1} ta={right ? "right" : "left"}>
+      <Text fw={won ? 700 : 600} c={dim} truncate>
+        {ts?.name ?? "Unknown team"}
+      </Text>
+      <Text size="xs" c="dimmed" truncate>
+        {manager ?? " "}
+      </Text>
+    </Stack>
+  );
+  const score = (
+    <Stack gap={0} className={classes.score} ta={right ? "left" : "right"}>
+      <Text fw={won ? 700 : 600} fz="xl" lh={1.2} c={dim}>
+        {fmtDecimal(team.points)}
+      </Text>
+      <Text size="xs" c="dimmed">
+        {extra || " "}
+      </Text>
+    </Stack>
+  );
+  return (
+    <Group wrap="nowrap" gap="sm" miw={0} align="center">
+      {right ? (
+        <>
+          {score}
+          {names}
+          {avatar}
+        </>
+      ) : (
+        <>
+          {avatar}
+          {names}
+          {score}
+        </>
+      )}
+    </Group>
+  );
+}
+
+function GameCard({ game, entities }: { game: Game; entities: Entities }) {
   const [open, { toggle }] = useDisclosure(false);
   const badges = gameBadges(game);
   const tie = game.teams.length === 2 && game.teams[0]?.result === "T";
+  const [home, away] = game.teams;
   return (
-    <Card
-      withBorder
-      radius="sm"
-      padding="sm"
-      className={classes.card}
-      data-open={open ? "" : undefined}
-    >
-      <Stack gap="xs">
-        {badges.length > 0 && (
-          <Group gap={6}>
-            {badges.map((b) => (
-              <Badge key={b.label} size="xs" variant="light" color={b.color}>
-                {b.label}
-              </Badge>
-            ))}
-          </Group>
-        )}
-        {game.teams.map((t) => {
-          const won = t.result === "W";
-          const lost = t.result === "L";
-          return (
-            <Group
-              key={t.teamSeasonId}
-              justify="space-between"
-              wrap="nowrap"
-              gap="xs"
-              align="flex-start"
-            >
-              <Text
-                fw={won ? 700 : undefined}
-                c={lost ? "dimmed" : undefined}
-                className={classes.team}
-              >
-                <TeamLabel entities={entities} teamSeasonId={t.teamSeasonId} />
-              </Text>
-              <Stack gap={0} align="flex-end" className={classes.score}>
-                <Text fw={won ? 700 : 600} fz="lg" c={lost ? "dimmed" : undefined}>
-                  {fmtDecimal(t.points)}
-                </Text>
-                {!final && t.projected !== null && (
-                  <Text fz="xs" c="dimmed">
-                    proj {fmtDecimal(t.projected)}
-                  </Text>
-                )}
-                {t.pointsOverridden && (
-                  <Text fz="xs" c="dimmed">
-                    adjusted
-                  </Text>
-                )}
-              </Stack>
+    <Card withBorder radius="sm" padding={0}>
+      <UnstyledButton
+        onClick={toggle}
+        aria-expanded={open}
+        aria-label={open ? "Hide lineups" : "Show lineups"}
+        className={classes.head}
+      >
+        <Stack gap={6}>
+          {(badges.length > 0 || tie) && (
+            <Group gap={6}>
+              {badges.map((b) => (
+                <Badge key={b.label} size="xs" variant="light" color={b.color}>
+                  {b.label}
+                </Badge>
+              ))}
+              {tie && (
+                <Badge size="xs" variant="light" color="gray">
+                  Tied
+                </Badge>
+              )}
             </Group>
-          );
-        })}
-        {tie && (
-          <Text size="xs" c="dimmed">
-            Tied
-          </Text>
-        )}
-        <Group>
-          <ActionIcon
-            variant="subtle"
-            size="sm"
-            aria-expanded={open}
-            aria-label={open ? "Hide lineups" : "Show lineups"}
-            onClick={toggle}
-          >
-            <CaretDown size={16} className={classes.caret} data-open={open ? "" : undefined} />
-          </ActionIcon>
-          <Text size="sm" c="dimmed" onClick={toggle} className={classes.link}>
-            {open ? "Hide lineups" : "Show lineups"}
-          </Text>
-        </Group>
-        <Collapse expanded={open}>
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" pt="xs">
-            {game.teams.map((t) => (
-              <LineupTable key={t.teamSeasonId} team={t} entities={entities} />
-            ))}
-          </SimpleGrid>
-        </Collapse>
-      </Stack>
+          )}
+          <div className={classes.versus}>
+            {home && <Side team={home} entities={entities} right={false} />}
+            {away ? <Side team={away} entities={entities} right /> : <div />}
+          </div>
+        </Stack>
+        <CaretDown size={16} className={classes.caret} data-open={open ? "" : undefined} />
+      </UnstyledButton>
+      <Collapse expanded={open}>
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md" p="sm" className={classes.lineups}>
+          {game.teams.map((t) => (
+            <LineupTable key={t.teamSeasonId} team={t} entities={entities} />
+          ))}
+        </SimpleGrid>
+      </Collapse>
     </Card>
   );
 }
@@ -279,7 +322,6 @@ function Body({ season }: { season: Season }) {
     );
   if (q.isError && !data) return <QueryError error={q.error} onRetry={() => void q.refetch()} />;
   if (!data) return null;
-  const final = data.weekStatus === "complete";
   const current = Math.max(1, Math.min(season.lastWeek, (season.lastCompletedWeek ?? 0) + 1));
   return (
     <Stack>
@@ -309,11 +351,11 @@ function Body({ season }: { season: Season }) {
       {data.games.length === 0 ? (
         <EmptyState>No games this week.</EmptyState>
       ) : (
-        <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="md">
+        <Stack gap="sm">
           {data.games.map((g) => (
-            <GameCard key={g.matchupId} game={g} entities={data.entities} final={final} />
+            <GameCard key={g.matchupId} game={g} entities={data.entities} />
           ))}
-        </SimpleGrid>
+        </Stack>
       )}
       {data.idle.length > 0 && (
         <Paper withBorder p="sm" radius="sm">

@@ -36,7 +36,7 @@ describe("player records (roster / starters only / bench only, each highest and 
       [2, "Player x3", 33],
       [3, "Player x3", 32],
     ]);
-    expect(bench.params.slots).toEqual(["bench"]); // the slot is the record, not a filter
+    expect(bench.params.slots).toEqual(["bench", "ir"]); // the slot is the record, not a filter; IR counts as bench
   });
 
   it("lowest records exclude zero-point weeks by default, and the user can turn that off", async () => {
@@ -63,7 +63,7 @@ describe("player records (roster / starters only / bench only, each highest and 
     const rbRoster = await w.run("player.roster.high", { positions: "RB", limit: 1 });
     expect(rbRoster.rows[0]?.values.value).toBe(42); // bench RBs (x) top out at 35
     const overridden = await w.run("player.bench.high", { slots: "starter", limit: 1 });
-    expect(overridden.params.slots).toEqual(["bench"]);
+    expect(overridden.params.slots).toEqual(["bench", "ir"]);
     // the roster record has no slot filter at all
     expect(
       (await w.run("player.roster.high", { slots: "bench", limit: 1 })).params.slots

@@ -44,3 +44,18 @@ thead th.sticky {
 .row[data-cutoff] {
   border-bottom: 2px solid var(--mantine-primary-color-filled);
 }
+
+/* Section divider row inside a lineup/roster table (Starters, Bench, IR / taxi). */
+.group td {
+  background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  border-top: 2px solid light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Bench, IR and taxi rows read as secondary. */
+.secondary td {
+  color: var(--mantine-color-dimmed);
+}

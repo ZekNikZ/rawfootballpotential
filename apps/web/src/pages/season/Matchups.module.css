@@ -1,14 +1,3 @@
-/* An opened game takes the whole row so two lineups fit side by side. */
-.card[data-open] {
-  grid-column: 1 / -1;
-}
-
-.team {
-  min-width: 0;
-  flex: 1;
-  overflow-wrap: anywhere;
-}
-
 .score {
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -45,4 +34,59 @@
   font-weight: 600;
   font-size: var(--mantine-font-size-xs);
   text-transform: uppercase;
+}
+
+/* One team's line in a game card; the winner gets a tinted background and an accent bar. */
+.side {
+  padding: 6px 8px;
+  border-radius: var(--mantine-radius-sm);
+  border-left: 3px solid transparent;
+
+  &[data-won] {
+    background-color: var(--mantine-primary-color-light);
+    border-left-color: var(--mantine-primary-color-filled);
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  width: 100%;
+  padding: var(--mantine-spacing-sm);
+
+  > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: var(--mantine-color-default-hover);
+    }
+  }
+}
+
+/* Two equal halves with a divider between them. */
+.versus {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+
+  > :first-child {
+    padding-right: var(--mantine-spacing-sm);
+    border-right: 1px solid var(--mantine-color-default-border);
+  }
+
+  > :last-child {
+    padding-left: var(--mantine-spacing-sm);
+  }
+}
+
+.avatar {
+  flex-shrink: 0;
+}
+
+.lineups {
+  border-top: 1px solid var(--mantine-color-default-border);
 }

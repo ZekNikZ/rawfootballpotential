@@ -182,7 +182,6 @@ function CreateForm() {
               setTeam(null);
               setMatchup(null);
             }}
-            searchable
           />
           {kind !== "game_type" && (
             <Select
@@ -191,7 +190,6 @@ function CreateForm() {
               data={teams}
               value={team}
               onChange={setTeam}
-              searchable
               disabled={!seasonId}
             />
           )}

@@ -202,7 +202,12 @@ const potential: RecordDef[] = [
 // Whole roster, starters only and bench only. Position, week, franchise and non-zero are user filters; zero-point
 // weeks are left out by default (they would top the lowest-first view).
 const PLAYER_WEEK_FILTERS: FilterKey[] = PLAYER_FILTERS.filter((f) => f !== "slots");
-function playerWeekRecord(id: string, title: string, slots?: ("starter" | "bench")[]): RecordDef {
+function playerWeekRecord(
+  id: string,
+  title: string,
+  slots?: ("starter" | "bench" | "ir")[],
+  version?: number
+): RecordDef {
   return rec(
     id,
     title,
@@ -214,6 +219,7 @@ function playerWeekRecord(id: string, title: string, slots?: ("starter" | "bench
       filters: PLAYER_WEEK_FILTERS,
       requires: req("playerData"),
       ...(slots ? { preset: { slots } } : {}),
+      ...(version ? { version } : {}),
       defaults: { excludeZero: true },
     },
     "points",
@@ -231,7 +237,8 @@ function playerWeekRecord(id: string, title: string, slots?: ("starter" | "bench
 const players: RecordDef[] = [
   playerWeekRecord("player.roster.high", "Rostered player score"),
   playerWeekRecord("player.starter.high", "Starter score", ["starter"]),
-  playerWeekRecord("player.bench.high", "Benched player score", ["bench"]),
+  // 2: IR counts as bench (recorded separately from 2026 week 5 on; older weeks have no IR/bench split).
+  playerWeekRecord("player.bench.high", "Benched player score", ["bench", "ir"], 2),
 ];
 
 const transactions: RecordDef[] = [
@@ -350,7 +357,8 @@ const other: RecordDef[] = [
       filters: ["seasons", "positions", "franchise", "combineTeams"],
       requires: req("playerData"),
       active: "flag",
-      preset: { slots: ["bench"] },
+      preset: { slots: ["bench", "ir"] },
+      version: 2, // 2: IR counts as bench
     },
     "points",
     "desc",

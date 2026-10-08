@@ -13,6 +13,7 @@ import { useSearchParams } from "react-router";
 import { standingsQuery } from "../../api/queries";
 import type { Season, Standings as StandingsData } from "../../api/schemas";
 import { EmptyState, QueryError } from "../../components/QueryState";
+import { TeamAvatar } from "../../components/TeamAvatar";
 import { TeamLabel } from "../../components/TeamLabel";
 import classes from "../../components/DataTable.module.css";
 import { fmtDecimal, ordinal } from "../../lib/format";
@@ -58,7 +59,15 @@ function StandingsTable({
             >
               <Table.Td data-numeric="">{r.rank}</Table.Td>
               <Table.Td className={classes.sticky}>
-                <TeamLabel entities={data.entities} teamSeasonId={r.team_season_id} />
+                <Group gap={8} wrap="nowrap">
+                  <TeamAvatar
+                    src={r.avatar}
+                    name={data.entities.teamSeasons[String(r.team_season_id)]?.name}
+                  />
+                  <div>
+                    <TeamLabel entities={data.entities} teamSeasonId={r.team_season_id} />
+                  </div>
+                </Group>
               </Table.Td>
               <Table.Td data-numeric="">{record(r)}</Table.Td>
               <Table.Td data-numeric="">{fmtDecimal(r.pf)}</Table.Td>

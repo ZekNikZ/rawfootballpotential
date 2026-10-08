@@ -23,6 +23,7 @@ const PAGES: {
   { name: "records-single-season", path: "/redraft/records/single-season" },
   { name: "records-managers", path: "/redraft/records/managers" },
   { name: "records-managers-dynasty", path: "/dynasty/records/managers" },
+  { name: "records-power-rankings", path: "/redraft/records/power-rankings" },
   {
     name: "records-filtered",
     path: "/redraft/records/overall?single-week-scores.rec=blowout&single-week-scores.scope=playoffs&single-week-scores.seasons=2024",

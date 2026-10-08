@@ -214,7 +214,6 @@ export function FilterBar({
           <Select
             aria-label="Team"
             placeholder="All teams"
-            searchable
             clearable
             w={220}
             data={fOptions}
@@ -228,7 +227,6 @@ export function FilterBar({
           <Select
             aria-label="Opponent"
             placeholder="Any opponent"
-            searchable
             clearable
             w={220}
             data={fOptions}

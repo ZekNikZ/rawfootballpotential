@@ -226,11 +226,54 @@ describe("head-to-head, trophies and franchise profile", () => {
     expect(wins).toMatchObject({ rank: 1, of: 6 });
     expect(body.trophies.some((e: Json) => e.type === "placement" && e.value === 2)).toBe(true);
     expect((await get("/api/leagues/fx/franchises/99999")).status).toBe(404);
+
+    const roster = await get(`/api/leagues/fx/franchises/${t1}/roster?season=2030`);
+    expect(roster.status).toBe(200);
+    expect(roster.body.season).toBe(2030);
+    expect(["live", "final-week", "none"]).toContain(roster.body.source);
+    for (const p of roster.body.players) expect(p.points).toEqual(expect.any(Number));
+    expect((await get(`/api/leagues/fx/franchises/${t1}/roster?season=2010`)).status).toBe(404);
+    expect((await get(`/api/leagues/fx/franchises/${t1}/roster`)).status).toBe(400);
   });
 });
 
 describe("season info pages (may include live data)", () => {
   const sid = () => w.fixture.seasonIds[2030]!;
+
+  it("weekly superlatives: ties share them, and they agree with the matchups page", async () => {
+    const { status, body } = await get(`/api/seasons/${sid()}/superlatives?week=3`);
+    expect(status).toBe(200);
+    expect(body.week).toBe(3);
+    const games = (await get(`/api/seasons/${sid()}/matchups?week=3`)).body.games;
+    const scores: number[] = games.flatMap((g: Json) => g.teams.map((t: Json) => t.points));
+    const item = (key: string) => body.items.find((i: Json) => i.key === key);
+    expect(item("high").holders[0].value).toBe(Math.max(...scores));
+    expect(item("low").holders[0].value).toBe(Math.min(...scores));
+    const margins = games.map((g: Json) => Math.abs(g.teams[0].points - g.teams[1].points));
+    expect(item("blowout").holders[0].value).toBeCloseTo(Math.max(...margins), 2);
+    expect(item("closest").holders[0].value).toBeCloseTo(
+      Math.min(...margins.filter((m: number) => m > 0)),
+      2
+    );
+    expect((await get(`/api/seasons/${sid()}/superlatives?week=99`)).status).toBe(400);
+  });
+
+  it("top performers: best player scores of the week, highest first", async () => {
+    const { status, body } = await get(`/api/seasons/${sid()}/top-performers?week=3&limit=5`);
+    expect(status).toBe(200);
+    expect(body.week).toBe(3);
+    expect(body.players.length).toBeGreaterThan(0);
+    expect(body.players.length).toBeLessThanOrEqual(5);
+    const pts: number[] = body.players.map((p: Json) => p.points);
+    expect(pts).toEqual([...pts].sort((a, b) => b - a));
+    expect(pts.every((p) => p > 0)).toBe(true);
+    expect(body.entities.teamSeasons[body.players[0].teamSeasonId]).toBeDefined();
+    // With no week given it is the latest finished week, the same one the superlatives use.
+    const dflt = (await get(`/api/seasons/${sid()}/top-performers`)).body;
+    const sup = (await get(`/api/seasons/${sid()}/superlatives`)).body;
+    expect(dflt.week).toBe(sup.week);
+    expect(sup.items[0].holders[0]).toHaveProperty("avatar");
+  });
 
   it("standings after Json week", async () => {
     const { body } = await get(`/api/seasons/${sid()}/standings?week=3`);

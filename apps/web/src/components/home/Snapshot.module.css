@@ -35,3 +35,17 @@
     border-color: var(--mantine-color-yellow-5);
   }
 }
+
+/* One superlative: label, big logo + team, big number. */
+.tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tileName {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

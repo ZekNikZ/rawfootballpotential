@@ -163,6 +163,7 @@ const check = (ok: boolean, what: string) => {
     "/redraft/records/overall",
     "/redraft/records/single-season",
     "/redraft/records/managers",
+    "/redraft/records/power-rankings",
     "/dynasty/records/managers",
     "/redraft/franchises/5",
     "/redraft/2026/standings",

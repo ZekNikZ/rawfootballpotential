@@ -46,7 +46,6 @@ function MergeModal({ manager, all }: { manager: Manager; all: Manager[] }) {
           </Text>
           <Select
             label="Keep this manager"
-            searchable
             data={all
               .filter((m) => m.id !== manager.id)
               .map((m) => ({ value: String(m.id), label: m.name }))}

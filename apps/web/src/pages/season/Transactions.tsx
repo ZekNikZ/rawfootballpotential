@@ -1,9 +1,21 @@
-import { Badge, Card, Group, Pagination, Select, Skeleton, Stack, Text } from "@mantine/core";
+import {
+  Badge,
+  Card,
+  Group,
+  Pagination,
+  Paper,
+  Select,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useSearchParams } from "react-router";
 import { teamsQuery, transactionsQuery } from "../../api/queries";
 import type { Entities, Season, Transactions as TxData } from "../../api/schemas";
+import { PositionBadge } from "../../components/PositionBadge";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import { SegmentedOrSelect } from "../../components/records/filters";
 import { TeamLabel } from "../../components/TeamLabel";
@@ -34,16 +46,31 @@ const TYPE_LABEL: Record<string, string> = {
   commissioner: "Commissioner",
 };
 
-function itemText(i: Item, entities: Entities): string {
+function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
   if (i.kind === "pick") {
     const from =
       i.originalFranchiseId === null
         ? null
         : entities.franchises[String(i.originalFranchiseId)]?.teamName;
-    return `${i.pickSeason ?? ""} round ${i.pickRound ?? "?"} pick${from ? ` (originally ${from})` : ""}`;
+    return (
+      <Text size="sm">
+        {i.pickSeason ?? ""} round {i.pickRound ?? "?"} pick
+        {from && (
+          <Text span c="dimmed">
+            {" "}
+            (from {from})
+          </Text>
+        )}
+      </Text>
+    );
   }
-  if (i.kind === "faab") return `${fmtMoney(i.amount ?? 0)} FAAB`;
-  return `${i.player ?? "Unknown player"}${i.position ? ` (${i.position})` : ""}`;
+  if (i.kind === "faab") return <Text size="sm">{fmtMoney(i.amount ?? 0)} FAAB</Text>;
+  return (
+    <Group gap={6} wrap="nowrap">
+      <PositionBadge position={i.position} />
+      <Text size="sm">{i.player ?? "Unknown player"}</Text>
+    </Group>
+  );
 }
 
 function Body({ tx, entities }: { tx: Tx; entities: Entities }) {
@@ -54,39 +81,47 @@ function Body({ tx, entities }: { tx: Tx; entities: Entities }) {
       sides.set(i.toTeamSeasonId, [...(sides.get(i.toTeamSeasonId) ?? []), i]);
     }
     return (
-      <Stack gap={4}>
+      <SimpleGrid cols={{ base: 1, xs: sides.size > 1 ? 2 : 1 }} spacing="xs">
         {[...sides].map(([team, items]) => (
-          <Text key={team} size="sm">
-            <Text span fw={600}>
-              <TeamLabel entities={entities} teamSeasonId={team} hideManager />
-            </Text>{" "}
-            gets {items.map((i) => itemText(i, entities)).join(", ")}
-          </Text>
+          <Paper key={team} withBorder radius="sm" p="xs">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+              <TeamLabel entities={entities} teamSeasonId={team} hideManager /> receives
+            </Text>
+            <Stack gap={3} mt={4}>
+              {items.map((i, n) => (
+                <ItemLine key={n} item={i} entities={entities} />
+              ))}
+            </Stack>
+          </Paper>
         ))}
-      </Stack>
+      </SimpleGrid>
     );
   }
   const added = tx.items.filter((i) => i.direction === "add");
   const dropped = tx.items.filter((i) => i.direction === "drop");
   const bid = tx.items.find((i) => i.faabBid !== null)?.faabBid ?? null;
   return (
-    <Stack gap={2}>
+    <Stack gap={3}>
       {added.map((i, n) => (
-        <Text key={`a${n}`} size="sm">
-          <Text span c="green" fw={600}>
-            +{" "}
+        <Group key={`a${n}`} gap={8} wrap="nowrap">
+          <Text span c="green" fw={700} w={12}>
+            +
           </Text>
-          {itemText(i, entities)}
-          {bid !== null && n === 0 ? ` · ${fmtMoney(bid)} bid` : ""}
-        </Text>
+          <ItemLine item={i} entities={entities} />
+          {bid !== null && n === 0 && (
+            <Badge size="xs" variant="light" color="gray">
+              {fmtMoney(bid)} bid
+            </Badge>
+          )}
+        </Group>
       ))}
       {dropped.map((i, n) => (
-        <Text key={`d${n}`} size="sm" c="dimmed">
-          <Text span c="red" fw={600}>
-            −{" "}
+        <Group key={`d${n}`} gap={8} wrap="nowrap" opacity={0.7}>
+          <Text span c="red" fw={700} w={12}>
+            −
           </Text>
-          {itemText(i, entities)}
-        </Text>
+          <ItemLine item={i} entities={entities} />
+        </Group>
       ))}
     </Stack>
   );
@@ -134,7 +169,6 @@ function List({ season }: { season: Season }) {
           <Select
             aria-label="Team"
             placeholder="All teams"
-            searchable
             clearable
             w={240}
             data={(teams.data?.teams ?? []).map((t) => ({

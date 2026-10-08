@@ -4,7 +4,7 @@ import { PlacementChart } from "../components/records/PlacementChart";
 
 export default function ManagerRecords() {
   return (
-    <CategoryPage category="manager">
+    <CategoryPage category="manager" exclude={["Power Rankings"]}>
       <Heatmap />
       <PlacementChart />
     </CategoryPage>

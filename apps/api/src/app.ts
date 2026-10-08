@@ -20,13 +20,15 @@ import { z } from "zod";
 import type { Config } from "./config";
 import { blogPosts } from "./info/blog";
 import { franchiseEntities, headToHead, placementHistory, trophyCase } from "./info/league-data";
-import { franchiseProfile } from "./info/profile";
+import { franchiseProfile, franchiseRoster } from "./info/profile";
 import {
   drafts,
   futurePicks,
   matchups,
   standings,
+  superlatives,
   teams,
+  topPerformers,
   transactionFeed,
 } from "./info/season-pages";
 import { HttpError, sendCacheable } from "./lib/http";
@@ -267,6 +269,20 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
     }
   );
 
+  app.get<{ Params: { league: string; id: string }; Querystring: Record<string, string> }>(
+    "/api/leagues/:league/franchises/:id/roster",
+    async (req, reply) => {
+      const lg = await leagueBySlug(db, req.params.league);
+      const year = z.coerce.number().int().min(2000).max(2100).parse(req.query.season);
+      return sendCacheable(
+        req,
+        reply,
+        await franchiseRoster(db, lg.id, idParam.parse(req.params.id), year),
+        60
+      );
+    }
+  );
+
   app.get<{ Params: { league: string } }>("/api/leagues/:league/franchises", async (req, reply) => {
     const lg = await leagueBySlug(db, req.params.league);
     const ids = (
@@ -326,6 +342,35 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
         req,
         reply,
         await teams(db, season.id, rosters),
+        maxAgeFor(season.status)
+      );
+    }
+  );
+
+  app.get<{ Params: { seasonId: string }; Querystring: Record<string, string> }>(
+    "/api/seasons/:seasonId/superlatives",
+    async (req, reply) => {
+      const { season } = await seasonById(db, idParam.parse(req.params.seasonId));
+      const { week } = weekQuery.parse(req.query);
+      return sendCacheable(
+        req,
+        reply,
+        await superlatives(db, season.id, week),
+        maxAgeFor(season.status)
+      );
+    }
+  );
+
+  app.get<{ Params: { seasonId: string }; Querystring: Record<string, string> }>(
+    "/api/seasons/:seasonId/top-performers",
+    async (req, reply) => {
+      const { season } = await seasonById(db, idParam.parse(req.params.seasonId));
+      const { week } = weekQuery.parse(req.query);
+      const limit = z.coerce.number().int().min(1).max(25).default(10).parse(req.query.limit);
+      return sendCacheable(
+        req,
+        reply,
+        await topPerformers(db, season.id, week, limit),
         maxAgeFor(season.status)
       );
     }
