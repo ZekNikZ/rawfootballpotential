@@ -212,3 +212,24 @@ describe("a franchise that changed hands (doc §2: current manager in general, t
     }
   });
 });
+
+describe("power rating (Elo over every counted game)", () => {
+  it("rates every manager, is zero-sum when nobody sat out, and honours the seasons filter", async () => {
+    const res = await w.run("career.power");
+    expect(res.rows.length).toBe(6);
+    expect(res.meta.sortKey).toBe("rating");
+    expect(res.rows.map((r) => r.rank)).toEqual([1, 2, 3, 4, 5, 6]);
+    const sum = res.rows.reduce((s, r) => s + (r.values.value as number), 0);
+    expect(sum).toBeCloseTo(6 * 1500, 2); // both seasons played by everyone: no fade
+    for (const r of res.rows) expect(r.values).toMatchObject({ seasons: 2, missed: 0 });
+    expect(res.rows[0]!.values.winChance as number).toBeGreaterThan(0.5);
+    expect(res.rows[5]!.values.winChance as number).toBeLessThan(0.5);
+    const games = (i: number) => res.rows[i]!.values.games as number;
+    expect(games(0)).toBeGreaterThan(5);
+
+    const one = await w.run("career.power", { seasons: "2030" });
+    for (const r of one.rows) expect(r.values.seasons).toBe(1);
+    expect(one.rows.reduce((s, r) => s + (r.values.value as number), 0)).toBeCloseTo(6 * 1500, 2);
+    expect(one.rows.map((r) => r.values.value)).not.toEqual(res.rows.map((r) => r.values.value));
+  });
+});
