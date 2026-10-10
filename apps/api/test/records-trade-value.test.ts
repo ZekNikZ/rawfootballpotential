@@ -99,3 +99,29 @@ describe("rest-of-season production", () => {
     expect(DYNASTY_NEXT_SEASON_WEIGHT).toBe(0.5);
   });
 });
+
+describe("seasons without stat lines (ESPN)", () => {
+  it("fall back to the points a player scored while on a roster", async () => {
+    const season = w.fixture.seasonIds[2030]!;
+    await w.db.execute(sql`delete from player_week_points where league_season_id = ${season}`);
+    const items = await explainTrades({
+      db: w.db,
+      leagueId: w.leagueId,
+      seasonIds: [season],
+      scope: "all",
+    });
+    const players = items.filter((i) => i.player);
+    expect(players.length).toBeGreaterThan(0);
+    for (const it of players) {
+      const expected = (
+        await w.db.execute<{ v: string | null }>(sql`
+          select sum(p) as v from (
+            select max(pw.points) as p from rec_player_week pw
+            where pw.league_season_id = ${season} and pw.player_id = ${it.playerId} and pw.week >= ${it.week}
+            group by pw.week) x`)
+      ).rows[0]?.v;
+      expect(it.value).toBeCloseTo(Number(expected ?? 0), 2);
+    }
+    expect(players.some((i) => i.value > 0)).toBe(true);
+  });
+});

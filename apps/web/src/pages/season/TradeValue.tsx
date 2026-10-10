@@ -19,6 +19,7 @@ import type { Entities, Season, TradeBreakdown } from "../../api/schemas";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import { PositionBadge } from "../../components/PositionBadge";
 import { TeamLabel } from "../../components/TeamLabel";
+import { ROSTER_ONLY_NOTE } from "../../components/TransactionCard";
 import { SeasonShell } from "./SeasonShell";
 
 type Trade = TradeBreakdown["trades"][number];
@@ -284,7 +285,15 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-function Breakdown({ seasonId, team }: { seasonId: number; team: string }) {
+function Breakdown({
+  seasonId,
+  team,
+  rosterOnly,
+}: {
+  seasonId: number;
+  team: string;
+  rosterOnly: boolean;
+}) {
   const q = useQuery(tradeValueQuery(seasonId, team));
   const data = q.data;
   if (q.isPending)
@@ -301,6 +310,16 @@ function Breakdown({ seasonId, team }: { seasonId: number; team: string }) {
   if (s.trades === 0) return <EmptyState>This team made no trades this season.</EmptyState>;
   return (
     <Stack>
+      {rosterOnly && (
+        <Group gap={8} wrap="nowrap" align="flex-start">
+          <Badge color="yellow" variant="light" style={{ flexShrink: 0 }}>
+            Roster-only points
+          </Badge>
+          <Text size="sm" c="dimmed">
+            {ROSTER_ONLY_NOTE}
+          </Text>
+        </Group>
+      )}
       <SimpleGrid cols={{ base: 2, sm: 5 }} spacing="xs">
         <Stat label="Trades" value={String(s.trades)} />
         <Stat label="Value received" value={pts(s.gained)} />
@@ -391,7 +410,13 @@ function Page({ season }: { season: Season }) {
           . Pick another manager or season.
         </EmptyState>
       ) : (
-        current && <Breakdown seasonId={season.id} team={String(current.teamSeasonId)} />
+        current && (
+          <Breakdown
+            seasonId={season.id}
+            team={String(current.teamSeasonId)}
+            rosterOnly={season.source === "espn"}
+          />
+        )
       )}
     </Stack>
   );

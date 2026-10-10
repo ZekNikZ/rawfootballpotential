@@ -9,6 +9,9 @@ import type { Db, SQL } from "@rfp/db";
  *    that received him, on another team after a later trade, or on nobody's roster after a drop. Later moves by the
  *    team that received him are not followed and never change his value. The points are his scores under that league
  *    season's scoring (`player_week_points`, Sleeper's stat lines), so a free agent has points too.
+ *  - ESPN seasons have no stat lines, so their players are valued on the points they scored while on a roster
+ *    (`rec_player_week`): weeks he was a free agent, and the 2020 weeks without player rows, count as zero. Those
+ *    figures are labelled as roster-only wherever they are shown.
  *  - In a dynasty league the next season counts as well, at DYNASTY_NEXT_SEASON_WEIGHT of his production.
  *  - A draft pick is worth the player it became: his whole draft season (and, in dynasty, the next at half). Before the
  *    draft it is worth the average of that round's picks in the league's earlier drafts.
@@ -147,7 +150,18 @@ async function prepare(input: ValuationInput) {
     for (const r of await rows(sql`
       select pp.league_season_id, pp.player_id, pp.week, pp.points
       from rec_player_points pp
-      where pp.league_id = ${leagueId} and pp.player_id in (${inList(playerIds)}) and ${weekTypeCond(scope)}`)) {
+      where pp.league_id = ${leagueId} and pp.player_id in (${inList(playerIds)}) and ${weekTypeCond(scope)}
+      union all
+      -- seasons with no stat lines (ESPN): the points a player scored while on a roster
+      select pw.league_season_id, pw.player_id, pw.week, max(pw.points)
+      from rec_player_week pw
+      join league_season ls on ls.id = pw.league_season_id
+      join league_season_week lsw on lsw.league_season_id = pw.league_season_id and lsw.week = pw.week and lsw.status = 'complete'
+      cross join lateral (select case when ls.playoff_week_start is not null and pw.week >= ls.playoff_week_start then 'postseason' else 'regular' end as week_type) pp
+      where pw.league_id = ${leagueId} and pw.player_id in (${inList(playerIds)}) and pw.points is not null
+        and not exists (select 1 from player_week_points x where x.league_season_id = pw.league_season_id)
+        and ${weekTypeCond(scope)}
+      group by pw.league_season_id, pw.player_id, pw.week`)) {
       const key = `${num(r.league_season_id)}:${num(r.player_id)}`;
       const m = points.get(key) ?? new Map<number, number>();
       m.set(num(r.week), num(r.points));

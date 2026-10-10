@@ -69,10 +69,24 @@ function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
   );
 }
 
+/** ESPN seasons have no stat lines, so their trade values count only points scored while on a roster. */
+export const ROSTER_ONLY_NOTE =
+  "ESPN seasons have no stat lines, so these values count only the points a player scored while on a roster (a stretch as a free agent counts as zero).";
+
 const fmtPts = (n: number) => n.toFixed(1);
 const fmtSigned = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtPts(Math.abs(n));
 
-function Body({ tx, entities, showValue }: { tx: Tx; entities: Entities; showValue: boolean }) {
+function Body({
+  tx,
+  entities,
+  showValue,
+  rosterOnly,
+}: {
+  tx: Tx;
+  entities: Entities;
+  showValue: boolean;
+  rosterOnly: boolean;
+}) {
   if (tx.type === "trade") {
     const sides = new Map<number, Item[]>();
     for (const i of tx.items) {
@@ -97,7 +111,7 @@ function Body({ tx, entities, showValue }: { tx: Tx; entities: Entities; showVal
               </Stack>
               {value && (
                 <Text size="xs" mt={6}>
-                  Estimated trade value{" "}
+                  Estimated trade value{rosterOnly ? " (roster-only points)" : ""}{" "}
                   <Text
                     span
                     fw={700}
@@ -152,10 +166,13 @@ export function TransactionCard({
   tx,
   entities,
   showValue,
+  rosterOnly = false,
 }: {
   tx: Tx;
   entities: Entities;
   showValue: boolean;
+  /** The season is an ESPN one: its values count roster points only. */
+  rosterOnly?: boolean;
 }) {
   return (
     <Card withBorder radius="sm" padding="sm" opacity={tx.status === "failed" ? 0.7 : 1}>
@@ -179,7 +196,7 @@ export function TransactionCard({
             {tx.executedAt ? ` · ${dayjs(tx.executedAt).format("MMM D, YYYY h:mm A")}` : ""}
           </Text>
         </Group>
-        <Body tx={tx} entities={entities} showValue={showValue} />
+        <Body tx={tx} entities={entities} showValue={showValue} rosterOnly={rosterOnly} />
       </Stack>
     </Card>
   );

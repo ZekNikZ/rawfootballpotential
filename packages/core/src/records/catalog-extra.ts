@@ -669,12 +669,12 @@ const trades: RecordDef[] = [
       grain: "transaction",
       engine: "tradeValue",
       readsAllSeasons: true,
-      version: 4,
+      version: 5,
     }),
     "sidePoints",
     "desc",
     tradeEstCols,
-    "Estimated value one side got from a trade: the points its players scored from the trade to the end of that season wherever they were (what the team did with them afterward does not change it), a dynasty player's next season at half, and draft picks as the player they became."
+    "Estimated value one side got from a trade: the points its players scored from the trade to the end of that season wherever they were (what the team did with them afterward does not change it), a dynasty player's next season at half, and draft picks as the player they became. ESPN seasons (2020-2021) have no stat lines, so their players count only the points they scored while on a roster."
   ),
   rec(
     "trade.lopsided.est",
@@ -683,12 +683,12 @@ const trades: RecordDef[] = [
       grain: "transaction",
       engine: "tradeValue",
       readsAllSeasons: true,
-      version: 4,
+      version: 5,
     }),
     "difference",
     "desc",
     tradeEstCols,
-    "The gap between the winning side's estimated trade value and the other side's (rest-of-season points wherever the players were, picks, and a dynasty player's next season at half), for trades where each side received something."
+    "The gap between the winning side's estimated trade value and the other side's (rest-of-season points wherever the players were, picks, and a dynasty player's next season at half), for trades where each side received something. ESPN seasons (2020-2021) have no stat lines, so their players count only the points they scored while on a roster."
   ),
 ];
 
@@ -967,7 +967,7 @@ const tradeValueCols = [
 const tradeValueBase = careerBase("Transactions", "careerTradeValue", {
   filters: ["seasons", "scope"],
   requires: req("transactions", "playerData"),
-  version: 4,
+  version: 5,
   readsAllSeasons: true,
 });
 const careerTradeValue: RecordDef[] = [
@@ -978,7 +978,7 @@ const careerTradeValue: RecordDef[] = [
     "net",
     "desc",
     tradeValueCols,
-    "Net points a manager's trades produced: the points the players received scored from the trade to the end of that season wherever they were (a flip or drop does not change it), a dynasty player's next season at half, and draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
+    "Net points a manager's trades produced: the points the players received scored from the trade to the end of that season wherever they were (a flip or drop does not change it), a dynasty player's next season at half, and draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero. ESPN seasons (2020-2021) have no stat lines, so their players count only the points they scored while on a roster."
   ),
   rec(
     "career.trade-value.avg",
