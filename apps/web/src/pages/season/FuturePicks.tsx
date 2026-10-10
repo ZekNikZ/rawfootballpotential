@@ -39,7 +39,7 @@ export default function FuturePicks() {
   const nameOf = (id: number) => {
     const f = entities.franchises[String(id)];
     const m = f?.managerId == null ? null : entities.managers[String(f.managerId)]?.name;
-    return m ?? f?.teamName ?? `Franchise ${id}`;
+    return [m, f?.teamName].filter(Boolean).join(" · ") || `Franchise ${id}`;
   };
   const owners = [...new Set(picks.map((p) => p.ownerFranchiseId))].sort((a, b) =>
     nameOf(a).localeCompare(nameOf(b))

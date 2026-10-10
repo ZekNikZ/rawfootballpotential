@@ -328,6 +328,12 @@ describe("season info pages (may include live data)", () => {
         .map((i: Json) => i.toTeamSeasonId)
         .sort()
     );
+    // every player in the trade carries his own estimated value, the sides' gained totals are the sums of them
+    for (const i of trade.items.filter((x: Json) => x.kind === "player"))
+      expect(typeof i.estimatedValue).toBe("number");
+    expect(
+      tx.transactions.find((x: Json) => x.type !== "trade").items[0].estimatedValue
+    ).toBeNull();
     const netSum = trade.tradeValue.reduce((a: number, v: Json) => a + v.net, 0);
     expect(Math.abs(netSum)).toBeLessThan(0.11);
     expect(

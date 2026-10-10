@@ -379,6 +379,10 @@ export async function transactionFeed(
           faabBid: num(i.faab_bid),
           fromTeamSeasonId: num(i.from_team_season_id),
           toTeamSeasonId: num(i.to_team_season_id),
+          // what this player or pick is estimated to be worth to the team that received it (trades only)
+          estimatedValue: values.has(Number(i.item_id))
+            ? Math.round((values.get(Number(i.item_id)) ?? 0) * 10) / 10
+            : null,
         })),
     })),
     entities: await entitiesFor(db, teamIds),

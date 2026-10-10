@@ -46,6 +46,16 @@ const TYPE_LABEL: Record<string, string> = {
   commissioner: "Commissioner",
 };
 
+/** A trade item's estimated value to the team that received it. */
+function ValueTag({ item }: { item: Item }) {
+  if (item.estimatedValue === null) return null;
+  return (
+    <Text span c="dimmed" fz="xs" ml="auto" style={{ whiteSpace: "nowrap" }}>
+      {fmtPts(item.estimatedValue)}
+    </Text>
+  );
+}
+
 function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
   if (i.kind === "pick") {
     const from =
@@ -53,15 +63,18 @@ function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
         ? null
         : entities.franchises[String(i.originalFranchiseId)]?.teamName;
     return (
-      <Text size="sm">
-        {i.pickSeason ?? ""} round {i.pickRound ?? "?"} pick
-        {from && (
-          <Text span c="dimmed">
-            {" "}
-            (from {from})
-          </Text>
-        )}
-      </Text>
+      <Group gap={6} wrap="nowrap">
+        <Text size="sm">
+          {i.pickSeason ?? ""} round {i.pickRound ?? "?"} pick
+          {from && (
+            <Text span c="dimmed">
+              {" "}
+              (from {from})
+            </Text>
+          )}
+        </Text>
+        <ValueTag item={i} />
+      </Group>
     );
   }
   if (i.kind === "faab") return <Text size="sm">{fmtMoney(i.amount ?? 0)} FAAB</Text>;
@@ -69,6 +82,7 @@ function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
     <Group gap={6} wrap="nowrap">
       <PositionBadge position={i.position} />
       <Text size="sm">{i.player ?? "Unknown player"}</Text>
+      <ValueTag item={i} />
     </Group>
   );
 }
@@ -93,9 +107,11 @@ function Body({ tx, entities, showValue }: { tx: Tx; entities: Entities; showVal
                 <TeamLabel entities={entities} teamSeasonId={team} /> receives
               </Text>
               <Stack gap={3} mt={4}>
-                {items.map((i, n) => (
-                  <ItemLine key={n} item={i} entities={entities} />
-                ))}
+                {[...items]
+                  .sort((a, b) => (b.estimatedValue ?? -Infinity) - (a.estimatedValue ?? -Infinity))
+                  .map((i, n) => (
+                    <ItemLine key={n} item={i} entities={entities} />
+                  ))}
               </Stack>
               {value && (
                 <Text size="xs" mt={6}>
@@ -193,10 +209,15 @@ function List({ season }: { season: Season }) {
             placeholder="All teams"
             clearable
             w={240}
-            data={(teams.data?.teams ?? []).map((t) => ({
-              value: String(t.team_season_id),
-              label: t.name,
-            }))}
+            data={(teams.data?.teams ?? []).map((t) => {
+              const e = teams.data?.entities;
+              const m = e?.teamSeasons[String(t.team_season_id)]?.managerId;
+              const manager = m == null ? null : e?.managers[String(m)]?.name;
+              return {
+                value: String(t.team_season_id),
+                label: manager ? `${t.name} (${manager})` : t.name,
+              };
+            })}
             value={team}
             onChange={(v) => set({ team: v })}
           />
@@ -256,7 +277,7 @@ function List({ season }: { season: Season }) {
           {data.total} transaction{data.total === 1 ? "" : "s"}. Failed claims are listed but never
           counted in records.
           {season.data.playerData &&
-            " Estimated trade value is the points each side's players scored for their new team from the trade to the end of the season (starters in full, bench players at half), plus what the team received when it traded one of them on again. Picks and FAAB are not valued."}
+            " Estimated trade value is how many points a side's players added to its best possible lineups from the trade to the end of the season (a dynasty player kept into next season also counts, at half), draft picks as the player they became, plus what the team received when it traded one of them on again. The number beside each player or pick is his share of that value. FAAB is not valued."}
         </Text>
       )}
     </Stack>

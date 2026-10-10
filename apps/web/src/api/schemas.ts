@@ -505,6 +505,7 @@ export const transactionsResponse = z.object({
           faabBid: nullableNum,
           fromTeamSeasonId: nullableNum,
           toTeamSeasonId: nullableNum,
+          estimatedValue: nullableNum,
         })
       ),
     })
