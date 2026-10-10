@@ -642,7 +642,7 @@ const pickups: RecordDef[] = [
       c("points", "Points for others since", "points"),
       c("startedFor", "Started for", "text"),
     ],
-    "Estimated value of a dropped player to other teams over the rest of that season: how many points he added to their best possible lineups (a bench player who would not have started adds nothing)."
+    "Estimated value of a dropped player to other teams over the rest of that season: how many points he added to their best possible lineups, plus half of the other points he scored for them (depth a replacement would have covered)."
   ),
 ];
 const tradeCols = [
@@ -688,7 +688,7 @@ const trades: RecordDef[] = [
     "sidePoints",
     "desc",
     tradeEstCols,
-    "Estimated value one side got from a trade: how many points its players added to its best possible lineups for the rest of the season (a dynasty player kept into next season also counts, at half), draft picks as the player they became, plus its share of what it received when it traded a player on again."
+    "Estimated value one side got from a trade: how many points its players added to its best possible lineups for the rest of the season, plus half of the other points they scored for it (depth); a dynasty player kept into next season also counts, at half, draft picks as the player they became, plus its share of what it received when it traded a player on again."
   ),
   rec(
     "trade.lopsided.est",
@@ -701,7 +701,7 @@ const trades: RecordDef[] = [
     "difference",
     "desc",
     tradeEstCols,
-    "The gap between the winning side's estimated trade value and the other side's (lineup points added, picks, a dynasty player's next season at half, and the return from trading a player on again), for trades where each side received something."
+    "The gap between the winning side's estimated trade value and the other side's (lineup points added, half credit for depth, picks, a dynasty player's next season at half, and the return from trading a player on again), for trades where each side received something."
   ),
 ];
 
@@ -991,7 +991,7 @@ const careerTradeValue: RecordDef[] = [
     "net",
     "desc",
     tradeValueCols,
-    "Net points a manager's trades produced: how many points the players received added to their best possible lineups from the trade to the end of that season (a dynasty player kept into next season also counts, at half), plus draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
+    "Net points a manager's trades produced: how many points the players received added to their best possible lineups from the trade to the end of that season, plus half of the other points they scored (depth); a dynasty player kept into next season also counts, at half, plus draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
   ),
   rec(
     "career.trade-value.avg",

@@ -9,8 +9,9 @@ import { chainValues, type ChainItem } from "./trade-chain";
  * value what moved in a trade, in points:
  *
  *  - A player's value to a team is what he added to its best possible lineup: for every counted week he was on its
- *    roster after the trade, the team's optimal lineup with him minus the optimal lineup without him. A bench player
- *    who would not have started adds nothing.
+ *    roster after the trade, the team's optimal lineup with him minus the optimal lineup without him, plus
+ *    DEPTH_CREDIT_WEIGHT of the rest of his points that week (depth: what a replacement would have covered). IR and
+ *    taxi players get no depth credit.
  *  - The weeks run from the trade to the end of his stint with that team, including the week he was moved if he was
  *    still in that week's lineup snapshot. In a dynasty league, a player still on the franchise when the season ended
  *    also counts for the next season, at DYNASTY_NEXT_SEASON_WEIGHT.
@@ -20,6 +21,11 @@ import { chainValues, type ChainItem } from "./trade-chain";
  *    Career totals leave this out, because the return of a re-trade is already credited in that trade.
  */
 export const DYNASTY_NEXT_SEASON_WEIGHT = 0.5;
+export const DEPTH_CREDIT_WEIGHT = 0.5;
+
+/** One week of a player's value: what he added to the lineup, plus partial credit for the points a replacement covered. */
+export const weekValue = (points: number, marginal: number, depthEligible: boolean): number =>
+  marginal + (depthEligible ? DEPTH_CREDIT_WEIGHT * Math.max(0, points - marginal) : 0);
 
 interface Stint {
   fromWeek: number;
@@ -116,13 +122,16 @@ async function load(input: ValuationInput) {
 
   // Counted weeks inside the scope: the whole roster of every team-week, which the optimal lineup needs.
   const rosters = new Map<string, LineupPlayer[]>();
+  const slotKinds = new Map<string, string>();
   for (const r of await rows(sql`
-    select pw.team_season_id, pw.week, pw.player_id, pw.position, pw.eligible_positions, pw.points
+    select pw.team_season_id, pw.week, pw.player_id, pw.position, pw.eligible_positions, pw.points,
+           pw.slot_kind::text as slot_kind
     from rec_player_week pw
     where pw.league_id = ${leagueId} and pw.counts and pw.points is not null
       and ${scopeCond(sql`pw.game_type`, scope)}`)) {
     const key = `${num(r.team_season_id)}:${num(r.week)}`;
     const list = rosters.get(key) ?? [];
+    slotKinds.set(`${key}:${num(r.player_id)}`, String(r.slot_kind));
     list.push({
       id: num(r.player_id),
       points: num(r.points),
@@ -150,11 +159,13 @@ async function load(input: ValuationInput) {
       roster.filter((p) => p.id !== without)
     ).points;
   };
-  /** What `player` added to `ts`'s best lineup in `week` (0 when he was not on the roster or the week is out of scope). */
+  /** What `player` was worth to `ts` in `week` (0 when he was not on the roster or the week is out of scope). */
   const added = (ts: number, week: number, player: number): number => {
-    const roster = rosters.get(`${ts}:${week}`);
-    if (!roster || !roster.some((p) => p.id === player)) return 0;
-    return (bestOf(ts, week, null) ?? 0) - (bestOf(ts, week, player) ?? 0);
+    const me = rosters.get(`${ts}:${week}`)?.find((p) => p.id === player);
+    if (!me) return 0;
+    const marginal = (bestOf(ts, week, null) ?? 0) - (bestOf(ts, week, player) ?? 0);
+    const kind = slotKinds.get(`${ts}:${week}:${player}`);
+    return weekValue(me.points, marginal, kind === "starter" || kind === "bench");
   };
   const window = (ts: number, player: number, from: number, to: number): number => {
     let v = 0;

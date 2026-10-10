@@ -66,3 +66,14 @@ describe("estimated trade value chain", () => {
     expect(equal.get(1)).toBeCloseTo(10 + 0.5 * 8, 6);
   });
 });
+
+describe("week value with depth credit", () => {
+  it("adds half of the points a replacement would have covered", async () => {
+    const { weekValue } = await import("../src/records/engines/trade-valuation");
+    expect(weekValue(17.96, 17.96, true)).toBeCloseTo(17.96, 6); // nobody could have replaced him
+    expect(weekValue(15.2, 0, true)).toBeCloseTo(7.6, 6); // a better QB was on the roster: half credit
+    expect(weekValue(20.38, 0.14, true)).toBeCloseTo(0.14 + 0.5 * 20.24, 6);
+    expect(weekValue(12, 0, false)).toBe(0); // IR / taxi: no depth credit
+    expect(weekValue(2, 5, true)).toBe(5); // a replacement scoring negative points never makes depth negative
+  });
+});
