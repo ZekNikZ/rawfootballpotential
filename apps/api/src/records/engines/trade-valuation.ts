@@ -231,7 +231,7 @@ async function load(input: ValuationInput) {
 
 /** Item id -> estimated value for the team that received it (the team that sent it loses the same amount). */
 export async function tradeValuations(input: ValuationInput): Promise<Map<number, number>> {
-  const { db, leagueId, seasonIds } = input;
+  const { leagueId, seasonIds } = input;
   if (seasonIds.length === 0) return new Map();
   const { rows, tenure, stintAt, window, playerValue, pickValue } = await load(input);
 
