@@ -75,7 +75,28 @@ export async function syncPlayerPoints(
   return stored;
 }
 
-/** Backfill for every enabled Sleeper season with data (`pnpm ingest points`): completed weeks are cached forever. */
+/**
+ * The scoring settings a season's players are scored with. A Sleeper season uses its own; an ESPN season has none
+ * stored, so it uses the settings of the league's earliest Sleeper season (the leagues scored the same way before and
+ * after the move: Sleeper's stat lines scored that way match ESPN's recorded points for about 93% of players to the
+ * hundredth, correlation 0.998).
+ */
+export function scoringForSeason(
+  season: { id: number; year: number; source: string; scoringSettings: Record<string, number> },
+  sleeperSeasons: readonly { year: number; scoringSettings: Record<string, number> }[]
+): Record<string, number> {
+  if (season.source === "sleeper" || Object.keys(season.scoringSettings).length > 0)
+    return season.scoringSettings;
+  const first = [...sleeperSeasons]
+    .filter((s) => Object.keys(s.scoringSettings).length > 0)
+    .sort((a, b) => a.year - b.year)[0];
+  return first?.scoringSettings ?? {};
+}
+
+/**
+ * Backfill for every enabled season with Sleeper stat lines (`pnpm ingest points`), ESPN seasons included (their
+ * players are scored with `scoringForSeason`); completed weeks are cached forever.
+ */
 export async function syncAllPlayerPoints(
   db: Db,
   client: SleeperClient,
@@ -84,8 +105,7 @@ export async function syncAllPlayerPoints(
   const seasons = await db
     .select({ s: leagueSeason, slug: leagueTable.slug })
     .from(leagueSeason)
-    .innerJoin(leagueTable, eq(leagueTable.id, leagueSeason.leagueId))
-    .where(eq(leagueSeason.source, "sleeper"));
+    .innerJoin(leagueTable, eq(leagueTable.id, leagueSeason.leagueId));
   for (const { s } of seasons) {
     if (only && !only.includes(s.id)) continue;
     const complete = s.status === "complete";
@@ -95,8 +115,13 @@ export async function syncAllPlayerPoints(
       leagueSeasonId: s.id,
       year: s.year,
       weeks,
-      scoring: s.scoringSettings,
-      overrides: s.scoringOverrides,
+      scoring: scoringForSeason(
+        s,
+        seasons
+          .filter((o) => o.s.leagueId === s.leagueId && o.s.source === "sleeper")
+          .map((o) => o.s)
+      ),
+      overrides: s.source === "sleeper" ? s.scoringOverrides : [],
       policy: (w) => (complete || w < (s.lastCompletedWeek ?? 0) ? FOREVER : hours(3)),
     });
   }

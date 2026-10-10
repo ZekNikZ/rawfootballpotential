@@ -4,7 +4,7 @@ import { useState } from "react";
 import { transactionsQuery } from "../api/queries";
 import { EmptyState, QueryError } from "./QueryState";
 import { SegmentedOrSelect } from "./records/filters";
-import { ROSTER_ONLY_NOTE, TransactionCard, TX_TYPES } from "./TransactionCard";
+import { ESPN_SCORING_NOTE, TransactionCard, TX_TYPES } from "./TransactionCard";
 
 export interface TransactionSeason {
   year: number;
@@ -14,8 +14,8 @@ export interface TransactionSeason {
   teamSeasonId: number;
   /** The season has player data, so trades show their estimated value. */
   playerData: boolean;
-  /** ESPN season: values count roster points only. */
-  rosterOnly: boolean;
+  /** ESPN season: scored with the 2022 Sleeper settings. */
+  espn: boolean;
 }
 
 /** Every transaction a franchise made in one season (newest first), picked with a year dropdown. */
@@ -66,7 +66,6 @@ export function FranchiseTransactions({ seasons }: { seasons: TransactionSeason[
           tx={tx}
           entities={data.entities}
           showValue={season.playerData}
-          rosterOnly={season.rosterOnly}
         />
       ))}
       {data && data.transactions.length > 0 && (
@@ -76,7 +75,7 @@ export function FranchiseTransactions({ seasons }: { seasons: TransactionSeason[
             ? `, showing the newest ${data.transactions.length}`
             : ""}
           . Failed claims are listed but never counted in records.
-          {season.playerData && season.rosterOnly && ` ${ROSTER_ONLY_NOTE}`}
+          {season.playerData && season.espn && ` ${ESPN_SCORING_NOTE}`}
         </Text>
       )}
     </Stack>

@@ -93,7 +93,7 @@ export default function FranchiseProfile() {
             seasonId: ls.id,
             teamSeasonId: s.teamSeasonId,
             playerData: ls.data.playerData,
-            rosterOnly: ls.source === "espn",
+            espn: ls.source === "espn",
           },
         ]
       : [];

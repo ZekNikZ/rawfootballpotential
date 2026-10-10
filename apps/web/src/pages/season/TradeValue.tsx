@@ -19,7 +19,7 @@ import type { Entities, Season, TradeBreakdown } from "../../api/schemas";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import { PositionBadge } from "../../components/PositionBadge";
 import { TeamLabel } from "../../components/TeamLabel";
-import { ROSTER_ONLY_NOTE } from "../../components/TransactionCard";
+import { ESPN_SCORING_NOTE } from "../../components/TransactionCard";
 import { SeasonShell } from "./SeasonShell";
 
 type Trade = TradeBreakdown["trades"][number];
@@ -285,15 +285,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-function Breakdown({
-  seasonId,
-  team,
-  rosterOnly,
-}: {
-  seasonId: number;
-  team: string;
-  rosterOnly: boolean;
-}) {
+function Breakdown({ seasonId, team, espn }: { seasonId: number; team: string; espn: boolean }) {
   const q = useQuery(tradeValueQuery(seasonId, team));
   const data = q.data;
   if (q.isPending)
@@ -310,13 +302,13 @@ function Breakdown({
   if (s.trades === 0) return <EmptyState>This team made no trades this season.</EmptyState>;
   return (
     <Stack>
-      {rosterOnly && (
+      {espn && (
         <Group gap={8} wrap="nowrap" align="flex-start">
-          <Badge color="yellow" variant="light" style={{ flexShrink: 0 }}>
-            Roster-only points
+          <Badge color="blue" variant="light" style={{ flexShrink: 0 }}>
+            2022 scoring
           </Badge>
           <Text size="sm" c="dimmed">
-            {ROSTER_ONLY_NOTE}
+            {ESPN_SCORING_NOTE}
           </Text>
         </Group>
       )}
@@ -414,7 +406,7 @@ function Page({ season }: { season: Season }) {
           <Breakdown
             seasonId={season.id}
             team={String(current.teamSeasonId)}
-            rosterOnly={season.source === "espn"}
+            espn={season.source === "espn"}
           />
         )
       )}

@@ -109,7 +109,7 @@ Admin settings, thresholds and corrections are only in the database, so backups 
 
 In the production images the same commands run as `docker compose run --rm ingest node dist/cli.js <command>`
 (for example `derive`, `nfl-reference`, `sync --season redraft-2026`, `espn <bundle>`; the bundle file has to be mounted).
-After the deploy that adds `player_week_points`, backfill it once: `docker compose run --rm ingest node dist/cli.js points` (about 190 Sleeper calls, cached afterward); new weeks come with every sync.
+After the deploy that adds `player_week_points` (and again after the ESPN seasons were added to it), backfill it: `docker compose run --rm ingest node dist/cli.js points` (about 190 Sleeper calls, cached afterward); new weeks come with every sync.
 
 **Freshness:** the dump is a snapshot. Take it (and run `pnpm ingest derive` first) shortly before you start the new
 server, and after the first start run Admin → Jobs → **daily** so the worker pulls anything Sleeper changed since; the
