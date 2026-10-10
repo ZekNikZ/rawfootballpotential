@@ -40,12 +40,23 @@ describe("estimated-value variants", () => {
       const res = await w.run(id, { limit: 50 });
       expect(res.total, id).toBeGreaterThan(0);
     }
-    // 2030 and 2031 each have a trade with no chain in the fixture, so the estimate equals the half-bench points.
     const a = await w.run("drop-regret", { limit: 50 });
     const b = await w.run("drop-regret.est", { limit: 50 });
     expect(b.total).toBeGreaterThanOrEqual(a.total);
     expect(Number(b.rows[0]?.values.points ?? 0)).toBeGreaterThanOrEqual(
       Number(a.rows[0]?.values.points ?? 0)
     );
+  });
+
+  it("shows who each side traded with and what it gave", async () => {
+    const res = await w.run("trade.best.est", { limit: 50 });
+    // 5 sides: 2 in the two-team trade, 3 in the three-team trade; each lists the other teams, not its own
+    expect(res.rows.length).toBe(5);
+    const partners = res.rows.map((r) => r.refs.teamSeasonIds?.length);
+    expect(partners.sort()).toEqual([1, 1, 2, 2, 2]);
+    for (const r of res.rows) {
+      expect(r.refs.teamSeasonIds).not.toContain(r.refs.teamSeasonId);
+      expect(String(r.values.gave).length).toBeGreaterThan(0);
+    }
   });
 });

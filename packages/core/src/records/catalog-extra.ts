@@ -648,7 +648,9 @@ const pickups: RecordDef[] = [
 const tradeCols = [
   TEAM,
   WEEK,
+  c("partners", "Traded with", "teams"),
   c("got", "Got", "text"),
+  c("gave", "Gave", "text"),
   c("sidePoints", "Starter points", "points"),
   c("otherPoints", "Other side", "points"),
   c("difference", "Difference", "points"),

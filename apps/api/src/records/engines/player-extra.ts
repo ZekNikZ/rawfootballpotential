@@ -230,6 +230,11 @@ export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
     ),
     sides as (
       select g.*, ts.franchise_id,
+             (select string_agg(coalesce(p.full_name, concat(j.pick_season, ' round ', j.pick_round, ' pick')), ', '
+                                order by coalesce(p.full_name, ''))
+                from rec_transaction_item j left join player p on p.id = j.player_id
+               where j.transaction_id = g.transaction_id and j.from_team_season_id = g.side and j.type = 'trade'
+                 and (j.kind = 'player' ${chained ? sql`or j.kind = 'pick'` : sql``})) as gave,
              count(*) over (partition by g.transaction_id) as side_count,
              sum(g.pts) over (partition by g.transaction_id) as total,
              max(g.pts) over (partition by g.transaction_id) as mx,
@@ -249,10 +254,10 @@ export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
     select
       round(pk.score::numeric, 3)::float8 as sort_value,
       pk.season, pk.franchise_id,
-      jsonb_build_object('season', pk.season, 'week', pk.week, 'got', pk.names, 'sidePoints', round(pk.pts::numeric, 3)::float8,
+      jsonb_build_object('season', pk.season, 'week', pk.week, 'got', pk.names, 'gave', pk.gave, 'sidePoints', round(pk.pts::numeric, 3)::float8,
                          'otherPoints', round(pk.other::numeric, 3)::float8,
                          'difference', round((pk.pts - pk.other)::numeric, 3)::float8) as data,
-      jsonb_build_object('franchiseId', pk.franchise_id, 'teamSeasonId', pk.side, 'teamSeasonIds', pk.side_ids,
+      jsonb_build_object('franchiseId', pk.franchise_id, 'teamSeasonId', pk.side, 'teamSeasonIds', array_remove(pk.side_ids, pk.side),
                          'leagueSeasonId', pk.league_season_id, 'season', pk.season, 'week', pk.week) as refs,
       (ls.status <> 'complete') as in_progress,
       concat(pk.season, '-', lpad(pk.week::text, 2, '0'), '-', lpad(pk.transaction_id::text, 8, '0'), '-', lpad(pk.side::text, 6, '0')) as tie_key
