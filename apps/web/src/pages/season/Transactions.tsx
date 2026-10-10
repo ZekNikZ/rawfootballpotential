@@ -90,7 +90,7 @@ function Body({ tx, entities, showValue }: { tx: Tx; entities: Entities; showVal
           return (
             <Paper key={team} withBorder radius="sm" p="xs">
               <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                <TeamLabel entities={entities} teamSeasonId={team} hideManager /> receives
+                <TeamLabel entities={entities} teamSeasonId={team} /> receives
               </Text>
               <Stack gap={3} mt={4}>
                 {items.map((i, n) => (
