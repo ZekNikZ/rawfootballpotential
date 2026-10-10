@@ -2,6 +2,7 @@ import { sql } from "@rfp/db";
 import type { SQL } from "@rfp/db";
 import { scopeCond, seasonCond, weeksCond, type RankedRow, type RunContext } from "../context";
 import { rankRows } from "../rank";
+import { minGames } from "./season-base";
 import { playerFilters } from "./players";
 
 /** The week a player's stint on a team ended, for the stint containing `week` (null when he never made a roster). */
@@ -366,5 +367,71 @@ export async function draftValueRecord(ctx: RunContext): Promise<RankedRow[]> {
       concat(pk.season, '-', lpad(pk.draft_id::text, 5, '0'), '-', lpad(pk.pick_no::text, 4, '0')) as tie_key
     from picks pk join league_season ls on ls.id = pk.league_season_id
     where pk.draft_type = 'auction' and pk.amount >= 1 and ${franchiseOnly}`;
+  return rankRows(ctx, inner);
+}
+
+/**
+ * Overall trade value per franchise. For every player moved in a trade, his value is the points he scored for the
+ * team that received him from the trade week to the end of that stint (so never past the season): a starter's
+ * points count in full, a bench / IR / taxi player's at half. A side gains the value of the players it received and
+ * loses the value of the players it sent away; its net is gained - lost. Draft picks and FAAB are not valued.
+ * "Total" ranks the sum of the nets, "average" the net per trade (with a minimum number of trades).
+ */
+export async function careerTradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
+  const { q } = ctx;
+  const average = ctx.def.id === "career.trade-value.avg";
+  const min = average ? minGames(ctx) : 1;
+  const inner = sql`
+    with items as (
+      select i.transaction_id, i.week, i.player_id, i.from_team_season_id as sender, i.to_team_season_id as receiver
+      from rec_transaction_item i
+      where i.type = 'trade' and i.kind = 'player' and i.player_id is not null
+        and i.from_team_season_id is not null and i.to_team_season_id is not null
+        and ${seasonCond(sql`i.league_season_id`, ctx.seasonIds)}
+    ),
+    vals as (
+      select it.transaction_id, it.sender, it.receiver, coalesce(v.pts, 0) as pts
+      from items it
+      cross join lateral (
+        select sum(case when pw.slot_kind = 'starter' then pw.points else 0.5 * pw.points end) as pts
+        from rec_player_week pw
+        where pw.team_season_id = it.receiver and pw.player_id = it.player_id
+          and pw.counts and pw.points is not null
+          and ${scopeCond(sql`pw.game_type`, q.scope)}
+          and pw.week between it.week and coalesce(${stintEnd(sql`it.receiver`, sql`it.player_id`, sql`it.week`)}, it.week - 1)
+      ) v
+    ),
+    sides as (
+      select transaction_id, team_season_id, sum(gained) as gained, sum(lost) as lost
+      from (
+        select transaction_id, receiver as team_season_id, pts as gained, 0 as lost from vals
+        union all
+        select transaction_id, sender, 0, pts from vals
+      ) x
+      group by transaction_id, team_season_id
+    ),
+    per as (
+      select ts.franchise_id, s.gained, s.lost, round((s.gained - s.lost)::numeric, 3) as net,
+             (ls.status <> 'complete') as prog
+      from sides s
+      join team_season ts on ts.id = s.team_season_id
+      join league_season ls on ls.id = ts.league_season_id
+    ),
+    career as (
+      select franchise_id, count(*)::int as trades,
+             count(*) filter (where net > 0)::int as wins, count(*) filter (where net < 0)::int as losses,
+             count(*) filter (where net = 0)::int as ties,
+             sum(gained) as gained, sum(lost) as lost, sum(net) as net, bool_or(prog) as in_progress
+      from per group by franchise_id
+    )
+    select
+      round((${average ? sql`net / trades` : sql`net`})::numeric, 3)::float8 as sort_value,
+      0 as season, franchise_id,
+      jsonb_build_object('trades', trades, 'record', wins || '-' || losses || case when ties > 0 then '-' || ties else '' end,
+                         'gained', round(gained::numeric, 1)::float8, 'lost', round(lost::numeric, 1)::float8,
+                         'net', net::float8, 'netPerTrade', round((net / trades)::numeric, 3)::float8) as data,
+      jsonb_build_object('franchiseId', franchise_id) as refs, in_progress,
+      lpad(franchise_id::text, 6, '0') as tie_key
+    from career where trades >= ${min}`;
   return rankRows(ctx, inner);
 }

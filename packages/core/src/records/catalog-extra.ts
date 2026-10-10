@@ -916,6 +916,43 @@ const marginCols = [
   c("games", "Games", "int"),
   c("winPct", "Win %", "pct"),
 ];
+const tradeValueCols = [
+  MANAGER,
+  c("trades", "Trades", "int"),
+  c("record", "Won-lost", "text"),
+  c("gained", "Points gained", "points"),
+  c("lost", "Points lost", "points"),
+  c("net", "Net points", "points"),
+  c("netPerTrade", "Net per trade", "points"),
+];
+const tradeValueBase = careerBase("Transactions", "careerTradeValue", {
+  filters: ["seasons", "scope"],
+  requires: req("transactions", "playerData"),
+});
+const careerTradeValue: RecordDef[] = [
+  rec(
+    "career.trade-value.total",
+    "Best overall trade value",
+    tradeValueBase,
+    "net",
+    "desc",
+    tradeValueCols,
+    "Net points a manager's trades produced: the points the players received scored for them from the trade to the end of that season, minus the points the players sent away scored for their new teams. Bench players count at half. Draft picks and FAAB are not valued. A trade is won when its net is above zero."
+  ),
+  rec(
+    "career.trade-value.avg",
+    "Best average trade value",
+    {
+      ...tradeValueBase,
+      filters: ["seasons", "scope", "minGames"],
+      qualifier: { minGames: 3 },
+    },
+    "netPerTrade",
+    "desc",
+    tradeValueCols,
+    "Net points per trade (same measure as overall trade value), for managers with at least 3 trades. The minimum can be changed."
+  ),
+];
 const careerLuck: RecordDef[] = [
   rec(
     "career.shouldve-won",
@@ -1151,6 +1188,7 @@ export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...drafts,
   ...rivalries,
   ...careerLuck,
+  ...careerTradeValue,
   ...careerWeekly,
   ...careerRuns,
   ...careerDifferentials,
