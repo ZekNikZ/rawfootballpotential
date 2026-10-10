@@ -33,3 +33,20 @@ describe("career trade value", () => {
     );
   });
 });
+
+describe("bench-at-half variants", () => {
+  it("count at least what the starter-only records count, and run with the same rows", async () => {
+    for (const [base, bench, key] of [
+      ["trade.best", "trade.best.bench", "sidePoints"],
+      ["trade.lopsided", "trade.lopsided.bench", "difference"],
+      ["drop-regret", "drop-regret.bench", "points"],
+    ] as const) {
+      const a = await w.run(base, { limit: 50 });
+      const b = await w.run(bench, { limit: 50 });
+      expect(b.total, bench).toBeGreaterThanOrEqual(a.total);
+      expect(Number(b.rows[0]?.values[key] ?? 0), bench).toBeGreaterThanOrEqual(
+        Number(a.rows[0]?.values[key] ?? 0)
+      );
+    }
+  });
+});

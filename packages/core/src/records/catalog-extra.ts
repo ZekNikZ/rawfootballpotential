@@ -623,6 +623,21 @@ const pickups: RecordDef[] = [
     ],
     "Points a dropped player scored as a starter for other teams over the rest of that season."
   ),
+  rec(
+    "drop-regret.bench",
+    "Drop regret (bench at half)",
+    pickupBase("Waivers & Trades", { grain: "player_season", engine: "dropRegret" }),
+    "points",
+    "desc",
+    [
+      c("player", "Player", "player"),
+      TEAM,
+      c("droppedWeek", "Dropped", "week"),
+      c("points", "Points for others since", "points"),
+      c("startedFor", "Started for", "text"),
+    ],
+    "Points a dropped player scored for other teams over the rest of that season: a starter's points in full, a bench player's at half."
+  ),
 ];
 const tradeCols = [
   TEAM,
@@ -632,6 +647,9 @@ const tradeCols = [
   c("otherPoints", "Other side", "points"),
   c("difference", "Difference", "points"),
 ];
+const tradeBenchCols = tradeCols.map((col) =>
+  col.key === "sidePoints" ? { ...col, title: "Points" } : col
+);
 const trades: RecordDef[] = [
   rec(
     "trade.best",
@@ -650,6 +668,24 @@ const trades: RecordDef[] = [
     "desc",
     tradeCols,
     "The gap between the winning side's starter points and the other side's, for trades where each side received players."
+  ),
+  rec(
+    "trade.best.bench",
+    "Best trade (bench at half)",
+    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
+    "sidePoints",
+    "desc",
+    tradeBenchCols,
+    "Points the players one side received scored for it over the rest of the season: starters in full, bench players at half."
+  ),
+  rec(
+    "trade.lopsided.bench",
+    "Most lopsided trade (bench at half)",
+    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
+    "difference",
+    "desc",
+    tradeBenchCols,
+    "The gap between the winning side's points and the other side's (starters in full, bench players at half), for trades where each side received players."
   ),
 ];
 

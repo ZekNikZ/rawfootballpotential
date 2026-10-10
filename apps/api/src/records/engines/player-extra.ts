@@ -6,10 +6,31 @@ import { minGames } from "./season-base";
 import { playerFilters } from "./players";
 
 /** The week a player's stint on a team ended, for the stint containing `week` (null when he never made a roster). */
-const stintEnd = (team: SQL, player: SQL, week: SQL): SQL => sql`(
+export const stintEnd = (team: SQL, player: SQL, week: SQL): SQL => sql`(
   select t.to_week from player_tenure t
   where t.team_season_id = ${team} and t.player_id = ${player} and t.from_week <= ${week} and t.to_week >= ${week}
   order by t.from_week desc limit 1)`;
+
+/**
+ * Points a player scored for `team` from `week` to the end of that stint (counted team-weeks only; the stint is within
+ * one team season, so never past the season). A starter's points count in full, a bench / IR / taxi player's at
+ * `benchWeight` (0 = starters only, 0.5 = half). Without a stint the player is valued at 0.
+ */
+export const pointsSince = (
+  team: SQL,
+  player: SQL,
+  week: SQL,
+  benchWeight: number,
+  scope?: SQL
+): SQL => sql`(
+  select coalesce(sum(case when pw.slot_kind = 'starter' then pw.points else ${benchWeight} * pw.points end), 0)
+  from rec_player_week pw
+  where pw.team_season_id = ${team} and pw.player_id = ${player} and pw.counts and pw.points is not null
+    ${scope ? sql`and ${scope}` : sql``}
+    and pw.week between ${week} and coalesce(${stintEnd(team, player, week)}, ${week} - 1))`;
+
+/** The "bench at half" variants of the trade and drop-regret records count bench / IR / taxi points at this weight. */
+const benchWeightOf = (id: string): number => (id.endsWith(".bench") ? 0.5 : 0);
 
 /** A player on a bye (his NFL team had no game) or not active that week. */
 const deadPlayer = sql`((pw.nfl_game_id is null and pw.nfl_team is not null and pw.points = 0)
@@ -121,6 +142,7 @@ export async function pickupRecord(ctx: RunContext): Promise<RankedRow[]> {
 /** Points a dropped player scored as a starter for other teams over the rest of that season. */
 export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
+  const bw = benchWeightOf(ctx.def.id);
   const inner = sql`
     with d as (
       select t.team_season_id, t.player_id, t.to_week, ts.franchise_id, ts.league_season_id, ls.year as season
@@ -143,11 +165,12 @@ export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
     join player p on p.id = d.player_id
     join league_season ls on ls.id = d.league_season_id
     cross join lateral (
-      select sum(pw.points) as pts, string_agg(distinct ots.name, ', ') as teams
+      select sum(case when pw.slot_kind = 'starter' then pw.points else ${bw} * pw.points end) as pts,
+             string_agg(distinct ots.name, ', ') as teams
       from rec_player_week pw join team_season ots on ots.id = pw.team_season_id
       where pw.player_id = d.player_id and pw.league_season_id = d.league_season_id
         and pw.week > d.to_week and pw.team_season_id <> d.team_season_id
-        and pw.slot_kind = 'starter' and pw.counts and pw.points is not null
+        and (pw.slot_kind = 'starter' or ${bw}::numeric > 0) and pw.counts and pw.points is not null
         and ${scopeCond(sql`pw.game_type`, q.scope)}
     ) x
     where x.pts is not null`;
@@ -160,7 +183,8 @@ export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
  */
 export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
-  const lopsided = ctx.def.id === "trade.lopsided";
+  const lopsided = ctx.def.id.startsWith("trade.lopsided");
+  const bw = benchWeightOf(ctx.def.id);
   const inner = sql`
     with items as (
       select i.transaction_id, i.league_season_id, i.season, i.week, i.to_team_season_id as side, i.player_id
@@ -174,12 +198,7 @@ export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
       from items it
       join player p on p.id = it.player_id
       cross join lateral (
-        select coalesce(sum(pw.points), 0) as pts
-        from rec_player_week pw
-        where pw.team_season_id = it.side and pw.player_id = it.player_id
-          and pw.slot_kind = 'starter' and pw.counts and pw.points is not null
-          and ${scopeCond(sql`pw.game_type`, q.scope)}
-          and pw.week between it.week and coalesce(${stintEnd(sql`it.side`, sql`it.player_id`, sql`it.week`)}, it.week - 1)
+        select ${pointsSince(sql`it.side`, sql`it.player_id`, sql`it.week`, bw, scopeCond(sql`pw.game_type`, q.scope))} as pts
       ) sp
       group by it.transaction_id, it.league_season_id, it.season, it.week, it.side
     ),
@@ -390,15 +409,10 @@ export async function careerTradeValueRecord(ctx: RunContext): Promise<RankedRow
         and ${seasonCond(sql`i.league_season_id`, ctx.seasonIds)}
     ),
     vals as (
-      select it.transaction_id, it.sender, it.receiver, coalesce(v.pts, 0) as pts
+      select it.transaction_id, it.sender, it.receiver, v.pts as pts
       from items it
       cross join lateral (
-        select sum(case when pw.slot_kind = 'starter' then pw.points else 0.5 * pw.points end) as pts
-        from rec_player_week pw
-        where pw.team_season_id = it.receiver and pw.player_id = it.player_id
-          and pw.counts and pw.points is not null
-          and ${scopeCond(sql`pw.game_type`, q.scope)}
-          and pw.week between it.week and coalesce(${stintEnd(sql`it.receiver`, sql`it.player_id`, sql`it.week`)}, it.week - 1)
+        select ${pointsSince(sql`it.receiver`, sql`it.player_id`, sql`it.week`, 0.5, scopeCond(sql`pw.game_type`, q.scope))} as pts
       ) v
     ),
     sides as (

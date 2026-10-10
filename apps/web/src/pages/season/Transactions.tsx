@@ -73,7 +73,10 @@ function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
   );
 }
 
-function Body({ tx, entities }: { tx: Tx; entities: Entities }) {
+const fmtPts = (n: number) => n.toFixed(1);
+const fmtSigned = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmtPts(Math.abs(n));
+
+function Body({ tx, entities, showValue }: { tx: Tx; entities: Entities; showValue: boolean }) {
   if (tx.type === "trade") {
     const sides = new Map<number, Item[]>();
     for (const i of tx.items) {
@@ -82,18 +85,37 @@ function Body({ tx, entities }: { tx: Tx; entities: Entities }) {
     }
     return (
       <SimpleGrid cols={{ base: 1, xs: sides.size > 1 ? 2 : 1 }} spacing="xs">
-        {[...sides].map(([team, items]) => (
-          <Paper key={team} withBorder radius="sm" p="xs">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-              <TeamLabel entities={entities} teamSeasonId={team} hideManager /> receives
-            </Text>
-            <Stack gap={3} mt={4}>
-              {items.map((i, n) => (
-                <ItemLine key={n} item={i} entities={entities} />
-              ))}
-            </Stack>
-          </Paper>
-        ))}
+        {[...sides].map(([team, items]) => {
+          const value = showValue ? tx.tradeValue?.find((v) => v.teamSeasonId === team) : undefined;
+          return (
+            <Paper key={team} withBorder radius="sm" p="xs">
+              <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+                <TeamLabel entities={entities} teamSeasonId={team} hideManager /> receives
+              </Text>
+              <Stack gap={3} mt={4}>
+                {items.map((i, n) => (
+                  <ItemLine key={n} item={i} entities={entities} />
+                ))}
+              </Stack>
+              {value && (
+                <Text size="xs" mt={6}>
+                  Estimated trade value{" "}
+                  <Text
+                    span
+                    fw={700}
+                    c={value.net > 0 ? "green" : value.net < 0 ? "red" : "dimmed"}
+                  >
+                    {fmtSigned(value.net)}
+                  </Text>
+                  <Text span c="dimmed">
+                    {" "}
+                    ({fmtPts(value.gained)} received, {fmtPts(value.lost)} sent)
+                  </Text>
+                </Text>
+              )}
+            </Paper>
+          );
+        })}
       </SimpleGrid>
     );
   }
@@ -217,7 +239,7 @@ function List({ season }: { season: Season }) {
                 {tx.executedAt ? ` · ${dayjs(tx.executedAt).format("MMM D, YYYY h:mm A")}` : ""}
               </Text>
             </Group>
-            <Body tx={tx} entities={data.entities} />
+            <Body tx={tx} entities={data.entities} showValue={season.data.playerData} />
           </Stack>
         </Card>
       ))}
@@ -233,6 +255,8 @@ function List({ season }: { season: Season }) {
         <Text size="sm" c="dimmed">
           {data.total} transaction{data.total === 1 ? "" : "s"}. Failed claims are listed but never
           counted in records.
+          {season.data.playerData &&
+            " Estimated trade value is the points each side's players scored for their new team from the trade to the end of the season (or until they were moved again): starters in full, bench players at half. Picks and FAAB are not valued."}
         </Text>
       )}
     </Stack>

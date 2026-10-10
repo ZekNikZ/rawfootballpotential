@@ -320,6 +320,21 @@ describe("season info pages (may include live data)", () => {
     expect(tx.total).toBe(3);
     expect(tx.transactions.map((x: Json) => x.status)).toEqual(["complete", "failed", "complete"]); // newest first; the two week-2 claims share a timestamp, so newest id first;
     expect((await get(`/api/seasons/${sid()}/transactions?type=trade`)).body.total).toBe(1);
+    // estimated trade value: one entry per team in the trade, nets cancel out; other types have none
+    const trade = (await get(`/api/seasons/${sid()}/transactions?type=trade`)).body.transactions[0];
+    expect(trade.tradeValue.map((v: Json) => v.teamSeasonId).sort()).toEqual(
+      trade.items
+        .filter((i: Json) => i.kind === "player")
+        .map((i: Json) => i.toTeamSeasonId)
+        .sort()
+    );
+    const netSum = trade.tradeValue.reduce((a: number, v: Json) => a + v.net, 0);
+    expect(Math.abs(netSum)).toBeLessThan(0.11);
+    expect(
+      tx.transactions
+        .filter((x: Json) => x.type !== "trade")
+        .every((x: Json) => x.tradeValue === null)
+    ).toBe(true);
     const failed = tx.transactions.find((x: Json) => x.status === "failed");
     expect(failed.failureReason).toBe("Player was claimed by another team.");
     expect(

@@ -482,6 +482,16 @@ export const transactionsResponse = z.object({
       week: nullableNum,
       executedAt: z.string().nullable(),
       creatorTeamSeasonId: nullableNum,
+      tradeValue: z
+        .array(
+          z.object({
+            teamSeasonId: z.number(),
+            gained: z.number(),
+            lost: z.number(),
+            net: z.number(),
+          })
+        )
+        .nullable(),
       items: z.array(
         z.object({
           kind: z.string(),

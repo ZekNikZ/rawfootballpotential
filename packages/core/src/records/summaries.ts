@@ -55,6 +55,9 @@ export const RECORD_SUMMARIES: Readonly<Record<string, string>> = {
   "pickup.value": "Starter points per FAAB dollar on winning bids",
   "pickup.faab-per-point": "Most FAAB spent per starter point",
   "drop-regret": "Dropped players who scored most as starters elsewhere",
+  "drop-regret.bench": "Dropped players' points elsewhere, bench at half",
+  "trade.best.bench": "Points gained by one side of a trade, bench at half",
+  "trade.lopsided.bench": "Biggest point gap between a trade's sides, bench at half",
   "trade.best": "Starter points gained by one side of a trade",
   "trade.lopsided": "Biggest starter-point gap between a trade's sides",
 
