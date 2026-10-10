@@ -99,6 +99,13 @@
       "when": 1791671351110,
       "tag": "0013_changelog_2_1_0",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791673626875,
+      "tag": "0014_changelog_2_1_0_espn_scoring",
+      "breakpoints": true
     }
   ]
 }

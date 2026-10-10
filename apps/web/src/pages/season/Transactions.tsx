@@ -5,7 +5,7 @@ import { teamsQuery, transactionsQuery } from "../../api/queries";
 import type { Season } from "../../api/schemas";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import { SegmentedOrSelect } from "../../components/records/filters";
-import { ROSTER_ONLY_NOTE, TransactionCard, TX_TYPES } from "../../components/TransactionCard";
+import { ESPN_SCORING_NOTE, TransactionCard, TX_TYPES } from "../../components/TransactionCard";
 import { SeasonShell } from "./SeasonShell";
 
 const PAGE = 25;
@@ -84,7 +84,6 @@ function List({ season }: { season: Season }) {
           tx={tx}
           entities={data.entities}
           showValue={season.data.playerData}
-          rosterOnly={season.source === "espn"}
         />
       ))}
       {data && data.total > PAGE && (
@@ -101,7 +100,7 @@ function List({ season }: { season: Season }) {
           counted in records.
           {season.data.playerData &&
             " Estimated trade value is the points each player scored from the trade to the end of the season wherever he was, so a later flip or drop does not change it; a dynasty player's next season counts at half, and a draft pick is worth the player it became. The number beside each player or pick is his share of that value. FAAB is not valued."}
-          {season.data.playerData && season.source === "espn" && ` ${ROSTER_ONLY_NOTE}`}
+          {season.data.playerData && season.source === "espn" && ` ${ESPN_SCORING_NOTE}`}
         </Text>
       )}
     </Stack>
