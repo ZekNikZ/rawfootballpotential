@@ -20,6 +20,7 @@ import {
   standingsResponse,
   transactionsResponse,
   trophiesResponse,
+  tradeBreakdownResponse,
 } from "./schemas";
 
 const MINUTE = 60_000;
@@ -160,6 +161,15 @@ export const transactionsQuery = (seasonId: number, params: Params) =>
     queryKey: ["transactions", seasonId, params],
     queryFn: ({ signal }) =>
       getJson(`/seasons/${seasonId}/transactions`, transactionsResponse, params, signal),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+
+export const tradeValueQuery = (seasonId: number, team: string) =>
+  queryOptions({
+    queryKey: ["trade-value", seasonId, team],
+    queryFn: ({ signal }) =>
+      getJson(`/seasons/${seasonId}/trade-value`, tradeBreakdownResponse, { team }, signal),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });

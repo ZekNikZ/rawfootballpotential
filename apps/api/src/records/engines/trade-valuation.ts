@@ -2,7 +2,7 @@ import { optimalLineup, type LineupPlayer, type Scope } from "@rfp/core";
 import { sql } from "@rfp/db";
 import type { Db, SQL } from "@rfp/db";
 import { scopeCond } from "../context";
-import { chainValues, type ChainItem } from "./trade-chain";
+import { chainResolve, chainValues, type ChainItem, type ChainLink } from "./trade-chain";
 
 /**
  * Estimated trade value (doc 3.11.3, "Estimated trade value"). Everything a record or the Transactions page needs to
@@ -26,6 +26,41 @@ export const DEPTH_CREDIT_WEIGHT = 0.5;
 /** One week of a player's value: what he added to the lineup, plus partial credit for the points a replacement covered. */
 export const weekValue = (points: number, marginal: number, depthEligible: boolean): number =>
   marginal + (depthEligible ? DEPTH_CREDIT_WEIGHT * Math.max(0, points - marginal) : 0);
+
+/** One counted week of a player's value: points, where he sat, what he added to the lineup, and the depth credit. */
+export interface WeekValue {
+  week: number;
+  points: number;
+  slot: string;
+  lineup: number;
+  depth: number;
+}
+
+export type EndReason = "dropped" | "traded" | "commissioner" | "season_end" | "ongoing";
+
+/** A run of counted weeks with one team in one season; `weight` is 1, or 0.5 for a dynasty next season. */
+export interface Segment {
+  year: number;
+  weight: number;
+  weeks: WeekValue[];
+  /** Why the player stopped counting here, and the week he was moved (season_end/ongoing: the last week). */
+  end: { reason: EndReason; week: number };
+}
+
+export interface PlayerDetail {
+  value: number;
+  segments: Segment[];
+  /** Why nothing (more) counts: not on the team's roster, next season not played yet, or not kept. */
+  note: "not_rostered" | "next_season_pending" | "not_kept" | null;
+}
+
+export interface PickDetail {
+  value: number;
+  /** The player the pick became, with his value to the team that made the pick; null before the draft. */
+  made: { playerId: number; detail: PlayerDetail } | null;
+  /** Before the draft: the round average over this many earlier picks. */
+  averageOf: number | null;
+}
 
 interface Stint {
   fromWeek: number;
@@ -159,13 +194,19 @@ async function load(input: ValuationInput) {
       roster.filter((p) => p.id !== without)
     ).points;
   };
+  /** One week of `player` on `ts` (null when he was not on the roster or the week is out of scope). */
+  const weekParts = (ts: number, week: number, player: number): WeekValue | null => {
+    const me = rosters.get(`${ts}:${week}`)?.find((p) => p.id === player);
+    if (!me) return null;
+    const lineup = (bestOf(ts, week, null) ?? 0) - (bestOf(ts, week, player) ?? 0);
+    const slot = slotKinds.get(`${ts}:${week}:${player}`) ?? "";
+    const total = weekValue(me.points, lineup, slot === "starter" || slot === "bench");
+    return { week, points: me.points, slot, lineup, depth: total - lineup };
+  };
   /** What `player` was worth to `ts` in `week` (0 when he was not on the roster or the week is out of scope). */
   const added = (ts: number, week: number, player: number): number => {
-    const me = rosters.get(`${ts}:${week}`)?.find((p) => p.id === player);
-    if (!me) return 0;
-    const marginal = (bestOf(ts, week, null) ?? 0) - (bestOf(ts, week, player) ?? 0);
-    const kind = slotKinds.get(`${ts}:${week}:${player}`);
-    return weekValue(me.points, marginal, kind === "starter" || kind === "bench");
+    const p = weekParts(ts, week, player);
+    return p ? p.lineup + p.depth : 0;
   };
   const window = (ts: number, player: number, from: number, to: number): number => {
     let v = 0;
@@ -173,22 +214,60 @@ async function load(input: ValuationInput) {
     return v;
   };
 
-  /** A player's value to `ts` from `fromWeek` to the end of his stint (and, in dynasty, the next season). */
-  const playerValue = (ts: number, player: number, fromWeek: number): number => {
+  const reasonOf = (v: string | null): EndReason =>
+    v === "drop"
+      ? "dropped"
+      : v === "trade"
+        ? "traded"
+        : v === "commissioner"
+          ? "commissioner"
+          : v === "season_end"
+            ? "season_end"
+            : "ongoing";
+  const segmentOf = (
+    ts: number,
+    player: number,
+    from: number,
+    stint: Stint,
+    year: number,
+    weight: number
+  ): Segment => {
+    const weeks: WeekValue[] = [];
+    for (let w = Math.max(1, from); w <= lastWeekOf(stint); w++) {
+      const p = weekParts(ts, w, player);
+      if (p) weeks.push(p);
+    }
+    const moved =
+      stint.leftVia === null || stint.leftVia === "season_end" ? stint.toWeek : lastWeekOf(stint);
+    return { year, weight, weeks, end: { reason: reasonOf(stint.leftVia), week: moved } };
+  };
+
+  /** A player's value to `ts` from `fromWeek` to the end of his stint (and, in dynasty, the next season), week by week. */
+  const playerDetail = (ts: number, player: number, fromWeek: number): PlayerDetail => {
     const stint = stintAt(ts, player, Math.max(1, fromWeek));
-    if (!stint) return 0;
-    let v = window(ts, player, fromWeek, lastWeekOf(stint));
     const info = teamSeason.get(ts);
     const season = info ? seasonById.get(info.leagueSeasonId) : undefined;
-    if (season?.dynasty && stint.leftVia === "season_end") {
+    if (!stint || !season) return { value: 0, segments: [], note: "not_rostered" };
+    const segments = [segmentOf(ts, player, fromWeek, stint, season.year, 1)];
+    let note: PlayerDetail["note"] = null;
+    if (season.dynasty && stint.leftVia === "season_end") {
       const next = seasonByYear.get(season.year + 1);
       const nextTs = next ? teamOf.get(`${next.id}:${info!.franchiseId}`) : undefined;
       const nextStint = nextTs !== undefined ? stintAt(nextTs, player, 1) : null;
-      if (nextTs !== undefined && nextStint)
-        v += DYNASTY_NEXT_SEASON_WEIGHT * window(nextTs, player, 1, lastWeekOf(nextStint));
+      if (next && nextTs !== undefined && nextStint)
+        segments.push(
+          segmentOf(nextTs, player, 1, nextStint, next.year, DYNASTY_NEXT_SEASON_WEIGHT)
+        );
+      else note = next ? "not_kept" : "next_season_pending";
     }
-    return v;
+    const value = segments.reduce(
+      (t, g) => t + g.weight * g.weeks.reduce((x, w) => x + w.lineup + w.depth, 0),
+      0
+    );
+    return { value, segments, note };
   };
+  const playerValue = (ts: number, player: number, fromWeek: number): number =>
+    playerDetail(ts, player, fromWeek).value;
 
   // ---- Picks: the player each became, and the round average for picks not yet made ----
   const draftPicks = await rows(sql`
@@ -216,14 +295,29 @@ async function load(input: ValuationInput) {
     }
     return v;
   };
-  const pickValue = (it: TradeItem): number => {
-    if (it.pickSeason === null || it.pickRound === null || it.pickFranchiseId === null) return 0;
+  const pickDetail = (it: TradeItem): PickDetail => {
+    if (it.pickSeason === null || it.pickRound === null || it.pickFranchiseId === null)
+      return { value: 0, made: null, averageOf: null };
     const season = seasonByYear.get(it.pickSeason);
     const made = season
       ? pickByKey.get(`${season.id}:${it.pickRound}:${it.pickFranchiseId}`)
       : undefined;
-    return made ? realized(made) : expectedOfRound(it.pickRound);
+    if (made) {
+      const detail = playerDetail(num(made.team_season_id), num(made.player_id), 1);
+      return {
+        value: detail.value,
+        made: { playerId: num(made.player_id), detail },
+        averageOf: null,
+      };
+    }
+    const round = it.pickRound;
+    return {
+      value: expectedOfRound(round),
+      made: null,
+      averageOf: draftPicks.filter((dp) => num(dp.round) === round).length,
+    };
   };
+  const pickValue = (it: TradeItem): number => pickDetail(it).value;
 
   return {
     rows,
@@ -236,15 +330,17 @@ async function load(input: ValuationInput) {
     added,
     window,
     playerValue,
+    playerDetail,
     pickValue,
+    pickDetail,
   };
 }
 
-/** Item id -> estimated value for the team that received it (the team that sent it loses the same amount). */
-export async function tradeValuations(input: ValuationInput): Promise<Map<number, number>> {
+/** The trade items of the seasons being valued, with everything needed to value or explain them. */
+async function prepare(input: ValuationInput) {
   const { leagueId, seasonIds } = input;
-  if (seasonIds.length === 0) return new Map();
-  const { rows, tenure, stintAt, window, playerValue, pickValue } = await load(input);
+  const ctx = await load(input);
+  const { rows, tenure, stintAt, window, playerValue, pickValue } = ctx;
 
   // ---- The trade items to value ----
   const items: TradeItem[] = (
@@ -279,8 +375,6 @@ export async function tradeValuations(input: ValuationInput): Promise<Map<number
       : it.receiver === null || it.playerId === null
         ? 0
         : playerValue(it.receiver, it.playerId, it.week);
-
-  if (!input.chain) return new Map(items.map((it) => [it.itemId, direct(it)]));
 
   // ---- Chains: a player the receiving team traded on within the same stint ----
   const order = (a: TradeItem, b: TradeItem) =>
@@ -323,7 +417,69 @@ export async function tradeValuations(input: ValuationInput): Promise<Map<number
       nextItemId,
     };
   });
+  return { ctx, items, chainItems, direct };
+}
+
+/** Item id -> estimated value for the team that received it (the team that sent it loses the same amount). */
+export async function tradeValuations(input: ValuationInput): Promise<Map<number, number>> {
+  if (input.seasonIds.length === 0) return new Map();
+  const { items, chainItems, direct } = await prepare(input);
+  if (!input.chain) return new Map(items.map((it) => [it.itemId, direct(it)]));
   return chainValues(chainItems);
+}
+
+export interface ItemExplanation {
+  itemId: number;
+  transactionId: number;
+  week: number;
+  kind: "player" | "pick";
+  playerId: number | null;
+  pickSeason: number | null;
+  pickRound: number | null;
+  pickFranchiseId: number | null;
+  sender: number | null;
+  receiver: number | null;
+  /** Value to the receiving team before following the player through a later trade. */
+  direct: number;
+  /** Value including the return of a later trade (what the trade page and trade records use). */
+  value: number;
+  player: PlayerDetail | null;
+  pick: PickDetail | null;
+  /** The player was traded on by the team that received him: the later trade and his share of what came back. */
+  chain: (ChainLink & { transactionId: number; week: number }) | null;
+}
+
+/** Every trade item of the seasons, explained week by week (for the manager breakdown page). */
+export async function explainTrades(input: ValuationInput): Promise<ItemExplanation[]> {
+  if (input.seasonIds.length === 0) return [];
+  const { ctx, items, chainItems } = await prepare({ ...input, chain: true });
+  const { values, links } = chainResolve(chainItems);
+  const byId = new Map(items.map((it) => [it.itemId, it]));
+  const directOf = new Map(chainItems.map((c) => [c.itemId, c.direct]));
+  return items.map((it) => {
+    const link = links.get(it.itemId);
+    const next = link ? byId.get(link.nextItemId) : undefined;
+    return {
+      itemId: it.itemId,
+      transactionId: it.transactionId,
+      week: it.week,
+      kind: it.kind,
+      playerId: it.playerId,
+      pickSeason: it.pickSeason,
+      pickRound: it.pickRound,
+      pickFranchiseId: it.pickFranchiseId,
+      sender: it.sender,
+      receiver: it.receiver,
+      direct: directOf.get(it.itemId) ?? 0,
+      value: values.get(it.itemId) ?? 0,
+      player:
+        it.kind === "player" && it.receiver !== null && it.playerId !== null
+          ? ctx.playerDetail(it.receiver, it.playerId, it.week)
+          : null,
+      pick: it.kind === "pick" ? ctx.pickDetail(it) : null,
+      chain: link && next ? { ...link, transactionId: next.transactionId, week: next.week } : null,
+    };
+  });
 }
 
 /** The values as an inline `iv(item_id, v)` CTE for a record query. */

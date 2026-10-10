@@ -514,6 +514,89 @@ export const transactionsResponse = z.object({
 });
 export type Transactions = z.infer<typeof transactionsResponse>;
 
+const weekValueSchema = z.object({
+  week: z.number(),
+  points: z.number(),
+  slot: z.string(),
+  lineup: z.number(),
+  depth: z.number(),
+});
+const playerDetailSchema = z.object({
+  value: z.number(),
+  note: z.enum(["not_rostered", "next_season_pending", "not_kept"]).nullable(),
+  segments: z.array(
+    z.object({
+      year: z.number(),
+      weight: z.number(),
+      end: z.object({ reason: z.string(), week: z.number() }),
+      weeks: z.array(weekValueSchema),
+    })
+  ),
+});
+const breakdownItem = z.object({
+  itemId: z.number(),
+  kind: z.string(),
+  playerId: nullableNum,
+  pickSeason: nullableNum,
+  pickRound: nullableNum,
+  pickFranchiseId: nullableNum,
+  counterpartyTeamSeasonId: nullableNum,
+  direct: z.number(),
+  value: z.number(),
+  player: playerDetailSchema.nullable(),
+  pick: z
+    .object({
+      value: z.number(),
+      averageOf: nullableNum,
+      made: z.object({ playerId: z.number(), detail: playerDetailSchema.nullable() }).nullable(),
+    })
+    .nullable(),
+  chain: z
+    .object({
+      transactionId: z.number(),
+      week: z.number(),
+      share: z.number(),
+      returned: z.number(),
+      returnedItems: z.array(
+        z.object({
+          kind: z.string(),
+          playerId: nullableNum,
+          pickSeason: nullableNum,
+          pickRound: nullableNum,
+          value: z.number(),
+        })
+      ),
+    })
+    .nullable(),
+});
+export const tradeBreakdownResponse = z.object({
+  teamSeasonId: z.number(),
+  summary: z.object({
+    trades: z.number(),
+    gained: z.number(),
+    lost: z.number(),
+    net: z.number(),
+    netPerTrade: nullableNum,
+  }),
+  trades: z.array(
+    z.object({
+      id: z.number(),
+      week: z.number(),
+      executedAt: z.string().nullable(),
+      partners: z.array(z.number()),
+      gained: z.number(),
+      lost: z.number(),
+      net: z.number(),
+      chainedNet: z.number(),
+      received: z.array(breakdownItem),
+      sent: z.array(breakdownItem),
+    })
+  ),
+  players: z.record(z.string(), z.object({ name: z.string(), position: z.string().nullable() })),
+  entities: entitiesSchema,
+});
+export type TradeBreakdown = z.infer<typeof tradeBreakdownResponse>;
+
 export const picksResponse = z.object({
   picks: z.array(
     z.object({

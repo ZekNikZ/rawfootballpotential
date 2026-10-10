@@ -22,6 +22,24 @@ export interface ChainItem {
  * they would count the return of a re-trade twice, so career totals use `direct` only.
  */
 export function chainValues(list: readonly ChainItem[]): Map<number, number> {
+  return chainResolve(list).values;
+}
+
+/** How an item's value was extended by the later trade of the same player. */
+export interface ChainLink {
+  nextItemId: number;
+  /** Share of what the team received in the later trade that this item is credited with (0 to 1). */
+  share: number;
+  /** Total value of everything the team received in the later trade. */
+  returned: number;
+}
+
+/** `chainValues` plus, for every item that was traded on, the link that explains the added value. */
+export function chainResolve(list: readonly ChainItem[]): {
+  values: Map<number, number>;
+  links: Map<number, ChainLink>;
+} {
+  const links = new Map<number, ChainLink>();
   const items = new Map<number, ChainItem>();
   const byTx = new Map<number, ChainItem[]>();
   for (const it of list) {
@@ -50,10 +68,11 @@ export function chainValues(list: readonly ChainItem[]): Map<number, number> {
         .filter((o) => o.receiver === it.receiver)
         .reduce((s, o) => s + valueOf(o), 0);
       v += share * returned;
+      links.set(it.itemId, { nextItemId: next.itemId, share, returned });
     }
     memo.set(it.itemId, v);
     return v;
   };
   for (const it of items.values()) valueOf(it);
-  return memo;
+  return { values: memo, links };
 }

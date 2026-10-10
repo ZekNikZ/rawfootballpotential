@@ -341,6 +341,24 @@ describe("season info pages (may include live data)", () => {
         .filter((x: Json) => x.type !== "trade")
         .every((x: Json) => x.tradeValue === null)
     ).toBe(true);
+    // the manager breakdown explains every value of the feed week by week
+    const team = trade.tradeValue[0].teamSeasonId;
+    const bd = (await get(`/api/seasons/${sid()}/trade-value?team=${team}`)).body;
+    expect(bd.summary.trades).toBe(1);
+    expect(bd.summary.net).toBeCloseTo(trade.tradeValue[0].net, 1);
+    expect(bd.summary.netPerTrade).toBeCloseTo(bd.summary.net, 3);
+    for (const it of [...bd.trades[0].received, ...bd.trades[0].sent].filter(
+      (x: Json) => x.player
+    )) {
+      const weekly = it.player.segments.reduce(
+        (t: number, g: Json) =>
+          t + g.weight * g.weeks.reduce((x: number, w: Json) => x + w.lineup + w.depth, 0),
+        0
+      );
+      expect(weekly).toBeCloseTo(it.direct, 2);
+      expect(bd.players[String(it.playerId)].name).toBeTruthy();
+    }
+    expect((await get(`/api/seasons/${sid()}/trade-value`)).status).toBe(400);
     const failed = tx.transactions.find((x: Json) => x.status === "failed");
     expect(failed.failureReason).toBe("Player was claimed by another team.");
     expect(
