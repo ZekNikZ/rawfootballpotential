@@ -134,8 +134,13 @@ export function createHandlers(
           "in_season",
           "post_season",
         ]);
-        for (const s of seasons)
+        // The sync resets team_week.result / margin on every week it touches; only derive writes them back, so
+        // derive here or the home page superlatives stay empty until the next finalize.
+        for (const s of seasons) {
           await runSeasonPipeline(db, client, s, { mode: "daily", derive: false });
+          await deriveSeason(db, s.id);
+          await changed(s.id);
+        }
         // Housekeeping must never fail the sync: old cached record responses (see prune.ts).
         const cachePruned = await pruneRecordCache(db).catch((err) => {
           log.warn({ err: String(err) }, "record cache prune failed");
