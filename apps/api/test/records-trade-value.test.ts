@@ -35,17 +35,11 @@ describe("career trade value", () => {
 });
 
 describe("estimated-value variants", () => {
-  it("the trade records run on the chained values and the drop-regret record counts bench points", async () => {
+  it("the trade records run on the chained values", async () => {
     for (const id of ["trade.best.est", "trade.lopsided.est"]) {
       const res = await w.run(id, { limit: 50 });
       expect(res.total, id).toBeGreaterThan(0);
     }
-    const a = await w.run("drop-regret", { limit: 50 });
-    const b = await w.run("drop-regret.est", { limit: 50 });
-    expect(b.total).toBeGreaterThanOrEqual(a.total);
-    expect(Number(b.rows[0]?.values.points ?? 0)).toBeGreaterThanOrEqual(
-      Number(a.rows[0]?.values.points ?? 0)
-    );
   });
 
   it("shows who each side traded with and what it gave", async () => {

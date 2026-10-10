@@ -3,7 +3,7 @@ import type { SQL } from "@rfp/db";
 import { scopeCond, seasonCond, weeksCond, type RankedRow, type RunContext } from "../context";
 import { rankRows } from "../rank";
 import { pointsSince, stintEnd } from "./points-since";
-import { dropValues, itemValuesCte, tradeValuations } from "./trade-valuation";
+import { itemValuesCte, tradeValuations } from "./trade-valuation";
 import { minGames } from "./season-base";
 import { playerFilters } from "./players";
 
@@ -120,28 +120,8 @@ export async function pickupRecord(ctx: RunContext): Promise<RankedRow[]> {
 /** Points a dropped player scored as a starter for other teams over the rest of that season. */
 export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
-  const estimate = isEstimate(ctx.def.id)
-    ? await dropValues({
-        db: ctx.db,
-        leagueId: ctx.leagueId,
-        seasonIds: ctx.seasonIds,
-        scope: q.scope,
-      })
-    : null;
-  const emptyDv = sql`dv(team_season_id, player_id, to_week, v, teams) as (select null::int, null::int, null::int, null::float8, null::text where false)`;
-  const dv =
-    estimate && estimate.size > 0
-      ? sql`dv(team_season_id, player_id, to_week, v, teams) as (values ${sql.join(
-          [...estimate].map(([key, x]) => {
-            const [a, b, c] = key.split(":").map(Number);
-            return sql`(${a}::int, ${b}::int, ${c}::int, ${Math.round(x.value * 1000) / 1000}::float8, ${x.teams}::text)`;
-          }),
-          sql`, `
-        )})`
-      : emptyDv;
   const inner = sql`
-    with ${dv},
-    d as (
+    with d as (
       select t.team_season_id, t.player_id, t.to_week, ts.franchise_id, ts.league_season_id, ls.year as season
       from player_tenure t
       join team_season ts on ts.id = t.team_season_id
@@ -162,17 +142,12 @@ export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
     join player p on p.id = d.player_id
     join league_season ls on ls.id = d.league_season_id
     cross join lateral (
-      ${
-        estimate
-          ? sql`select x.v as pts, x.teams from dv x
-                where x.team_season_id = d.team_season_id and x.player_id = d.player_id and x.to_week = d.to_week`
-          : sql`select sum(pw.points) as pts, string_agg(distinct ots.name, ', ') as teams
-                from rec_player_week pw join team_season ots on ots.id = pw.team_season_id
-                where pw.player_id = d.player_id and pw.league_season_id = d.league_season_id
-                  and pw.week > d.to_week and pw.team_season_id <> d.team_season_id
-                  and pw.slot_kind = 'starter' and pw.counts and pw.points is not null
-                  and ${scopeCond(sql`pw.game_type`, q.scope)}`
-      }
+      select sum(pw.points) as pts, string_agg(distinct ots.name, ', ') as teams
+      from rec_player_week pw join team_season ots on ots.id = pw.team_season_id
+      where pw.player_id = d.player_id and pw.league_season_id = d.league_season_id
+        and pw.week > d.to_week and pw.team_season_id <> d.team_season_id
+        and pw.slot_kind = 'starter' and pw.counts and pw.points is not null
+        and ${scopeCond(sql`pw.game_type`, q.scope)}
     ) x
     where x.pts is not null`;
   return rankRows(ctx, inner);

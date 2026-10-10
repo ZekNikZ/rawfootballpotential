@@ -629,21 +629,6 @@ const pickups: RecordDef[] = [
     ],
     "Points a dropped player scored as a starter for other teams over the rest of that season."
   ),
-  rec(
-    "drop-regret.est",
-    "Drop regret (estimated value)",
-    pickupBase("Waivers & Trades", { grain: "player_season", engine: "dropRegret" }),
-    "points",
-    "desc",
-    [
-      c("player", "Player", "player"),
-      TEAM,
-      c("droppedWeek", "Dropped", "week"),
-      c("points", "Points for others since", "points"),
-      c("startedFor", "Started for", "text"),
-    ],
-    "Estimated value of a dropped player to other teams over the rest of that season: how many points he added to their best possible lineups, plus half of the other points he scored for them (depth a replacement would have covered)."
-  ),
 ];
 const tradeCols = [
   TEAM,

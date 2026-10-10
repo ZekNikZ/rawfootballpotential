@@ -53,15 +53,17 @@ function List({ season }: { season: Season }) {
             placeholder="All teams"
             clearable
             w={240}
-            data={(teams.data?.teams ?? []).map((t) => {
-              const e = teams.data?.entities;
-              const m = e?.teamSeasons[String(t.team_season_id)]?.managerId;
-              const manager = m == null ? null : e?.managers[String(m)]?.name;
-              return {
-                value: String(t.team_season_id),
-                label: manager ? `${t.name} (${manager})` : t.name,
-              };
-            })}
+            data={(teams.data?.teams ?? [])
+              .map((t) => {
+                const e = teams.data?.entities;
+                const m = e?.teamSeasons[String(t.team_season_id)]?.managerId;
+                const manager = m == null ? null : e?.managers[String(m)]?.name;
+                return {
+                  value: String(t.team_season_id),
+                  label: [manager, t.name].filter(Boolean).join(" · "),
+                };
+              })
+              .sort((a, b) => a.label.localeCompare(b.label))}
             value={team}
             onChange={(v) => set({ team: v })}
           />

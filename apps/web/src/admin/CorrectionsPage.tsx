@@ -116,7 +116,11 @@ function CreateForm() {
   const teams = (franchises.data?.franchises ?? [])
     .flatMap((f) => f.teamSeasons)
     .filter((t) => String(t.leagueSeasonId) === seasonId)
-    .map((t) => ({ value: String(t.id), label: `${t.name} (${t.managers.join(", ")})` }));
+    .map((t) => ({
+      value: String(t.id),
+      label: [t.managers.join(", "), t.name].filter(Boolean).join(" · "),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   const games = useQuery({
     ...adminQuery(
       ["matchups", seasonId, week],
