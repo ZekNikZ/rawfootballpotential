@@ -19,6 +19,7 @@ import {
   Link,
   Navigate,
   Outlet,
+  ScrollRestoration,
   useLocation,
   useMatches,
   useNavigate,
@@ -303,6 +304,7 @@ export function Layout() {
 
           <AppShell.Main>
             <Outlet />
+            <ScrollRestoration />
           </AppShell.Main>
         </AppShell>
       </PageTitleProvider>
