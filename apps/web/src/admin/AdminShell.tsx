@@ -30,7 +30,7 @@ import {
   UsersThree,
 } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate, Outlet, useLocation } from "react-router";
+import { Link, Navigate, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { ApiError } from "../api/client";
 import { ColorSchemeToggle } from "../components/ColorSchemeToggle";
 import { QueryError } from "../components/QueryState";
@@ -169,6 +169,7 @@ export default function AdminShell() {
         </AppShell.Navbar>
         <AppShell.Main>
           <Outlet />
+          <ScrollRestoration />
         </AppShell.Main>
       </AppShell>
     </MeContext>

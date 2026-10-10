@@ -320,6 +320,45 @@ describe("season info pages (may include live data)", () => {
     expect(tx.total).toBe(3);
     expect(tx.transactions.map((x: Json) => x.status)).toEqual(["complete", "failed", "complete"]); // newest first; the two week-2 claims share a timestamp, so newest id first;
     expect((await get(`/api/seasons/${sid()}/transactions?type=trade`)).body.total).toBe(1);
+    // estimated trade value: one entry per team in the trade, nets cancel out; other types have none
+    const trade = (await get(`/api/seasons/${sid()}/transactions?type=trade`)).body.transactions[0];
+    expect(trade.tradeValue.map((v: Json) => v.teamSeasonId).sort()).toEqual(
+      trade.items
+        .filter((i: Json) => i.kind === "player")
+        .map((i: Json) => i.toTeamSeasonId)
+        .sort()
+    );
+    // every player in the trade carries his own estimated value, the sides' gained totals are the sums of them
+    for (const i of trade.items.filter((x: Json) => x.kind === "player"))
+      expect(typeof i.estimatedValue).toBe("number");
+    expect(
+      tx.transactions.find((x: Json) => x.type !== "trade").items[0].estimatedValue
+    ).toBeNull();
+    const netSum = trade.tradeValue.reduce((a: number, v: Json) => a + v.net, 0);
+    expect(Math.abs(netSum)).toBeLessThan(0.11);
+    expect(
+      tx.transactions
+        .filter((x: Json) => x.type !== "trade")
+        .every((x: Json) => x.tradeValue === null)
+    ).toBe(true);
+    // the manager breakdown explains every value of the feed week by week
+    const team = trade.tradeValue[0].teamSeasonId;
+    const bd = (await get(`/api/seasons/${sid()}/trade-value?team=${team}`)).body;
+    expect(bd.summary.trades).toBe(1);
+    expect(bd.summary.net).toBeCloseTo(trade.tradeValue[0].net, 1);
+    expect(bd.summary.netPerTrade).toBeCloseTo(bd.summary.net, 3);
+    for (const it of [...bd.trades[0].received, ...bd.trades[0].sent].filter(
+      (x: Json) => x.player
+    )) {
+      const weekly = it.player.segments.reduce(
+        (t: number, g: Json) =>
+          t + g.weight * g.weeks.reduce((x: number, w: Json) => x + w.points, 0),
+        0
+      );
+      expect(weekly).toBeCloseTo(it.value, 2);
+      expect(bd.players[String(it.playerId)].name).toBeTruthy();
+    }
+    expect((await get(`/api/seasons/${sid()}/trade-value`)).status).toBe(400);
     const failed = tx.transactions.find((x: Json) => x.status === "failed");
     expect(failed.failureReason).toBe("Player was claimed by another team.");
     expect(

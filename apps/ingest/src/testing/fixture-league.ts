@@ -429,9 +429,18 @@ const draftFor = (s: FixtureSeason) => {
   return { drafts: [draft], picks };
 };
 
-/** Stats for the as-played scoring test: roster 1's QB threw 2 interceptions in 2030 week 1. */
-const statsFor = (s: FixtureSeason, week: number) =>
-  s.year === 2030 && week === 1 ? { q1: { pass_int: 2 } } : {};
+/**
+ * Raw stat lines: every rostered player's line scores (rec: 1) exactly what the matchups say he scored, and the player
+ * dropped in the fixture ("nw1") has a line of his own while on nobody's roster. Roster 1's QB also threw 2
+ * interceptions in 2030 week 1 (the as-played scoring test).
+ */
+const statsFor = (s: FixtureSeason, week: number) => {
+  const out: Record<string, Record<string, number>> = { nw1: { rec: 6 } };
+  for (const e of matchupsFor(s, week))
+    for (const [pid, pts] of Object.entries(e.players_points)) if (pts) out[pid] = { rec: pts };
+  if (s.year === 2030 && week === 1) out.q1 = { ...out.q1, pass_int: 2 };
+  return out;
+};
 
 /** URL -> JSON body (undefined = 404) for the fake Sleeper API serving the given seasons. */
 export function fixtureRoute(seasons: readonly FixtureSeason[] = [FIXTURE_2030, FIXTURE_2031]) {

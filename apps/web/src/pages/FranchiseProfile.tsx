@@ -16,6 +16,7 @@ import { Link, useParams } from "react-router";
 import { catalogQuery, franchiseQuery } from "../api/queries";
 import type { CatalogRecord, FranchiseProfile as Profile, Trophy } from "../api/schemas";
 import { FranchiseRoster } from "../components/FranchiseRoster";
+import { FranchiseTransactions } from "../components/FranchiseTransactions";
 import { QueryError } from "../components/QueryState";
 import { numberText } from "../components/records/cells";
 import { fmtDecimal, fmtInt, ordinal } from "../lib/format";
@@ -83,6 +84,20 @@ export default function FranchiseProfile() {
     .filter((s) => league.seasons.find((l) => l.year === s.season)?.data.playerData)
     .map((s) => s.season)
     .reverse();
+  const txSeasons = [...data.seasons].reverse().flatMap((s) => {
+    const ls = league.seasons.find((l) => l.year === s.season);
+    return ls?.data.transactions
+      ? [
+          {
+            year: s.season,
+            seasonId: ls.id,
+            teamSeasonId: s.teamSeasonId,
+            playerData: ls.data.playerData,
+            rosterOnly: ls.source === "espn",
+          },
+        ]
+      : [];
+  });
   return (
     <Stack gap={32}>
       <Group wrap="nowrap" gap="md">
@@ -102,6 +117,7 @@ export default function FranchiseProfile() {
       </Group>
       <Summary data={data} />
       <FranchiseRoster franchiseId={id} seasons={rosterSeasons} />
+      <FranchiseTransactions seasons={txSeasons} />
       <Seasons data={data} />
       <Trophies data={data} />
       <Standings data={data} columns={catalog.data?.records} />

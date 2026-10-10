@@ -99,6 +99,29 @@ export const playerWeek = pgTable(
   ]
 );
 
+/**
+ * What a player scored in a week under a league season's scoring (as played), whether or not anyone rostered him:
+ * Sleeper's raw stat lines scored with the league's settings. Only non-zero lines are stored. Rostered players'
+ * points match `player_week.points`; this also covers free agents, so a traded player can be valued after he was dropped.
+ */
+export const playerWeekPoints = pgTable(
+  "player_week_points",
+  {
+    leagueSeasonId: integer()
+      .notNull()
+      .references(() => leagueSeason.id, { onDelete: "cascade" }),
+    week: integer().notNull(),
+    playerId: integer()
+      .notNull()
+      .references(() => player.id, { onDelete: "cascade" }),
+    points: pts().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.leagueSeasonId, t.week, t.playerId] }),
+    index("player_week_points_player_idx").on(t.playerId),
+  ]
+);
+
 /** Live roster (Teams/Rosters pages), also in the offseason. */
 export const rosterCurrent = pgTable(
   "roster_current",

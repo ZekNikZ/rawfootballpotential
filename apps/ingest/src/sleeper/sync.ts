@@ -15,6 +15,7 @@ import { syncGames } from "./games";
 import { PlayerResolver } from "./players";
 import { overridesForWeek, rescoreEntries } from "./rescore";
 import { loadProjections } from "./projections";
+import { syncPlayerPoints } from "./points";
 import type {
   SleeperBracketGame,
   SleeperDraft,
@@ -173,6 +174,16 @@ export async function syncSleeperSeason(
         );
     }
   }
+
+  // What every player scored (rostered or not), so trades can be valued after a player was dropped.
+  await syncPlayerPoints(db, client, {
+    leagueSeasonId,
+    year: season.year,
+    weeks: weeks.filter((w) => completeWeeks.has(w) || w === stateWeek),
+    scoring: season.scoringSettings,
+    overrides: season.scoringOverrides,
+    policy: weekPolicy,
+  });
 
   const projections = await loadProjections(db, client, {
     season: season.year,

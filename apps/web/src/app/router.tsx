@@ -93,6 +93,11 @@ const leagueRoutes: RouteObject[] = [
         ...lazyPage(() => import("../pages/season/Transactions")),
       },
       {
+        path: "transactions/trade-value",
+        handle: { title: "Trade Value" },
+        ...lazyPage(() => import("../pages/season/TradeValue")),
+      },
+      {
         path: "draft",
         handle: { title: "Draft" },
         ...lazyPage(() => import("../pages/season/Draft")),

@@ -24,11 +24,12 @@ import {
   matchupsSchema,
   okSchema,
   overridesSchema,
+  transactionsListSchema,
 } from "./schemas";
 import { AdminTable, Loaded, Notice, PageHeader, Panel, shortDate } from "./ui";
 
 const okey = [["overrides"]];
-type Kind = "score" | "placement" | "game_type";
+type Kind = "score" | "placement" | "game_type" | "transaction";
 
 const describe = (o: (typeof overridesSchema)["_output"]["overrides"][number]) => {
   switch (o.field) {
@@ -38,6 +39,10 @@ const describe = (o: (typeof overridesSchema)["_output"]["overrides"][number]) =
       return `Final place ${String(o.value)} for ${o.team ?? "a team"}`;
     case "game_type":
       return `Game ${o.externalMatchupId} in week ${o.week} counts as "${String(o.value)}"`;
+    case "status":
+      return o.entity === "transaction"
+        ? `Transaction ${o.externalTransactionId ?? ""} reversed (not counted)`
+        : `${o.entity}.${o.field} = ${JSON.stringify(o.value)}`;
     default:
       return `${o.entity}.${o.field} = ${JSON.stringify(o.value)}`;
   }
@@ -89,6 +94,7 @@ function CreateForm() {
   const [place, setPlace] = useState<number | string>(1);
   const [matchup, setMatchup] = useState<string | null>(null);
   const [gameType, setGameType] = useState<string | null>("none");
+  const [tx, setTx] = useState<string | null>(null);
   const [reason, setReason] = useState("");
 
   const seasons = (leagues.data?.leagues ?? []).flatMap((l) =>
@@ -110,7 +116,11 @@ function CreateForm() {
   const teams = (franchises.data?.franchises ?? [])
     .flatMap((f) => f.teamSeasons)
     .filter((t) => String(t.leagueSeasonId) === seasonId)
-    .map((t) => ({ value: String(t.id), label: `${t.name} (${t.managers.join(", ")})` }));
+    .map((t) => ({
+      value: String(t.id),
+      label: [t.managers.join(", "), t.name].filter(Boolean).join(" · "),
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   const games = useQuery({
     ...adminQuery(
       ["matchups", seasonId, week],
@@ -118,6 +128,15 @@ function CreateForm() {
       matchupsSchema
     ),
     enabled: kind === "game_type" && seasonId !== null && typeof week === "number",
+  });
+
+  const txs = useQuery({
+    ...adminQuery(
+      ["transactions", seasonId],
+      `/transactions?leagueSeasonId=${seasonId}&type=trade`,
+      transactionsListSchema
+    ),
+    enabled: kind === "transaction" && seasonId !== null,
   });
 
   const create = useAdminMutation(
@@ -139,6 +158,7 @@ function CreateForm() {
       });
     else if (kind === "placement")
       create.mutate({ kind, teamSeasonId: Number(team), place: Number(place), reason });
+    else if (kind === "transaction") create.mutate({ kind, transactionId: Number(tx), reason });
     else
       create.mutate({
         kind,
@@ -156,7 +176,9 @@ function CreateForm() {
       ? team !== null && points !== ""
       : kind === "placement"
         ? team !== null
-        : matchup !== null);
+        : kind === "transaction"
+          ? tx !== null
+          : matchup !== null);
 
   return (
     <Card withBorder padding="md">
@@ -169,6 +191,7 @@ function CreateForm() {
             { value: "score", label: "A team's score" },
             { value: "placement", label: "Final placement" },
             { value: "game_type", label: "What a game counts as" },
+            { value: "transaction", label: "Reverse a trade" },
           ]}
         />
         <Group align="flex-end" wrap="wrap">
@@ -181,9 +204,10 @@ function CreateForm() {
               setSeasonId(v);
               setTeam(null);
               setMatchup(null);
+              setTx(null);
             }}
           />
-          {kind !== "game_type" && (
+          {kind !== "game_type" && kind !== "transaction" && (
             <Select
               label="Team"
               w={280}
@@ -193,7 +217,7 @@ function CreateForm() {
               disabled={!seasonId}
             />
           )}
-          {kind !== "placement" && (
+          {kind !== "placement" && kind !== "transaction" && (
             <NumberInput label="Week" w={90} min={1} max={30} value={week} onChange={setWeek} />
           )}
           {kind === "score" && (
@@ -207,6 +231,21 @@ function CreateForm() {
           )}
           {kind === "placement" && (
             <NumberInput label="Final place" w={110} min={1} value={place} onChange={setPlace} />
+          )}
+          {kind === "transaction" && (
+            <Select
+              label="Trade"
+              w={460}
+              searchable
+              data={(txs.data?.transactions ?? []).map((t) => ({
+                value: String(t.id),
+                label: `Week ${t.week} · ${t.executedAt ? shortDate(t.executedAt) : "?"} · ${t.summary.slice(0, 80)}${t.status === "failed" ? " (not counted)" : ""}`,
+              }))}
+              value={tx}
+              onChange={setTx}
+              disabled={!txs.data}
+              placeholder={txs.isFetching ? "Loading…" : "Pick the season first"}
+            />
           )}
           {kind === "game_type" && (
             <>
@@ -258,12 +297,13 @@ export default function CorrectionsPage() {
   return (
     <>
       <PageHeader title="Corrections">
-        Fix a score, a final placement or what a game counts as. Corrections sit beside the imported
-        data, so refreshing a season from Sleeper never undoes them.
+        Fix a score, a final placement, what a game counts as, or mark a trade the commissioner
+        reversed. Corrections sit beside the imported data, so refreshing a season from Sleeper
+        never undoes them.
       </PageHeader>
       <Notice>
-        Score and game-type corrections apply to Sleeper seasons. ESPN seasons accept placements
-        only, until their data is imported.
+        Score, game-type and reversed-trade corrections apply to Sleeper seasons. ESPN seasons
+        accept placements only, until their data is imported.
       </Notice>
       <Panel title="New correction">
         <CreateForm />

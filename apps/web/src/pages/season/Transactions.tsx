@@ -1,132 +1,14 @@
-import {
-  Badge,
-  Card,
-  Group,
-  Pagination,
-  Paper,
-  Select,
-  SimpleGrid,
-  Skeleton,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Group, Pagination, Select, Skeleton, Stack, Text } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
 import { useSearchParams } from "react-router";
 import { teamsQuery, transactionsQuery } from "../../api/queries";
-import type { Entities, Season, Transactions as TxData } from "../../api/schemas";
-import { PositionBadge } from "../../components/PositionBadge";
+import type { Season } from "../../api/schemas";
 import { EmptyState, QueryError } from "../../components/QueryState";
 import { SegmentedOrSelect } from "../../components/records/filters";
-import { TeamLabel } from "../../components/TeamLabel";
-import { fmtMoney } from "../../lib/format";
+import { ROSTER_ONLY_NOTE, TransactionCard, TX_TYPES } from "../../components/TransactionCard";
 import { SeasonShell } from "./SeasonShell";
 
-type Tx = TxData["transactions"][number];
-type Item = Tx["items"][number];
-
 const PAGE = 25;
-const TYPES = [
-  { value: "all", label: "All" },
-  { value: "trade", label: "Trades" },
-  { value: "waiver", label: "Waivers" },
-  { value: "free_agent", label: "Free agents" },
-  { value: "commissioner", label: "Commissioner" },
-];
-const TYPE_COLOR: Record<string, string> = {
-  trade: "grape",
-  waiver: "blue",
-  free_agent: "teal",
-  commissioner: "orange",
-};
-const TYPE_LABEL: Record<string, string> = {
-  trade: "Trade",
-  waiver: "Waiver",
-  free_agent: "Free agent",
-  commissioner: "Commissioner",
-};
-
-function ItemLine({ item: i, entities }: { item: Item; entities: Entities }) {
-  if (i.kind === "pick") {
-    const from =
-      i.originalFranchiseId === null
-        ? null
-        : entities.franchises[String(i.originalFranchiseId)]?.teamName;
-    return (
-      <Text size="sm">
-        {i.pickSeason ?? ""} round {i.pickRound ?? "?"} pick
-        {from && (
-          <Text span c="dimmed">
-            {" "}
-            (from {from})
-          </Text>
-        )}
-      </Text>
-    );
-  }
-  if (i.kind === "faab") return <Text size="sm">{fmtMoney(i.amount ?? 0)} FAAB</Text>;
-  return (
-    <Group gap={6} wrap="nowrap">
-      <PositionBadge position={i.position} />
-      <Text size="sm">{i.player ?? "Unknown player"}</Text>
-    </Group>
-  );
-}
-
-function Body({ tx, entities }: { tx: Tx; entities: Entities }) {
-  if (tx.type === "trade") {
-    const sides = new Map<number, Item[]>();
-    for (const i of tx.items) {
-      if (i.toTeamSeasonId === null) continue;
-      sides.set(i.toTeamSeasonId, [...(sides.get(i.toTeamSeasonId) ?? []), i]);
-    }
-    return (
-      <SimpleGrid cols={{ base: 1, xs: sides.size > 1 ? 2 : 1 }} spacing="xs">
-        {[...sides].map(([team, items]) => (
-          <Paper key={team} withBorder radius="sm" p="xs">
-            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-              <TeamLabel entities={entities} teamSeasonId={team} hideManager /> receives
-            </Text>
-            <Stack gap={3} mt={4}>
-              {items.map((i, n) => (
-                <ItemLine key={n} item={i} entities={entities} />
-              ))}
-            </Stack>
-          </Paper>
-        ))}
-      </SimpleGrid>
-    );
-  }
-  const added = tx.items.filter((i) => i.direction === "add");
-  const dropped = tx.items.filter((i) => i.direction === "drop");
-  const bid = tx.items.find((i) => i.faabBid !== null)?.faabBid ?? null;
-  return (
-    <Stack gap={3}>
-      {added.map((i, n) => (
-        <Group key={`a${n}`} gap={8} wrap="nowrap">
-          <Text span c="green" fw={700} w={12}>
-            +
-          </Text>
-          <ItemLine item={i} entities={entities} />
-          {bid !== null && n === 0 && (
-            <Badge size="xs" variant="light" color="gray">
-              {fmtMoney(bid)} bid
-            </Badge>
-          )}
-        </Group>
-      ))}
-      {dropped.map((i, n) => (
-        <Group key={`d${n}`} gap={8} wrap="nowrap" opacity={0.7}>
-          <Text span c="red" fw={700} w={12}>
-            −
-          </Text>
-          <ItemLine item={i} entities={entities} />
-        </Group>
-      ))}
-    </Stack>
-  );
-}
-
 function List({ season }: { season: Season }) {
   const [search, setSearch] = useSearchParams();
   const type = search.get("type") ?? "all";
@@ -161,7 +43,7 @@ function List({ season }: { season: Season }) {
         <SegmentedOrSelect
           label="Type"
           value={type}
-          options={TYPES}
+          options={TX_TYPES}
           onChange={(v) => set({ type: v === "all" ? null : v })}
         />
         <Stack gap={2}>
@@ -171,10 +53,17 @@ function List({ season }: { season: Season }) {
             placeholder="All teams"
             clearable
             w={240}
-            data={(teams.data?.teams ?? []).map((t) => ({
-              value: String(t.team_season_id),
-              label: t.name,
-            }))}
+            data={(teams.data?.teams ?? [])
+              .map((t) => {
+                const e = teams.data?.entities;
+                const m = e?.teamSeasons[String(t.team_season_id)]?.managerId;
+                const manager = m == null ? null : e?.managers[String(m)]?.name;
+                return {
+                  value: String(t.team_season_id),
+                  label: [manager, t.name].filter(Boolean).join(" · "),
+                };
+              })
+              .sort((a, b) => a.label.localeCompare(b.label))}
             value={team}
             onChange={(v) => set({ team: v })}
           />
@@ -190,36 +79,13 @@ function List({ season }: { season: Season }) {
       {q.isError && !data && <QueryError error={q.error} onRetry={() => void q.refetch()} />}
       {data && data.transactions.length === 0 && <EmptyState>No transactions match.</EmptyState>}
       {data?.transactions.map((tx) => (
-        <Card
+        <TransactionCard
           key={tx.id}
-          withBorder
-          radius="sm"
-          padding="sm"
-          opacity={tx.status === "failed" ? 0.7 : 1}
-        >
-          <Stack gap={6}>
-            <Group gap={6} wrap="wrap">
-              <Badge size="xs" variant="light" color={TYPE_COLOR[tx.type] ?? "gray"}>
-                {TYPE_LABEL[tx.type] ?? tx.type}
-              </Badge>
-              {tx.status === "failed" && (
-                <Badge size="xs" variant="light" color="red">
-                  failed{tx.failureReason ? `: ${tx.failureReason}` : ""}
-                </Badge>
-              )}
-              {tx.type !== "trade" && tx.creatorTeamSeasonId !== null && (
-                <Text size="sm" fw={600}>
-                  <TeamLabel entities={data.entities} teamSeasonId={tx.creatorTeamSeasonId} />
-                </Text>
-              )}
-              <Text size="xs" c="dimmed">
-                {tx.week !== null ? `Week ${tx.week}` : ""}
-                {tx.executedAt ? ` · ${dayjs(tx.executedAt).format("MMM D, YYYY h:mm A")}` : ""}
-              </Text>
-            </Group>
-            <Body tx={tx} entities={data.entities} />
-          </Stack>
-        </Card>
+          tx={tx}
+          entities={data.entities}
+          showValue={season.data.playerData}
+          rosterOnly={season.source === "espn"}
+        />
       ))}
       {data && data.total > PAGE && (
         <Pagination
@@ -233,6 +99,9 @@ function List({ season }: { season: Season }) {
         <Text size="sm" c="dimmed">
           {data.total} transaction{data.total === 1 ? "" : "s"}. Failed claims are listed but never
           counted in records.
+          {season.data.playerData &&
+            " Estimated trade value is the points each player scored from the trade to the end of the season wherever he was, so a later flip or drop does not change it; a dynasty player's next season counts at half, and a draft pick is worth the player it became. The number beside each player or pick is his share of that value. FAAB is not valued."}
+          {season.data.playerData && season.source === "espn" && ` ${ROSTER_ONLY_NOTE}`}
         </Text>
       )}
     </Stack>

@@ -7,6 +7,7 @@ import { deriveSeason } from "./derive/derive";
 import { listSeasons, runSeasonPipeline } from "./pipeline";
 import { SleeperClient } from "./sleeper/client";
 import { syncPlayers } from "./sleeper/players";
+import { syncAllPlayerPoints } from "./sleeper/points";
 import { seasonRollover } from "./sleeper/rollover";
 import { syncNflReference } from "./nfl/reference";
 import { buildReport, formatReport } from "./report";
@@ -19,6 +20,7 @@ commands
   players                       refresh the Sleeper player dump (cached for a day)
   rollover                      discover newly created Sleeper league seasons
   sync [--season <slug-year|slug|all>] [--mode full|live|daily] [--force]
+  points [--season ...]         fetch what every player scored each week (rostered or not) from Sleeper's stat lines
   derive [--season ...]         recompute derived tables
   nfl-reference [--seasons 2022,2023] [--force]
   all [--force]                 players, rollover, sync + nfl-reference + derive for every season
@@ -64,6 +66,13 @@ async function main() {
           });
           console.log(JSON.stringify(r.sync ?? { season: s, note: "not a Sleeper season" }));
         }
+        break;
+      case "points":
+        await syncAllPlayerPoints(
+          db,
+          client,
+          values.season ? (await listSeasons(db, values.season)).map((s) => s.id) : undefined
+        );
         break;
       case "derive":
         for (const s of await listSeasons(db, values.season))

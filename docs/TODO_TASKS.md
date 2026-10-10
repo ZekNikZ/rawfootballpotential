@@ -14,6 +14,12 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 - [ ] Skim the 77 record descriptions written in `packages/core/src/records/descriptions.ts`; they were written from reading the
       code, not from running every record (Owner).
 
+- [ ] **Trade value branch (`feat/trade-value-page`), before it merges and after it deploys** (Owner/Claude):
+      - After deploy, backfill the new points table once: `docker compose run --rm ingest node dist/cli.js points`, then check the Trade Value page.
+      - In Admin -> Corrections -> "Reverse a trade", add the two duplicated trades (Sleeper ids `1016773915978899456` redraft 2023 and
+        `1272774644083994624` redraft 2025; confirm the 2025 one is the earlier trade) and recompute.
+      - Decide whether to ship a convex "effective value" on top of the rest-of-season base (see `docs/records-architecture.md` 3.11.3).
+
 ## Owner reminders (cannot be done by Claude)
 
 - [ ] **Copy the ESPN bundles to the S3 bucket** (the only archive of the ESPN 2020/2021 data; git-ignored; also stored verbatim in the

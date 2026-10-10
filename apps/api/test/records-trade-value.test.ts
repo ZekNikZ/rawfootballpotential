@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { sql } from "@rfp/db";
 import { createWorld, type World } from "./helpers";
+import { explainTrades, DYNASTY_NEXT_SEASON_WEIGHT } from "../src/records/engines/trade-valuation";
 
 let w: World;
 beforeAll(async () => {
@@ -31,5 +33,95 @@ describe("career trade value", () => {
     expect(open.rows.map((r) => r.values.netPerTrade)).toEqual(
       open.rows.map((r) => r.values.net) // one trade each, so the average is the total
     );
+  });
+});
+
+describe("estimated-value variants", () => {
+  it("the trade records run on the rest-of-season values", async () => {
+    for (const id of ["trade.best.est", "trade.lopsided.est"]) {
+      const res = await w.run(id, { limit: 50 });
+      expect(res.total, id).toBeGreaterThan(0);
+    }
+  });
+
+  it("shows who each side traded with and what it gave", async () => {
+    const res = await w.run("trade.best.est", { limit: 50 });
+    // 5 sides: 2 in the two-team trade, 3 in the three-team trade; each lists the other teams, not its own
+    expect(res.rows.length).toBe(5);
+    const partners = res.rows.map((r) => r.refs.teamSeasonIds?.length);
+    expect(partners.sort()).toEqual([1, 1, 2, 2, 2]);
+    for (const r of res.rows) {
+      expect(r.refs.teamSeasonIds).not.toContain(r.refs.teamSeasonId);
+      expect(String(r.values.gave).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("rest-of-season production", () => {
+  it("scores players nobody rostered from Sleeper's stat lines", async () => {
+    const week1 = (
+      await w.db.execute<{ points: string }>(sql`
+        select pp.points from player_week_points pp join player p on p.id = pp.player_id
+        where p.sleeper_id = 'nw1' and pp.week = 1 and pp.league_season_id = ${w.fixture.seasonIds[2031]}`)
+    ).rows;
+    expect(week1.map((r) => Number(r.points))).toEqual([6]); // fixture: a free agent's line scores 6 (rec x 1)
+    const held = (
+      await w.db.execute<{ n: string }>(sql`
+        select count(*) as n from rec_player_week pw join player p on p.id = pw.player_id
+        where p.sleeper_id = 'nw1' and pw.week = 1 and pw.league_season_id = ${w.fixture.seasonIds[2031]}`)
+    ).rows[0]?.n;
+    expect(Number(held)).toBe(0); // nobody had him that week
+  });
+
+  it("values a player by his points from the trade week to the end of the season, wherever he was", async () => {
+    const items = await explainTrades({
+      db: w.db,
+      leagueId: w.leagueId,
+      seasonIds: [w.fixture.seasonIds[2030]!, w.fixture.seasonIds[2031]!],
+      scope: "all",
+    });
+    const players = items.filter((i) => i.player);
+    expect(players.length).toBeGreaterThan(0);
+    for (const it of players) {
+      const expected = (
+        await w.db.execute<{ v: string | null }>(sql`
+          select sum(pp.points) as v from rec_player_points pp
+          join player p on p.id = pp.player_id
+          where pp.player_id = ${it.playerId} and pp.week >= ${it.week}
+            and pp.season = (select year from league_season where id = (select league_season_id from rec_transaction_item where item_id = ${it.itemId}))
+            and pp.league_id = ${w.leagueId}`)
+      ).rows[0]?.v;
+      // the fixture leagues are redraft: no next-season part
+      expect(it.value).toBeCloseTo(Number(expected ?? 0), 2);
+      // the same value for both sides of the trade, whatever the receiving team did with him
+      expect(it.player!.value).toBeCloseTo(it.value, 6);
+    }
+    expect(DYNASTY_NEXT_SEASON_WEIGHT).toBe(0.5);
+  });
+});
+
+describe("seasons without stat lines (ESPN)", () => {
+  it("fall back to the points a player scored while on a roster", async () => {
+    const season = w.fixture.seasonIds[2030]!;
+    await w.db.execute(sql`delete from player_week_points where league_season_id = ${season}`);
+    const items = await explainTrades({
+      db: w.db,
+      leagueId: w.leagueId,
+      seasonIds: [season],
+      scope: "all",
+    });
+    const players = items.filter((i) => i.player);
+    expect(players.length).toBeGreaterThan(0);
+    for (const it of players) {
+      const expected = (
+        await w.db.execute<{ v: string | null }>(sql`
+          select sum(p) as v from (
+            select max(pw.points) as p from rec_player_week pw
+            where pw.league_season_id = ${season} and pw.player_id = ${it.playerId} and pw.week >= ${it.week}
+            group by pw.week) x`)
+      ).rows[0]?.v;
+      expect(it.value).toBeCloseTo(Number(expected ?? 0), 2);
+    }
+    expect(players.some((i) => i.value > 0)).toBe(true);
   });
 });

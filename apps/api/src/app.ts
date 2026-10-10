@@ -31,6 +31,7 @@ import {
   topPerformers,
   transactionFeed,
 } from "./info/season-pages";
+import { tradeBreakdown } from "./info/trade-breakdown";
 import { HttpError, sendCacheable } from "./lib/http";
 import { leagueBySlug, seasonById } from "./lib/leagues";
 import { registerAdmin } from "./admin";
@@ -398,6 +399,20 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
         req,
         reply,
         await transactionFeed(db, season.id, filters),
+        maxAgeFor(season.status)
+      );
+    }
+  );
+
+  app.get<{ Params: { seasonId: string }; Querystring: Record<string, string> }>(
+    "/api/seasons/:seasonId/trade-value",
+    async (req, reply) => {
+      const { season } = await seasonById(db, idParam.parse(req.params.seasonId));
+      const q = z.object({ team: z.coerce.number().int().positive() }).parse(req.query);
+      return sendCacheable(
+        req,
+        reply,
+        await tradeBreakdown(db, season.id, q.team),
         maxAgeFor(season.status)
       );
     }

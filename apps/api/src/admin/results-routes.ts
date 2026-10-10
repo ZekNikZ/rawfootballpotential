@@ -28,6 +28,8 @@ export const overrideKeys = {
   teamSeason: (leagueSeasonId: number, roster: string) => `ls:${leagueSeasonId}:r:${roster}`,
   matchup: (leagueSeasonId: number, week: number, externalMatchupId: number) =>
     `ls:${leagueSeasonId}:w:${week}:m:${externalMatchupId}`,
+  transaction: (leagueSeasonId: number, externalId: string) =>
+    `ls:${leagueSeasonId}:x:${externalId}`,
 };
 
 const listQuery = z.object({
@@ -51,13 +53,16 @@ export function registerResultsRoutes(app: FastifyInstance, deps: AdminDeps) {
       .orderBy(desc(override.createdAt))
       .limit(500);
     const parsed = rows.map((r) => {
-      const m = /^ls:(\d+):(?:r:([^:]+))?(?::w:(\d+))?(?::m:(\d+))?$/.exec(r.entityId);
+      const m = /^ls:(\d+)(?::r:([^:]+))?(?::w:(\d+))?(?::m:(\d+))?(?::x:([^:]+))?$/.exec(
+        r.entityId
+      );
       return {
         row: r,
         leagueSeasonId: m ? Number(m[1]) : null,
         roster: m?.[2] ?? null,
         week: m?.[3] ? Number(m[3]) : null,
         externalMatchupId: m?.[4] ? Number(m[4]) : null,
+        externalTransactionId: m?.[5] ?? null,
       };
     });
     const filtered = parsed.filter(
@@ -94,6 +99,7 @@ export function registerResultsRoutes(app: FastifyInstance, deps: AdminDeps) {
         leagueSeasonId: p.leagueSeasonId,
         week: p.week,
         externalMatchupId: p.externalMatchupId,
+        externalTransactionId: p.externalTransactionId,
         team: teams.find((t) => t.lsId === p.leagueSeasonId && t.roster === p.roster)?.name ?? null,
       })),
     };
@@ -114,6 +120,19 @@ export function registerResultsRoutes(app: FastifyInstance, deps: AdminDeps) {
       entityId = overrideKeys.matchup(leagueSeasonId, input.week, input.externalMatchupId);
       field = "game_type";
       value = input.gameType;
+      sleeperOnly = true;
+    } else if (input.kind === "transaction") {
+      const found = await db.execute<{ league_season_id: number; external_id: string | null }>(
+        sql`select league_season_id, external_id from "transaction" where id = ${input.transactionId}`
+      );
+      const tx = found.rows[0];
+      if (!tx) throw new HttpError(404, "Unknown transaction");
+      if (!tx.external_id) throw new HttpError(400, "This transaction has no source id to correct");
+      leagueSeasonId = Number(tx.league_season_id);
+      entity = "transaction";
+      entityId = overrideKeys.transaction(leagueSeasonId, tx.external_id);
+      field = "status";
+      value = "reversed";
       sleeperOnly = true;
     } else {
       const [ts] = await db
@@ -144,7 +163,7 @@ export function registerResultsRoutes(app: FastifyInstance, deps: AdminDeps) {
     if (sleeperOnly && season.source !== "sleeper")
       throw new HttpError(
         400,
-        "Score and game-type corrections apply to Sleeper seasons; ESPN seasons are corrected once their data is imported"
+        "Score, game-type and transaction corrections apply to Sleeper seasons; ESPN seasons are corrected once their data is imported"
       );
 
     const created = await db.transaction(async (tx) => {
@@ -199,6 +218,39 @@ export function registerResultsRoutes(app: FastifyInstance, deps: AdminDeps) {
     const m = /^ls:(\d+):/.exec(before.entityId);
     if (m) await queueRecompute(Number(m[1]), req.admin!.id, before.entity !== "team_season");
     return after;
+  });
+
+  // The transactions of one season, so one can be marked as reversed.
+  app.get("/transactions", async (req) => {
+    const q = z
+      .object({
+        leagueSeasonId: z.coerce.number().int().positive(),
+        type: z.enum(["trade", "waiver", "free_agent", "commissioner"]).default("trade"),
+      })
+      .parse(req.query);
+    const rows = await db.execute<{
+      id: number;
+      week: number;
+      status: string;
+      executed_at: string | null;
+      summary: string;
+    }>(sql`
+      select x.id, x.week, x.status::text as status, x.executed_at,
+             coalesce(string_agg(distinct coalesce(p.full_name, i.kind::text), ', '), '') as summary
+      from "transaction" x
+      left join transaction_item i on i.transaction_id = x.id
+      left join player p on p.id = i.player_id
+      where x.league_season_id = ${q.leagueSeasonId} and x.type::text = ${q.type}
+      group by x.id order by x.executed_at desc nulls last, x.id desc limit 300`);
+    return {
+      transactions: rows.rows.map((r) => ({
+        id: Number(r.id),
+        week: Number(r.week),
+        status: r.status,
+        executedAt: r.executed_at,
+        summary: r.summary,
+      })),
+    };
   });
 
   // The games of one week, so a game-type correction can be aimed at the right one.

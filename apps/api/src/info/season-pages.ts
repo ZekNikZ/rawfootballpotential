@@ -4,6 +4,7 @@ import { HttpError } from "../lib/http";
 import { bySlot } from "../lib/slots";
 import { inList, type RankedRow } from "../records/context";
 import { resolveRows, type Entities } from "../records/entities";
+import { tradeValuations } from "../records/engines/trade-valuation";
 
 /** Info pages (doc §3.7): unlike records they may read in-progress weeks, and are cached briefly. */
 
@@ -269,6 +270,15 @@ export async function teams(db: Db, seasonId: number, withRosters: boolean) {
   };
 }
 
+const leagueOfSeason = async (db: Db, seasonId: number): Promise<number> =>
+  Number(
+    (
+      await db.execute<{ league_id: number }>(
+        sql`select league_id from league_season where id = ${seasonId}`
+      )
+    ).rows[0]?.league_id
+  );
+
 /** The transaction feed, newest first. Failed claims are listed (marked) but are never counted in any record. */
 export async function transactionFeed(
   db: Db,
@@ -295,7 +305,7 @@ export async function transactionFeed(
   const items = txs.length
     ? (
         await db.execute<Record<string, unknown>>(sql`
-          select i.transaction_id, i.kind::text as kind, i.direction::text as direction, i.player_id, p.full_name as player, p.position,
+          select i.id as item_id, i.transaction_id, i.kind::text as kind, i.direction::text as direction, i.player_id, p.full_name as player, p.position,
                  i.pick_season, i.pick_round, i.pick_original_franchise_id, i.amount, i.faab_bid, i.from_team_season_id, i.to_team_season_id
           from transaction_item i left join player p on p.id = i.player_id
           where i.transaction_id in (${inList(txs.map((t) => Number(t.id)))}) order by i.id`)
@@ -305,6 +315,43 @@ export async function transactionFeed(
     ...txs.map((t) => num(t.creator_team_season_id)),
     ...items.flatMap((i) => [num(i.from_team_season_id), num(i.to_team_season_id)]),
   ].filter((v): v is number => v !== null);
+  // Estimated value of every player and pick moved this season (rest-of-season production).
+  const values = items.some((i) => i.kind === "player" || i.kind === "pick")
+    ? await tradeValuations({
+        db,
+        leagueId: await leagueOfSeason(db, seasonId),
+        seasonIds: [seasonId],
+        scope: "all",
+      })
+    : new Map<number, number>();
+  /** Per team in a trade: points gained from the players it received, lost to the players it sent away. */
+  const sidesOf = (txItems: Record<string, unknown>[]) => {
+    const valued = txItems.filter(
+      (i) =>
+        values.has(Number(i.item_id)) &&
+        i.from_team_season_id !== null &&
+        i.to_team_season_id !== null
+    );
+    if (valued.length === 0) return null;
+    const sides = new Map<number, { gained: number; lost: number }>();
+    const side = (id: number) => {
+      const cur = sides.get(id) ?? { gained: 0, lost: 0 };
+      sides.set(id, cur);
+      return cur;
+    };
+    for (const i of valued) {
+      const v = values.get(Number(i.item_id)) ?? 0;
+      side(Number(i.to_team_season_id)).gained += v;
+      side(Number(i.from_team_season_id)).lost += v;
+    }
+    const r1 = (n: number) => Math.round(n * 10) / 10;
+    return [...sides].map(([teamSeasonId, v]) => ({
+      teamSeasonId,
+      gained: r1(v.gained),
+      lost: r1(v.lost),
+      net: r1(v.gained - v.lost),
+    }));
+  };
   return {
     total,
     transactions: txs.map((t) => ({
@@ -315,6 +362,7 @@ export async function transactionFeed(
       week: Number(t.week),
       executedAt: t.executed_at,
       creatorTeamSeasonId: num(t.creator_team_season_id),
+      tradeValue: sidesOf(items.filter((i) => Number(i.transaction_id) === Number(t.id))),
       items: items
         .filter((i) => Number(i.transaction_id) === Number(t.id))
         .map((i) => ({
@@ -330,6 +378,10 @@ export async function transactionFeed(
           faabBid: num(i.faab_bid),
           fromTeamSeasonId: num(i.from_team_season_id),
           toTeamSeasonId: num(i.to_team_season_id),
+          // what this player or pick is estimated to be worth to the team that received it (trades only)
+          estimatedValue: values.has(Number(i.item_id))
+            ? Math.round((values.get(Number(i.item_id)) ?? 0) * 10) / 10
+            : null,
         })),
     })),
     entities: await entitiesFor(db, teamIds),

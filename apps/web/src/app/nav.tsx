@@ -12,6 +12,7 @@ import {
   ListNumbers,
   Ranking,
   Rows,
+  Scales,
   Ticket,
   Trophy,
   UsersFour,
@@ -78,6 +79,13 @@ export const NAV: NavItem[] = [
         label: "Trades & Waivers",
         icon: Handshake,
         to: (l, s) => `/${l.slug}/${s}/transactions`,
+        end: true,
+      },
+      {
+        key: "trade-value",
+        label: "Trade Value",
+        icon: Scales,
+        to: (l, s) => `/${l.slug}/${s}/transactions/trade-value`,
       },
       {
         key: "picks",

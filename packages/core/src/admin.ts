@@ -101,7 +101,7 @@ export const franchisePatch = z.object({ name: z.string().trim().min(1).max(80).
 export const teamSeasonRemap = z.object({ franchiseId: id });
 
 // ---- corrections ----
-export const OVERRIDE_KINDS = ["score", "placement", "game_type"] as const;
+export const OVERRIDE_KINDS = ["score", "placement", "game_type", "transaction"] as const;
 export const GAME_TYPES = ["regular", "playoffs", "toilet_bowl", "none"] as const;
 export const overrideInput = z.discriminatedUnion("kind", [
   z.object({
@@ -125,6 +125,8 @@ export const overrideInput = z.discriminatedUnion("kind", [
     gameType: z.enum(GAME_TYPES),
     reason,
   }),
+  // A transaction the commissioner reversed: it is kept but never counted.
+  z.object({ kind: z.literal("transaction"), transactionId: id, reason }),
 ]);
 export type OverrideInput = z.infer<typeof overrideInput>;
 
