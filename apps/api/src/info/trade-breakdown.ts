@@ -39,9 +39,11 @@ const pickOut = (p: PickDetail | null) =>
 /**
  * One team's trades in a season, each player and pick broken down week by week (the Trade value page). The values
  * are the ones the Transactions page shows (depth credit, dynasty next season, picks); `lost` for a trade is what
- * the other side's players and picks were worth to the team that received them. Totals and averages use each item's
- * direct value (like the career trade-value records), because a re-trade's return is already credited in the later
- * trade; `chainedNet` is the trade's net with the returns included, as the Transactions page shows it.
+ * the other side's players and picks were worth to the team that received them, and every value includes the return
+ * of a later trade of the same player (as the Transactions page shows it). A trade's `net` is that card figure;
+ * the totals use `countedNet`, which takes out the share of the return that earlier trades had already been credited
+ * with (a player traded on takes a share of it), so a re-trade is never counted twice. The same totals feed the
+ * career trade-value records.
  */
 export async function tradeBreakdown(db: Db, seasonId: number, teamSeasonId: number) {
   const league = Number(
@@ -111,10 +113,10 @@ export async function tradeBreakdown(db: Db, seasonId: number, teamSeasonId: num
       const items = all.filter((e) => e.transactionId === id);
       const received = items.filter((e) => e.receiver === teamSeasonId);
       const sent = items.filter((e) => e.sender === teamSeasonId);
-      const gained = received.reduce((s, e) => s + e.direct, 0);
-      const lost = sent.reduce((s, e) => s + e.direct, 0);
-      const chained =
-        received.reduce((s, e) => s + e.value, 0) - sent.reduce((s, e) => s + e.value, 0);
+      const gained = received.reduce((s, e) => s + e.value, 0);
+      const lost = sent.reduce((s, e) => s + e.value, 0);
+      const countedGained = received.reduce((s, e) => s + e.counted, 0);
+      const countedLost = sent.reduce((s, e) => s + e.counted, 0);
       return {
         id,
         week: items[0]?.week ?? 0,
@@ -129,7 +131,9 @@ export async function tradeBreakdown(db: Db, seasonId: number, teamSeasonId: num
         gained: r3(gained),
         lost: r3(lost),
         net: r3(gained - lost),
-        chainedNet: r3(chained),
+        countedGained: r3(countedGained),
+        countedLost: r3(countedLost),
+        countedNet: r3(countedGained - countedLost),
         received: received.map(item),
         sent: sent.map(item),
       };
@@ -140,8 +144,8 @@ export async function tradeBreakdown(db: Db, seasonId: number, teamSeasonId: num
       executedAt: executedAt ? new Date(executedAt).toISOString() : null,
     }));
 
-  const gained = trades.reduce((s, t) => s + t.gained, 0);
-  const lost = trades.reduce((s, t) => s + t.lost, 0);
+  const gained = trades.reduce((s, t) => s + t.countedGained, 0);
+  const lost = trades.reduce((s, t) => s + t.countedLost, 0);
 
   // Names for every player referenced anywhere in the detail.
   const playerIds = new Set<number>();

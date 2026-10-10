@@ -965,7 +965,7 @@ const tradeValueCols = [
 const tradeValueBase = careerBase("Transactions", "careerTradeValue", {
   filters: ["seasons", "scope"],
   requires: req("transactions", "playerData"),
-  version: 2,
+  version: 3,
   readsAllSeasons: true,
 });
 const careerTradeValue: RecordDef[] = [
@@ -976,7 +976,7 @@ const careerTradeValue: RecordDef[] = [
     "net",
     "desc",
     tradeValueCols,
-    "Net points a manager's trades produced: how many points the players received added to their best possible lineups from the trade to the end of that season, plus half of the other points they scored (depth); a dynasty player kept into next season also counts, at half, plus draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
+    "Net points a manager's trades produced: how many points the players received added to their best possible lineups from the trade to the end of that season, plus half of the other points they scored (depth); a dynasty player kept into next season also counts, at half, plus draft picks as the player they became, plus the return when a player was traded on again (counted once across a manager's trades), minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
   ),
   rec(
     "career.trade-value.avg",

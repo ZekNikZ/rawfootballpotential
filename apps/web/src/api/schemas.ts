@@ -587,7 +587,9 @@ export const tradeBreakdownResponse = z.object({
       gained: z.number(),
       lost: z.number(),
       net: z.number(),
-      chainedNet: z.number(),
+      countedGained: z.number(),
+      countedLost: z.number(),
+      countedNet: z.number(),
       received: z.array(breakdownItem),
       sent: z.array(breakdownItem),
     })

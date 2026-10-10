@@ -77,3 +77,30 @@ describe("week value with depth credit", () => {
     expect(weekValue(2, 5, true)).toBe(5); // a replacement scoring negative points never makes depth negative
   });
 });
+
+describe("counted values", () => {
+  it("never count a re-trade's return twice, and still net to zero across the league", async () => {
+    const { countedValues } = await import("../src/records/engines/trade-valuation");
+    // Trade 1: team 1 sends X (item 1) to team 2 for item 0. Trade 2: team 2 sends X on (item 2) to team 3 for R (item 3).
+    const list = [
+      item({ itemId: 0, transactionId: 1, sender: 2, receiver: 1, direct: 5 }),
+      item({ itemId: 1, transactionId: 1, sender: 1, receiver: 2, direct: 30, nextItemId: 2 }),
+      item({ itemId: 2, transactionId: 2, sender: 2, receiver: 3, direct: 20, weight: 30 }),
+      item({ itemId: 3, transactionId: 2, sender: 3, receiver: 2, direct: 80 }),
+    ];
+    const { chainResolve } = await import("../src/records/engines/trade-chain");
+    const { values, links } = chainResolve(list);
+    expect(values.get(1)).toBe(110); // X: 30 on team 2 + all of R
+    const counted = countedValues(list, links, values);
+    expect(counted.get(3)).toBe(0); // R was already credited to trade 1
+    expect(counted.get(1)).toBe(110);
+    const net = new Map<number, number>();
+    for (const it of list) {
+      const c = counted.get(it.itemId) ?? 0;
+      net.set(it.receiver!, (net.get(it.receiver!) ?? 0) + c);
+      net.set(it.sender!, (net.get(it.sender!) ?? 0) - c);
+    }
+    expect(net.get(2)).toBe(85); // 110 - 5 - 20: R is in there once
+    expect([...net.values()].reduce((a, b) => a + b, 0)).toBeCloseTo(0, 9);
+  });
+});

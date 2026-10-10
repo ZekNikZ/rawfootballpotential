@@ -189,14 +189,9 @@ function ItemBody({ item, players }: { item: Item; players: Players }) {
         </Paper>
       )}
       <Text size="sm">
-        Value to the team that received him: <b>{pts(item.direct)}</b>
-        {item.chain && (
-          <>
-            . Counting the re-trade: {pts(item.direct)} {signed(item.value - item.direct)} ={" "}
-            <b>{pts(item.value)}</b>, the figure on the Transactions page (left out of the totals,
-            since the later trade already counts it)
-          </>
-        )}
+        Value to the team that received him: {pts(item.direct)}
+        {item.chain && <> {signed(item.value - item.direct)} from the re-trade</>} ={" "}
+        <b>{pts(item.value)}</b>
       </Text>
     </Stack>
   );
@@ -239,11 +234,11 @@ function ItemList({
                   <Group justify="space-between" wrap="nowrap" pr="xs">
                     <ItemName item={i} players={players} entities={entities} />
                     <Text size="sm" fw={600}>
-                      {pts(i.direct)}
+                      {pts(i.value)}
                       {i.chain && (
                         <Text span c="dimmed" fz="xs">
                           {" "}
-                          {signed(i.value - i.direct)} re-trade
+                          incl. {signed(i.value - i.direct)} re-trade
                         </Text>
                       )}
                     </Text>
@@ -288,10 +283,11 @@ function TradeCard({ trade, data }: { trade: Trade; data: TradeBreakdown }) {
             <Text span fw={700} c={tone(trade.net)}>
               {signed(trade.net)}
             </Text>
-            {Math.abs(trade.chainedNet - trade.net) >= 0.05 && (
+            {Math.abs(trade.countedNet - trade.net) >= 0.05 && (
               <Text span c="dimmed" fz="xs">
                 {" "}
-                ({signed(trade.chainedNet)} counting re-trades)
+                (counts as {signed(trade.countedNet)} in the totals: part of the return was already
+                credited to another trade)
               </Text>
             )}
           </Text>
@@ -369,8 +365,9 @@ function Breakdown({ seasonId, team }: { seasonId: number; team: string }) {
         pick is worth the player it became, or before the draft the average of earlier picks in that
         round. Net value is received minus sent away; net per trade divides it by the number of
         trades. A player traded on again is also credited with his share of what came back
-        (re-trade), which the Transactions page includes but these totals leave out so it is not
-        counted twice. Figures are rounded to one decimal.
+        (re-trade). The totals above use the counted net, so when a trade's return was already
+        credited to an earlier trade through that share it is not added twice. Figures are rounded
+        to one decimal.
       </Text>
     </Stack>
   );

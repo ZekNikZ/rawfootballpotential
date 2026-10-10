@@ -18,7 +18,9 @@ import { chainResolve, chainValues, type ChainItem, type ChainLink } from "./tra
  *  - A draft pick is worth the value of the player it became (to the team that made the pick). Before the draft it is
  *    worth the average of that round's picks in the league's earlier drafts.
  *  - With `chain`, a player the team traded on is also worth his share of what it received for him (see chainValues).
- *    Career totals leave this out, because the return of a re-trade is already credited in that trade.
+ *    Adding a manager's trades up would then count that return twice (once in the first trade through the share, once
+ *    in the later trade as what was received), so totals use `countedValues`: each item's value minus the share of
+ *    it already credited to earlier trades, for the team that received it and the team that sent it alike.
  */
 export const DYNASTY_NEXT_SEASON_WEIGHT = 0.5;
 export const DEPTH_CREDIT_WEIGHT = 0.5;
@@ -428,6 +430,45 @@ export async function tradeValuations(input: ValuationInput): Promise<Map<number
   return chainValues(chainItems);
 }
 
+/**
+ * Item id -> the value that counts toward totals: its chained value minus the share of it that earlier trades of the
+ * receiving team already took (an earlier item traded on into this trade is credited with a share of everything the
+ * team received, so those shares are removed here). The receiver gains and the sender loses the same counted value,
+ * so a re-trade's return is never counted twice for a manager and the whole league still nets to zero.
+ */
+export function countedValues(
+  items: readonly { itemId: number; transactionId: number; receiver: number | null }[],
+  nextOf: ReadonlyMap<number, { nextItemId: number; share: number }>,
+  values: ReadonlyMap<number, number>
+): Map<number, number> {
+  const byId = new Map(items.map((it) => [it.itemId, it]));
+  const taken = new Map<string, number>();
+  for (const [id, link] of nextOf) {
+    const from = byId.get(id);
+    const next = byId.get(link.nextItemId);
+    if (!from || !next || from.receiver === null) continue;
+    const key = `${next.transactionId}:${from.receiver}`;
+    taken.set(key, (taken.get(key) ?? 0) + link.share);
+  }
+  return new Map(
+    items.map((it) => [
+      it.itemId,
+      (values.get(it.itemId) ?? 0) *
+        (1 - Math.min(1, taken.get(`${it.transactionId}:${it.receiver}`) ?? 0)),
+    ])
+  );
+}
+
+/** Chained values (`value`) and the part of each received item that is new to its team's totals (`counted`). */
+export async function tradeAccounting(
+  input: ValuationInput
+): Promise<{ values: Map<number, number>; counted: Map<number, number> }> {
+  if (input.seasonIds.length === 0) return { values: new Map(), counted: new Map() };
+  const { items, chainItems } = await prepare({ ...input, chain: true });
+  const { values, links } = chainResolve(chainItems);
+  return { values, counted: countedValues(items, links, values) };
+}
+
 export interface ItemExplanation {
   itemId: number;
   transactionId: number;
@@ -443,6 +484,8 @@ export interface ItemExplanation {
   direct: number;
   /** Value including the return of a later trade (what the trade page and trade records use). */
   value: number;
+  /** The part of `value` that counts toward totals, for both sides (see countedValues). */
+  counted: number;
   player: PlayerDetail | null;
   pick: PickDetail | null;
   /** The player was traded on by the team that received him: the later trade and his share of what came back. */
@@ -456,6 +499,7 @@ export async function explainTrades(input: ValuationInput): Promise<ItemExplanat
   const { values, links } = chainResolve(chainItems);
   const byId = new Map(items.map((it) => [it.itemId, it]));
   const directOf = new Map(chainItems.map((c) => [c.itemId, c.direct]));
+  const counted = countedValues(items, links, values);
   return items.map((it) => {
     const link = links.get(it.itemId);
     const next = link ? byId.get(link.nextItemId) : undefined;
@@ -472,6 +516,7 @@ export async function explainTrades(input: ValuationInput): Promise<ItemExplanat
       receiver: it.receiver,
       direct: directOf.get(it.itemId) ?? 0,
       value: values.get(it.itemId) ?? 0,
+      counted: counted.get(it.itemId) ?? 0,
       player:
         it.kind === "player" && it.receiver !== null && it.playerId !== null
           ? ctx.playerDetail(it.receiver, it.playerId, it.week)
@@ -483,10 +528,12 @@ export async function explainTrades(input: ValuationInput): Promise<ItemExplanat
 }
 
 /** The values as an inline `iv(item_id, v)` CTE for a record query. */
-export function itemValuesCte(values: Map<number, number>): SQL {
-  if (values.size === 0) return sql`iv(item_id, v) as (select null::int, null::float8 where false)`;
+export function itemValuesCte(values: Map<number, number>, counted?: Map<number, number>): SQL {
+  if (values.size === 0)
+    return sql`iv(item_id, v, c) as (select null::int, null::float8, null::float8 where false)`;
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
   const rows = [...values].map(
-    ([id, v]) => sql`(${id}::int, ${Math.round(v * 1000) / 1000}::float8)`
+    ([id, v]) => sql`(${id}::int, ${r3(v)}::float8, ${r3(counted?.get(id) ?? v)}::float8)`
   );
-  return sql`iv(item_id, v) as (values ${sql.join(rows, sql`, `)})`;
+  return sql`iv(item_id, v, c) as (values ${sql.join(rows, sql`, `)})`;
 }

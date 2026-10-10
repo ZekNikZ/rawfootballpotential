@@ -79,6 +79,7 @@ export const NAV: NavItem[] = [
         label: "Trades & Waivers",
         icon: Handshake,
         to: (l, s) => `/${l.slug}/${s}/transactions`,
+        end: true,
       },
       {
         key: "trade-value",
