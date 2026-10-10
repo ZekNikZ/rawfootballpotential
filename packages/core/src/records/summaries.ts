@@ -144,6 +144,8 @@ export const RECORD_SUMMARIES: Readonly<Record<string, string>> = {
   "career.trades": "Career trades",
   "career.claims": "Career waiver claims",
   "career.spent": "Career FAAB spent",
+  "career.trade-value.total": "Net points gained across all trades",
+  "career.trade-value.avg": "Net points gained per trade",
 
   // Luck & Misses (managers)
   "career.shouldve-won": "Losses a better lineup would have won",

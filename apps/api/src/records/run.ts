@@ -60,6 +60,7 @@ import {
   pickupRecord,
   playerProjectionRecord,
   tradeValueRecord,
+  careerTradeValueRecord,
 } from "./engines/player-extra";
 import { careerPowerRecord } from "./engines/power";
 import { extraTeamWeekRecord } from "./engines/team-week-extra";
@@ -101,6 +102,7 @@ const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
   pickup: pickupRecord,
   dropRegret: dropRegretRecord,
   tradeValue: tradeValueRecord,
+  careerTradeValue: careerTradeValueRecord,
   journeyman: journeymanRecord,
   loyalty: loyaltyRecord,
   draftValue: draftValueRecord,
