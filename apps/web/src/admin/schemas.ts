@@ -104,7 +104,20 @@ export const overridesSchema = z.object({
       year: z.number().nullable(),
       week: z.number().nullable(),
       externalMatchupId: z.number().nullable(),
+      externalTransactionId: z.string().nullable(),
       team: ts,
+    })
+  ),
+});
+
+export const transactionsListSchema = z.object({
+  transactions: z.array(
+    z.object({
+      id: z.number(),
+      week: z.number(),
+      status: z.string(),
+      executedAt: ts,
+      summary: z.string(),
     })
   ),
 });

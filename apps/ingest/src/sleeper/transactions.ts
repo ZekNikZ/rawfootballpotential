@@ -1,4 +1,4 @@
-import { transaction, transactionItem, type Db } from "@rfp/db";
+import { override, transaction, transactionItem, type Db } from "@rfp/db";
 import { and, eq, inArray } from "@rfp/db";
 import type { PlayerResolver } from "./players";
 import type { SleeperTransaction } from "./schemas";
@@ -13,6 +13,14 @@ const chunk = <T>(arr: readonly T[], size: number): T[][] => {
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 };
+
+/**
+ * Transaction corrections: an `override` row (entity 'transaction', field 'status', value 'reversed') keyed by the
+ * Sleeper transaction id marks a transaction the commissioner reversed. It is stored like a failed claim, so no record
+ * and no roster tenure counts it, and the Transactions page shows it with the reason.
+ */
+export const transactionOverrideKey = (leagueSeasonId: number, externalId: string) =>
+  `ls:${leagueSeasonId}:x:${externalId}`;
 
 export interface SyncTransactionsInput {
   leagueSeasonId: number;
@@ -51,6 +59,20 @@ export async function syncTransactions(
       and(eq(transaction.leagueSeasonId, input.leagueSeasonId), inArray(transaction.week, weeks))
     );
 
+  const reversed = new Map<string, string>();
+  for (const o of await db
+    .select()
+    .from(override)
+    .where(
+      and(
+        eq(override.entity, "transaction"),
+        eq(override.field, "status"),
+        eq(override.active, true)
+      )
+    ))
+    if (o.entityId.startsWith(`ls:${input.leagueSeasonId}:x:`))
+      reversed.set(o.entityId.slice(`ls:${input.leagueSeasonId}:x:`.length), o.reason);
+
   const ts = (roster: number | undefined | null) =>
     roster === undefined || roster === null ? null : (input.teamSeasonByRoster.get(roster) ?? null);
 
@@ -61,7 +83,8 @@ export async function syncTransactions(
         stats.anomalies.push(`transaction ${t.transaction_id}: unknown type ${t.type}`);
         continue;
       }
-      const complete = t.status === "complete";
+      const reversal = reversed.get(t.transaction_id);
+      const complete = t.status === "complete" && reversal === undefined;
       const creatorRoster = t.creator ? input.rosterByOwner.get(t.creator) : undefined;
       const when = t.status_updated ?? t.created;
       txRows.push({
@@ -72,7 +95,9 @@ export async function syncTransactions(
         // Rejected / canceled / pending trades are stored like failed claims and never counted.
         failureReason: complete
           ? null
-          : ((typeof t.metadata?.notes === "string" ? t.metadata.notes : null) ?? t.status),
+          : reversal !== undefined
+            ? `Reversed: ${reversal}`
+            : ((typeof t.metadata?.notes === "string" ? t.metadata.notes : null) ?? t.status),
         week: t.leg,
         executedAt: when ? new Date(when) : null,
         creatorTeamSeasonId: ts(creatorRoster),

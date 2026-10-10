@@ -205,6 +205,52 @@ describe("corrections survive a re-ingest", () => {
     expect((await sides()).every((s) => s.counts && s.n === 1)).toBe(true);
   });
 
+  it("reversed-trade override: the trade is kept but never counted, survives a re-ingest, and comes back when removed", async () => {
+    const trade = async () =>
+      (
+        await db().execute<{ id: number; status: string; reason: string | null; items: number }>(
+          sql`select x.id, x.status::text as status, x.failure_reason as reason,
+                     (select count(*)::int from rec_transaction_item i where i.transaction_id = x.id) as items
+              from "transaction" x where x.league_season_id = ${seasonId} and x.type = 'trade'`
+        )
+      ).rows[0]!;
+    const before = await trade();
+    expect(before.status).toBe("complete");
+    expect(before.items).toBeGreaterThan(0);
+    const listed = await w.call("GET", `/api/admin/transactions?leagueSeasonId=${seasonId}`, {
+      cookie,
+    });
+    expect(listed.json.transactions.map((t: { id: number }) => t.id)).toContain(before.id);
+
+    const res = await post("/api/admin/overrides", {
+      kind: "transaction",
+      transactionId: before.id,
+      reason: "Commissioner reversed it; it was repeated a day later",
+    });
+    expect(res.status).toBe(201);
+    const jobs = await runQueuedJobs();
+    expect(jobs[0]?.data.renormalize).toBe(true);
+    const after = await trade();
+    expect(after).toMatchObject({
+      status: "failed",
+      reason: "Reversed: Commissioner reversed it; it was repeated a day later",
+      items: 0,
+    });
+    await reingest();
+    expect((await trade()).status).toBe("failed");
+    const shown = await w.call("GET", "/api/admin/overrides", { cookie });
+    expect(
+      shown.json.overrides.find((o: { id: number }) => o.id === res.json.id).externalTransactionId
+    ).toBeTruthy();
+
+    await w.call("DELETE", `/api/admin/overrides/${res.json.id}`, {
+      cookie,
+      body: { reason: "Reverting" },
+    });
+    await runQueuedJobs();
+    expect(await trade()).toMatchObject({ status: "complete", reason: null });
+  });
+
   it("score and game-type corrections are refused for ESPN seasons; placements are allowed", async () => {
     const [lg] = await db().select().from(league).limit(1);
     const [season] = await db()
