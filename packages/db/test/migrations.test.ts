@@ -42,7 +42,7 @@ describe("migrations", () => {
       await count(
         "select count(*) n from information_schema.views where table_schema='public' and table_name ~ '^rec_'"
       )
-    ).toBe(9);
+    ).toBe(10);
   });
 
   it("rec views expose only completed weeks and counted rows", async () => {

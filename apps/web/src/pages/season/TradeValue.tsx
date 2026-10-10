@@ -30,26 +30,20 @@ const pts = (n: number) => n.toFixed(1);
 const signed = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + pts(Math.abs(n));
 const tone = (n: number) => (n > 0 ? "green" : n < 0 ? "red" : "dimmed");
 
-const SLOT: Record<string, string> = { starter: "Started", bench: "Bench", ir: "IR", taxi: "Taxi" };
-const END: Record<string, (week: number) => string> = {
-  dropped: (w) => `Dropped in week ${w}, so nothing counts after that`,
-  traded: (w) => `Traded away in week ${w}, so nothing counts after that`,
-  commissioner: (w) => `Moved by the commissioner in week ${w}, so nothing counts after that`,
-  season_end: (w) => `Kept to the end of the season (week ${w})`,
-  ongoing: (w) => `Still on the roster through week ${w} (season in progress)`,
-};
 const NOTE: Record<string, string> = {
-  not_rostered: "He was not on this team's roster after the trade, so no weeks count.",
   next_season_pending:
-    "Next season has not been played yet; if he is kept it will count at half once it is.",
-  not_kept: "He was not on this franchise's roster the next season, so nothing more counts.",
+    "Next season has not been played yet; it will add to his value (at half) once it is.",
 };
 
-function Segments({ detail }: { detail: Detail }) {
+/** Who had him that week: "Team" or "Free agent". */
+const holderName = (entities: Entities, holder: number | null) =>
+  holder === null ? "Free agent" : (entities.teamSeasons[String(holder)]?.name ?? "A team");
+
+function Segments({ detail, entities }: { detail: Detail; entities: Entities }) {
   return (
     <Stack gap="sm">
       {detail.segments.map((g, n) => {
-        const sub = g.weeks.reduce((t, w) => t + w.lineup + w.depth, 0);
+        const sub = g.weeks.reduce((t, w) => t + w.points, 0);
         return (
           <Stack key={n} gap={4}>
             <Text size="sm" fw={600}>
@@ -58,31 +52,27 @@ function Segments({ detail }: { detail: Detail }) {
                 : `${g.year} season, counted at ${g.weight * 100}%`}
             </Text>
             {g.weeks.length > 0 && (
-              <Table.ScrollContainer minWidth={420}>
+              <Table.ScrollContainer minWidth={320}>
                 <Table withRowBorders verticalSpacing={2} fz="xs">
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>Week</Table.Th>
-                      <Table.Th>Role</Table.Th>
+                      <Table.Th>On</Table.Th>
                       <Table.Th ta="right">Points</Table.Th>
-                      <Table.Th ta="right">Lineup</Table.Th>
-                      <Table.Th ta="right">Depth</Table.Th>
-                      <Table.Th ta="right">Value</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {g.weeks.map((w) => (
                       <Table.Tr key={w.week}>
                         <Table.Td>{w.week}</Table.Td>
-                        <Table.Td>{SLOT[w.slot] ?? w.slot}</Table.Td>
+                        <Table.Td c={w.holder === null ? "dimmed" : undefined}>
+                          {holderName(entities, w.holder)}
+                        </Table.Td>
                         <Table.Td ta="right">{pts(w.points)}</Table.Td>
-                        <Table.Td ta="right">{pts(w.lineup)}</Table.Td>
-                        <Table.Td ta="right">{pts(w.depth)}</Table.Td>
-                        <Table.Td ta="right">{pts(w.lineup + w.depth)}</Table.Td>
                       </Table.Tr>
                     ))}
                     <Table.Tr fw={700}>
-                      <Table.Td colSpan={5}>
+                      <Table.Td colSpan={2}>
                         {g.weight === 1 ? "Season total" : `Season total × ${g.weight}`}
                       </Table.Td>
                       <Table.Td ta="right">{pts(sub * g.weight)}</Table.Td>
@@ -91,9 +81,6 @@ function Segments({ detail }: { detail: Detail }) {
                 </Table>
               </Table.ScrollContainer>
             )}
-            <Text size="xs" c="dimmed">
-              {(END[g.end.reason] ?? (() => ""))(g.end.week)}
-            </Text>
           </Stack>
         );
       })}
@@ -141,24 +128,30 @@ function ItemName({
   );
 }
 
-function pickLabel(i: { pickSeason: number | null; pickRound: number | null }) {
-  return `${i.pickSeason} round ${i.pickRound} pick`;
-}
-
-function ItemBody({ item, players }: { item: Item; players: Players }) {
+function ItemBody({
+  item,
+  players,
+  entities,
+}: {
+  item: Item;
+  players: Players;
+  entities: Entities;
+}) {
   const name = (id: number | null) => (id === null ? "?" : (players[String(id)]?.name ?? "?"));
   return (
     <Stack gap="sm">
-      {item.player && <Segments detail={item.player} />}
+      {item.player && <Segments detail={item.player} entities={entities} />}
       {item.pick && (
         <Stack gap="xs">
           {item.pick.made ? (
             <>
               <Text size="sm">
                 Became <b>{name(item.pick.made.playerId)}</b> in the draft; a pick is worth what
-                that player gave the team that made it.
+                that player scored, wherever he was.
               </Text>
-              {item.pick.made.detail && <Segments detail={item.pick.made.detail} />}
+              {item.pick.made.detail && (
+                <Segments detail={item.pick.made.detail} entities={entities} />
+              )}
             </>
           ) : (
             <Text size="sm">
@@ -168,30 +161,8 @@ function ItemBody({ item, players }: { item: Item; players: Players }) {
           )}
         </Stack>
       )}
-      {item.chain && (
-        <Paper withBorder p="xs" radius="sm">
-          <Text size="sm" fw={600}>
-            Traded on in week {item.chain.week}
-          </Text>
-          <Text size="sm">
-            The team that received him traded him again. He is credited with{" "}
-            {(item.chain.share * 100).toFixed(0)}% of the {pts(item.chain.returned)} points the
-            return was worth (
-            {item.chain.returnedItems
-              .map((r) =>
-                r.kind === "pick"
-                  ? `${pickLabel(r)} ${pts(r.value)}`
-                  : `${name(r.playerId)} ${pts(r.value)}`
-              )
-              .join(", ")}
-            ), which adds <b>{signed(item.value - item.direct)}</b>.
-          </Text>
-        </Paper>
-      )}
       <Text size="sm">
-        Value to the team that received him: {pts(item.direct)}
-        {item.chain && <> {signed(item.value - item.direct)} from the re-trade</>} ={" "}
-        <b>{pts(item.value)}</b>
+        Value: <b>{pts(item.value)}</b>
       </Text>
     </Stack>
   );
@@ -235,17 +206,11 @@ function ItemList({
                     <ItemName item={i} players={players} entities={entities} />
                     <Text size="sm" fw={600}>
                       {pts(i.value)}
-                      {i.chain && (
-                        <Text span c="dimmed" fz="xs">
-                          {" "}
-                          incl. {signed(i.value - i.direct)} re-trade
-                        </Text>
-                      )}
                     </Text>
                   </Group>
                 </Accordion.Control>
                 <Accordion.Panel>
-                  <ItemBody item={i} players={players} />
+                  <ItemBody item={i} players={players} entities={entities} />
                 </Accordion.Panel>
               </Accordion.Item>
             ))}
@@ -283,13 +248,6 @@ function TradeCard({ trade, data }: { trade: Trade; data: TradeBreakdown }) {
             <Text span fw={700} c={tone(trade.net)}>
               {signed(trade.net)}
             </Text>
-            {Math.abs(trade.countedNet - trade.net) >= 0.05 && (
-              <Text span c="dimmed" fz="xs">
-                {" "}
-                (counts as {signed(trade.countedNet)} in the totals: part of the return was already
-                credited to another trade)
-              </Text>
-            )}
           </Text>
         </Group>
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
@@ -358,16 +316,14 @@ function Breakdown({ seasonId, team }: { seasonId: number; team: string }) {
         <TradeCard key={t.id} trade={t} data={data} />
       ))}
       <Text size="sm" c="dimmed">
-        Each player is worth, for every week he was on the roster after the trade, the points he
-        added to the team's best possible lineup (Lineup) plus half of the rest of his points
-        (Depth, starters and bench only). Counting stops when he left the team, one week after the
-        move; in dynasty, a player kept through the season end also counts next season at half. A
-        pick is worth the player it became, or before the draft the average of earlier picks in that
-        round. Net value is received minus sent away; net per trade divides it by the number of
-        trades. A player traded on again is also credited with his share of what came back
-        (re-trade). The totals above use the counted net, so when a trade's return was already
-        credited to an earlier trade through that share it is not added twice. Figures are rounded
-        to one decimal.
+        Each player is worth the points he scored from the trade week to the end of the season,
+        wherever he was: on the team that received him, on someone else's roster after a later
+        trade, or on nobody's after being dropped. What the team did with him afterward never
+        changes it, so a quick flip or drop cannot shrink a trade's value. Points are scored under
+        this league's scoring from Sleeper's stat lines. In dynasty the next season also counts, at
+        half. A pick is worth the player it became, or before the draft the average of earlier picks
+        in that round. Net value is received minus sent away; net per trade divides it by the number
+        of trades. Figures are rounded to one decimal.
       </Text>
     </Stack>
   );

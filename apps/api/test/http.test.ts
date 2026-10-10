@@ -352,10 +352,10 @@ describe("season info pages (may include live data)", () => {
     )) {
       const weekly = it.player.segments.reduce(
         (t: number, g: Json) =>
-          t + g.weight * g.weeks.reduce((x: number, w: Json) => x + w.lineup + w.depth, 0),
+          t + g.weight * g.weeks.reduce((x: number, w: Json) => x + w.points, 0),
         0
       );
-      expect(weekly).toBeCloseTo(it.direct, 2);
+      expect(weekly).toBeCloseTo(it.value, 2);
       expect(bd.players[String(it.playerId)].name).toBeTruthy();
     }
     expect((await get(`/api/seasons/${sid()}/trade-value`)).status).toBe(400);

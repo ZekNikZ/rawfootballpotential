@@ -1,73 +1,49 @@
-import { optimalLineup, type LineupPlayer, type Scope } from "@rfp/core";
+import type { Scope } from "@rfp/core";
 import { sql } from "@rfp/db";
 import type { Db, SQL } from "@rfp/db";
-import { scopeCond } from "../context";
-import { chainResolve, chainValues, type ChainItem, type ChainLink } from "./trade-chain";
 
 /**
- * Estimated trade value (doc 3.11.3, "Estimated trade value"). Everything a record or the Transactions page needs to
- * value what moved in a trade, in points:
+ * Trade value, rest-of-season production (doc 3.11.3). What a player or pick moved in a trade is worth, in points:
  *
- *  - A player's value to a team is what he added to its best possible lineup: for every counted week he was on its
- *    roster after the trade, the team's optimal lineup with him minus the optimal lineup without him, plus
- *    DEPTH_CREDIT_WEIGHT of the rest of his points that week (depth: what a replacement would have covered). IR and
- *    taxi players get no depth credit.
- *  - The weeks run from the trade to the end of his stint with that team, including the week he was moved if he was
- *    still in that week's lineup snapshot. In a dynasty league, a player still on the franchise when the season ended
- *    also counts for the next season, at DYNASTY_NEXT_SEASON_WEIGHT.
- *  - A draft pick is worth the value of the player it became (to the team that made the pick). Before the draft it is
- *    worth the average of that round's picks in the league's earlier drafts.
- *  - With `chain`, a player the team traded on is also worth his share of what it received for him (see chainValues).
- *    Adding a manager's trades up would then count that return twice (once in the first trade through the share, once
- *    in the later trade as what was received), so totals use `countedValues`: each item's value minus the share of
- *    it already credited to earlier trades, for the team that received it and the team that sent it alike.
+ *  - A player is worth what he scored from the trade week to the end of that season, **wherever he was**: on the team
+ *    that received him, on another team after a later trade, or on nobody's roster after a drop. Later moves by the
+ *    team that received him are not followed and never change his value. The points are his scores under that league
+ *    season's scoring (`player_week_points`, Sleeper's stat lines), so a free agent has points too.
+ *  - In a dynasty league the next season counts as well, at DYNASTY_NEXT_SEASON_WEIGHT of his production.
+ *  - A draft pick is worth the player it became: his whole draft season (and, in dynasty, the next at half). Before the
+ *    draft it is worth the average of that round's picks in the league's earlier drafts.
+ *
+ * The receiver gains an item's value and the sender loses the same amount, so every trade and the league are zero-sum.
  */
 export const DYNASTY_NEXT_SEASON_WEIGHT = 0.5;
-export const DEPTH_CREDIT_WEIGHT = 0.5;
 
-/** One week of a player's value: what he added to the lineup, plus partial credit for the points a replacement covered. */
-export const weekValue = (points: number, marginal: number, depthEligible: boolean): number =>
-  marginal + (depthEligible ? DEPTH_CREDIT_WEIGHT * Math.max(0, points - marginal) : 0);
-
-/** One counted week of a player's value: points, where he sat, what he added to the lineup, and the depth credit. */
+/** One counted week of a player's value: his points and who had him on their roster (null: nobody). */
 export interface WeekValue {
   week: number;
   points: number;
-  slot: string;
-  lineup: number;
-  depth: number;
+  holder: number | null;
 }
 
-export type EndReason = "dropped" | "traded" | "commissioner" | "season_end" | "ongoing";
-
-/** A run of counted weeks with one team in one season; `weight` is 1, or 0.5 for a dynasty next season. */
+/** A run of weeks in one season; `weight` is 1, or DYNASTY_NEXT_SEASON_WEIGHT for a dynasty next season. */
 export interface Segment {
   year: number;
   weight: number;
   weeks: WeekValue[];
-  /** Why the player stopped counting here, and the week he was moved (season_end/ongoing: the last week). */
-  end: { reason: EndReason; week: number };
 }
 
 export interface PlayerDetail {
   value: number;
   segments: Segment[];
-  /** Why nothing (more) counts: not on the team's roster, next season not played yet, or not kept. */
-  note: "not_rostered" | "next_season_pending" | "not_kept" | null;
+  /** Dynasty only: the next season has not been played yet, so it will add to the value once it is. */
+  note: "next_season_pending" | null;
 }
 
 export interface PickDetail {
   value: number;
-  /** The player the pick became, with his value to the team that made the pick; null before the draft. */
+  /** The player the pick became; null before the draft. */
   made: { playerId: number; detail: PlayerDetail } | null;
   /** Before the draft: the round average over this many earlier picks. */
   averageOf: number | null;
-}
-
-interface Stint {
-  fromWeek: number;
-  toWeek: number;
-  leftVia: string | null;
 }
 
 interface TradeItem {
@@ -75,7 +51,6 @@ interface TradeItem {
   transactionId: number;
   leagueSeasonId: number;
   week: number;
-  executedAt: number;
   kind: "player" | "pick";
   playerId: number | null;
   pickSeason: number | null;
@@ -88,199 +63,156 @@ interface TradeItem {
 const num = (v: unknown): number => Number(v);
 const numOrNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
-/** The last week a stint's player can still be in that team's lineup snapshot (the week he was moved, too). */
-const lastWeekOf = (s: Stint): number =>
-  s.leftVia === "drop" || s.leftVia === "trade" || s.leftVia === "commissioner"
-    ? s.toWeek + 1
-    : s.toWeek;
-
 export interface ValuationInput {
   db: Db;
   leagueId: number;
   /** Seasons whose trades are valued (the Seasons filter); everything else is read from the whole league. */
   seasonIds: readonly number[];
   scope: Scope;
-  chain: boolean;
 }
 
-/** Everything read once for a valuation: the league's seasons, rosters, tenures, drafts. */
-async function load(input: ValuationInput) {
-  const { db, leagueId, scope } = input;
+const weekTypeCond = (scope: Scope): SQL =>
+  scope === "all"
+    ? sql`true`
+    : scope === "regular"
+      ? sql`pp.week_type = 'regular'`
+      : sql`pp.week_type = 'postseason'`;
+
+const inList = (ids: readonly number[]): SQL =>
+  ids.length === 0
+    ? sql`null`
+    : sql.join(
+        ids.map((i) => sql`${i}`),
+        sql`, `
+      );
+
+/** The trade items of the seasons being valued, with everything needed to value or explain them. */
+async function prepare(input: ValuationInput) {
+  const { db, leagueId, seasonIds, scope } = input;
   const rows = async (query: SQL) => (await db.execute<Record<string, unknown>>(query)).rows;
 
   const seasons = await rows(sql`
-    select ls.id, ls.year, ls.roster_slots, l.type::text as type
+    select ls.id, ls.year, l.type::text as type
     from league_season ls join league l on l.id = ls.league_id
     where ls.league_id = ${leagueId} and ls.enabled`);
   const seasonById = new Map(
     seasons.map((s) => [
       num(s.id),
-      {
-        id: num(s.id),
-        year: num(s.year),
-        slots: s.roster_slots as string[],
-        dynasty: s.type === "dynasty",
-      },
+      { id: num(s.id), year: num(s.year), dynasty: s.type === "dynasty" },
     ])
   );
   const seasonByYear = new Map([...seasonById.values()].map((s) => [s.year, s]));
 
-  const teamRows = await rows(sql`
-    select team_season_id, league_season_id, franchise_id from rec_team_season where league_id = ${leagueId}`);
-  const teamSeason = new Map(
-    teamRows.map((t) => [
-      num(t.team_season_id),
-      { leagueSeasonId: num(t.league_season_id), franchiseId: num(t.franchise_id) },
-    ])
-  );
-  const teamOf = new Map(
-    teamRows.map((t) => [
-      `${num(t.league_season_id)}:${num(t.franchise_id)}`,
-      num(t.team_season_id),
-    ])
-  );
+  const items: TradeItem[] = (
+    await rows(sql`
+      select i.item_id, i.transaction_id, i.league_season_id, i.week, i.executed_at, i.kind::text as kind,
+             i.player_id, i.pick_season, i.pick_round, i.pick_original_franchise_id,
+             i.from_team_season_id, i.to_team_season_id
+      from rec_transaction_item i
+      where i.type = 'trade' and i.kind in ('player', 'pick') and i.league_id = ${leagueId}
+        and i.league_season_id in (${inList(seasonIds)})
+      order by i.week, i.executed_at, i.item_id`)
+  ).map((r) => ({
+    itemId: num(r.item_id),
+    transactionId: num(r.transaction_id),
+    leagueSeasonId: num(r.league_season_id),
+    week: num(r.week),
+    kind: r.kind as "player" | "pick",
+    playerId: numOrNull(r.player_id),
+    pickSeason: numOrNull(r.pick_season),
+    pickRound: numOrNull(r.pick_round),
+    pickFranchiseId: numOrNull(r.pick_original_franchise_id),
+    sender: numOrNull(r.from_team_season_id),
+    receiver: numOrNull(r.to_team_season_id),
+  }));
 
-  const tenure = new Map<string, Stint[]>();
-  for (const t of await rows(sql`
-    select t.team_season_id, t.player_id, t.from_week, t.to_week, t.left_via::text as left_via
-    from player_tenure t join rec_team_season ts on ts.team_season_id = t.team_season_id
-    where ts.league_id = ${leagueId}`)) {
-    const key = `${num(t.team_season_id)}:${num(t.player_id)}`;
-    const stint: Stint = {
-      fromWeek: num(t.from_week),
-      toWeek: num(t.to_week),
-      leftVia: (t.left_via as string | null) ?? null,
-    };
-    tenure.set(key, [...(tenure.get(key) ?? []), stint]);
-  }
-  const stintAt = (ts: number, player: number, week: number): Stint | null =>
-    (tenure.get(`${ts}:${player}`) ?? []).find((s) => s.fromWeek <= week && week <= s.toWeek) ??
-    null;
-
-  // Counted weeks inside the scope: the whole roster of every team-week, which the optimal lineup needs.
-  const rosters = new Map<string, LineupPlayer[]>();
-  const slotKinds = new Map<string, string>();
-  for (const r of await rows(sql`
-    select pw.team_season_id, pw.week, pw.player_id, pw.position, pw.eligible_positions, pw.points,
-           pw.slot_kind::text as slot_kind
-    from rec_player_week pw
-    where pw.league_id = ${leagueId} and pw.counts and pw.points is not null
-      and ${scopeCond(sql`pw.game_type`, scope)}`)) {
-    const key = `${num(r.team_season_id)}:${num(r.week)}`;
-    const list = rosters.get(key) ?? [];
-    slotKinds.set(`${key}:${num(r.player_id)}`, String(r.slot_kind));
-    list.push({
-      id: num(r.player_id),
-      points: num(r.points),
-      position: (r.position as string | null) ?? null,
-      eligiblePositions: (r.eligible_positions as string[] | null) ?? null,
-    });
-    rosters.set(key, list);
-  }
-  const best = new Map<string, number>();
-  const bestOf = (ts: number, week: number, without: number | null): number | null => {
-    const roster = rosters.get(`${ts}:${week}`);
-    if (!roster) return null;
-    const slots = seasonById.get(teamSeason.get(ts)?.leagueSeasonId ?? -1)?.slots ?? [];
-    if (without === null) {
-      const key = `${ts}:${week}`;
-      let v = best.get(key);
-      if (v === undefined) {
-        v = optimalLineup(slots, roster).points;
-        best.set(key, v);
-      }
-      return v;
-    }
-    return optimalLineup(
-      slots,
-      roster.filter((p) => p.id !== without)
-    ).points;
-  };
-  /** One week of `player` on `ts` (null when he was not on the roster or the week is out of scope). */
-  const weekParts = (ts: number, week: number, player: number): WeekValue | null => {
-    const me = rosters.get(`${ts}:${week}`)?.find((p) => p.id === player);
-    if (!me) return null;
-    const lineup = (bestOf(ts, week, null) ?? 0) - (bestOf(ts, week, player) ?? 0);
-    const slot = slotKinds.get(`${ts}:${week}:${player}`) ?? "";
-    const total = weekValue(me.points, lineup, slot === "starter" || slot === "bench");
-    return { week, points: me.points, slot, lineup, depth: total - lineup };
-  };
-  /** What `player` was worth to `ts` in `week` (0 when he was not on the roster or the week is out of scope). */
-  const added = (ts: number, week: number, player: number): number => {
-    const p = weekParts(ts, week, player);
-    return p ? p.lineup + p.depth : 0;
-  };
-  const window = (ts: number, player: number, from: number, to: number): number => {
-    let v = 0;
-    for (let w = Math.max(1, from); w <= to; w++) v += added(ts, w, player);
-    return v;
-  };
-
-  const reasonOf = (v: string | null): EndReason =>
-    v === "drop"
-      ? "dropped"
-      : v === "trade"
-        ? "traded"
-        : v === "commissioner"
-          ? "commissioner"
-          : v === "season_end"
-            ? "season_end"
-            : "ongoing";
-  const segmentOf = (
-    ts: number,
-    player: number,
-    from: number,
-    stint: Stint,
-    year: number,
-    weight: number
-  ): Segment => {
-    const weeks: WeekValue[] = [];
-    for (let w = Math.max(1, from); w <= lastWeekOf(stint); w++) {
-      const p = weekParts(ts, w, player);
-      if (p) weeks.push(p);
-    }
-    const moved =
-      stint.leftVia === null || stint.leftVia === "season_end" ? stint.toWeek : lastWeekOf(stint);
-    return { year, weight, weeks, end: { reason: reasonOf(stint.leftVia), week: moved } };
-  };
-
-  /** A player's value to `ts` from `fromWeek` to the end of his stint (and, in dynasty, the next season), week by week. */
-  const playerDetail = (ts: number, player: number, fromWeek: number): PlayerDetail => {
-    const stint = stintAt(ts, player, Math.max(1, fromWeek));
-    const info = teamSeason.get(ts);
-    const season = info ? seasonById.get(info.leagueSeasonId) : undefined;
-    if (!stint || !season) return { value: 0, segments: [], note: "not_rostered" };
-    const segments = [segmentOf(ts, player, fromWeek, stint, season.year, 1)];
-    let note: PlayerDetail["note"] = null;
-    if (season.dynasty && stint.leftVia === "season_end") {
-      const next = seasonByYear.get(season.year + 1);
-      const nextTs = next ? teamOf.get(`${next.id}:${info!.franchiseId}`) : undefined;
-      const nextStint = nextTs !== undefined ? stintAt(nextTs, player, 1) : null;
-      if (next && nextTs !== undefined && nextStint)
-        segments.push(
-          segmentOf(nextTs, player, 1, nextStint, next.year, DYNASTY_NEXT_SEASON_WEIGHT)
-        );
-      else note = next ? "not_kept" : "next_season_pending";
-    }
-    const value = segments.reduce(
-      (t, g) => t + g.weight * g.weeks.reduce((x, w) => x + w.lineup + w.depth, 0),
-      0
-    );
-    return { value, segments, note };
-  };
-  const playerValue = (ts: number, player: number, fromWeek: number): number =>
-    playerDetail(ts, player, fromWeek).value;
-
-  // ---- Picks: the player each became, and the round average for picks not yet made ----
+  // Drafted players: what a pick became, and the round averages for picks not yet made.
   const draftPicks = await rows(sql`
-    select d.league_season_id, dp.round, dp.team_season_id, dp.player_id,
-           ots.franchise_id as original_franchise_id
+    select d.league_season_id, dp.round, dp.player_id, ots.franchise_id as original_franchise_id
     from draft_pick dp
     join draft d on d.id = dp.draft_id and d.status = 'complete' and d.kind <> 'startup'
     join rec_team_season ots on ots.team_season_id = coalesce(dp.original_team_season_id, dp.team_season_id)
     where ots.league_id = ${leagueId} and dp.player_id is not null`);
-  const realized = (dp: Record<string, unknown>): number =>
-    playerValue(num(dp.team_season_id), num(dp.player_id), 1);
+
+  const playerIds = [
+    ...new Set([
+      ...items.flatMap((i) => (i.playerId === null ? [] : [i.playerId])),
+      ...draftPicks.map((d) => num(d.player_id)),
+    ]),
+  ];
+  // week points of those players, wherever they were
+  const points = new Map<string, Map<number, number>>(); // `${leagueSeasonId}:${player}` -> week -> points
+  const lastWeekOf = new Map<number, number>(); // league season -> last completed week
+  if (playerIds.length > 0) {
+    for (const r of await rows(sql`
+      select pp.league_season_id, pp.player_id, pp.week, pp.points
+      from rec_player_points pp
+      where pp.league_id = ${leagueId} and pp.player_id in (${inList(playerIds)}) and ${weekTypeCond(scope)}`)) {
+      const key = `${num(r.league_season_id)}:${num(r.player_id)}`;
+      const m = points.get(key) ?? new Map<number, number>();
+      m.set(num(r.week), num(r.points));
+      points.set(key, m);
+    }
+    // completed weeks per season: a week with no stat line still counts (as zero)
+    for (const r of await rows(sql`
+      select lsw.league_season_id, max(lsw.week) as last_week
+      from league_season_week lsw join league_season ls on ls.id = lsw.league_season_id
+      where ls.league_id = ${leagueId} and lsw.status = 'complete'
+        and ${scope === "all" ? sql`true` : scope === "regular" ? sql`(ls.playoff_week_start is null or lsw.week < ls.playoff_week_start)` : sql`(ls.playoff_week_start is not null and lsw.week >= ls.playoff_week_start)`}
+      group by lsw.league_season_id`))
+      lastWeekOf.set(num(r.league_season_id), num(r.last_week));
+  }
+  // who had each player each week (rostered teams only; null = free agent)
+  const holders = new Map<string, number>(); // `${leagueSeasonId}:${player}:${week}` -> team season
+  if (playerIds.length > 0)
+    for (const r of await rows(sql`
+      select pw.league_season_id, pw.player_id, pw.week, pw.team_season_id
+      from rec_player_week pw
+      where pw.league_id = ${leagueId} and pw.player_id in (${inList(playerIds)})`))
+      holders.set(
+        `${num(r.league_season_id)}:${num(r.player_id)}:${num(r.week)}`,
+        num(r.team_season_id)
+      );
+
+  const segmentOf = (
+    leagueSeasonId: number,
+    player: number,
+    from: number,
+    weight: number
+  ): Segment => {
+    const season = seasonById.get(leagueSeasonId);
+    const last = lastWeekOf.get(leagueSeasonId) ?? 0;
+    const byWeek = points.get(`${leagueSeasonId}:${player}`);
+    const weeks: WeekValue[] = [];
+    for (let w = Math.max(1, from); w <= last; w++)
+      weeks.push({
+        week: w,
+        points: byWeek?.get(w) ?? 0,
+        holder: holders.get(`${leagueSeasonId}:${player}:${w}`) ?? null,
+      });
+    return { year: season?.year ?? 0, weight, weeks };
+  };
+
+  /** A player's value from `fromWeek` of a season to its end (and, in dynasty, the next season at half). */
+  const playerDetail = (leagueSeasonId: number, player: number, fromWeek: number): PlayerDetail => {
+    const season = seasonById.get(leagueSeasonId);
+    const segments = [segmentOf(leagueSeasonId, player, fromWeek, 1)];
+    let note: PlayerDetail["note"] = null;
+    if (season?.dynasty) {
+      const next = seasonByYear.get(season.year + 1);
+      if (next && (lastWeekOf.get(next.id) ?? 0) > 0)
+        segments.push(segmentOf(next.id, player, 1, DYNASTY_NEXT_SEASON_WEIGHT));
+      else note = "next_season_pending";
+    }
+    const value = segments.reduce(
+      (t, g) => t + g.weight * g.weeks.reduce((x, w) => x + w.points, 0),
+      0
+    );
+    return { value, segments, note };
+  };
+
+  const realized = (dp: Record<string, unknown>): PlayerDetail =>
+    playerDetail(num(dp.league_season_id), num(dp.player_id), 1);
   const pickByKey = new Map(
     draftPicks.map((dp) => [
       `${num(dp.league_season_id)}:${num(dp.round)}:${num(dp.original_franchise_id)}`,
@@ -292,7 +224,8 @@ async function load(input: ValuationInput) {
     let v = roundAverage.get(round);
     if (v === undefined) {
       const picks = draftPicks.filter((dp) => num(dp.round) === round);
-      v = picks.length === 0 ? 0 : picks.reduce((s, dp) => s + realized(dp), 0) / picks.length;
+      v =
+        picks.length === 0 ? 0 : picks.reduce((s, dp) => s + realized(dp).value, 0) / picks.length;
       roundAverage.set(round, v);
     }
     return v;
@@ -305,7 +238,7 @@ async function load(input: ValuationInput) {
       ? pickByKey.get(`${season.id}:${it.pickRound}:${it.pickFranchiseId}`)
       : undefined;
     if (made) {
-      const detail = playerDetail(num(made.team_season_id), num(made.player_id), 1);
+      const detail = realized(made);
       return {
         value: detail.value,
         made: { playerId: num(made.player_id), detail },
@@ -319,154 +252,22 @@ async function load(input: ValuationInput) {
       averageOf: draftPicks.filter((dp) => num(dp.round) === round).length,
     };
   };
-  const pickValue = (it: TradeItem): number => pickDetail(it).value;
 
-  return {
-    rows,
-    seasonById,
-    seasonByYear,
-    teamSeason,
-    tenure,
-    rosters,
-    stintAt,
-    added,
-    window,
-    playerValue,
-    playerDetail,
-    pickValue,
-    pickDetail,
-  };
-}
-
-/** The trade items of the seasons being valued, with everything needed to value or explain them. */
-async function prepare(input: ValuationInput) {
-  const { leagueId, seasonIds } = input;
-  const ctx = await load(input);
-  const { rows, tenure, stintAt, window, playerValue, pickValue } = ctx;
-
-  // ---- The trade items to value ----
-  const items: TradeItem[] = (
-    await rows(sql`
-      select i.item_id, i.transaction_id, i.league_season_id, i.week, i.executed_at, i.kind::text as kind,
-             i.player_id, i.pick_season, i.pick_round, i.pick_original_franchise_id,
-             i.from_team_season_id, i.to_team_season_id
-      from rec_transaction_item i
-      where i.type = 'trade' and i.kind in ('player', 'pick') and i.league_id = ${leagueId}
-        and i.league_season_id in (${sql.join(
-          seasonIds.map((s) => sql`${s}`),
-          sql`, `
-        )})`)
-  ).map((r) => ({
-    itemId: num(r.item_id),
-    transactionId: num(r.transaction_id),
-    leagueSeasonId: num(r.league_season_id),
-    week: num(r.week),
-    executedAt: r.executed_at ? new Date(r.executed_at as string).getTime() : 0,
-    kind: r.kind as "player" | "pick",
-    playerId: numOrNull(r.player_id),
-    pickSeason: numOrNull(r.pick_season),
-    pickRound: numOrNull(r.pick_round),
-    pickFranchiseId: numOrNull(r.pick_original_franchise_id),
-    sender: numOrNull(r.from_team_season_id),
-    receiver: numOrNull(r.to_team_season_id),
-  }));
-
-  const direct = (it: TradeItem): number =>
+  const valueOf = (it: TradeItem): number =>
     it.kind === "pick"
-      ? pickValue(it)
-      : it.receiver === null || it.playerId === null
+      ? pickDetail(it).value
+      : it.playerId === null
         ? 0
-        : playerValue(it.receiver, it.playerId, it.week);
+        : playerDetail(it.leagueSeasonId, it.playerId, it.week).value;
 
-  // ---- Chains: a player the receiving team traded on within the same stint ----
-  const order = (a: TradeItem, b: TradeItem) =>
-    a.week - b.week || a.executedAt - b.executedAt || a.itemId - b.itemId;
-  const playersByKey = new Map<string, TradeItem[]>();
-  for (const it of items)
-    if (it.kind === "player" && it.sender !== null && it.playerId !== null) {
-      const key = `${it.sender}:${it.playerId}`;
-      playersByKey.set(key, [...(playersByKey.get(key) ?? []), it]);
-    }
-  const chainItems: ChainItem[] = items.map((it) => {
-    let nextItemId: number | null = null;
-    if (it.kind === "player" && it.receiver !== null && it.playerId !== null) {
-      const stint = stintAt(it.receiver, it.playerId, Math.max(1, it.week));
-      const limit = (stint ? stint.toWeek : it.week - 1) + 1;
-      const next = (playersByKey.get(`${it.receiver}:${it.playerId}`) ?? [])
-        .filter(
-          (j) => j.leagueSeasonId === it.leagueSeasonId && order(it, j) < 0 && j.week <= limit
-        )
-        .sort(order)[0];
-      nextItemId = next?.itemId ?? null;
-    }
-    // The share a sent item has in the return: what it had been worth to the sender over the stint that this trade
-    // ended; a pick is worth its own value.
-    let weight = 0;
-    if (it.kind === "pick") weight = pickValue(it);
-    else if (it.sender !== null && it.playerId !== null) {
-      const stint = (tenure.get(`${it.sender}:${it.playerId}`) ?? []).find(
-        (s) => s.toWeek === it.week - 1 && s.leftVia === "trade"
-      );
-      if (stint) weight = window(it.sender, it.playerId, stint.fromWeek, lastWeekOf(stint));
-    }
-    return {
-      itemId: it.itemId,
-      transactionId: it.transactionId,
-      sender: it.sender,
-      receiver: it.receiver,
-      direct: direct(it),
-      weight,
-      nextItemId,
-    };
-  });
-  return { ctx, items, chainItems, direct };
+  return { items, playerDetail, pickDetail, valueOf };
 }
 
-/** Item id -> estimated value for the team that received it (the team that sent it loses the same amount). */
+/** Item id -> value (the team that received the item gains it; the team that sent it loses the same amount). */
 export async function tradeValuations(input: ValuationInput): Promise<Map<number, number>> {
   if (input.seasonIds.length === 0) return new Map();
-  const { items, chainItems, direct } = await prepare(input);
-  if (!input.chain) return new Map(items.map((it) => [it.itemId, direct(it)]));
-  return chainValues(chainItems);
-}
-
-/**
- * Item id -> the value that counts toward totals: its chained value minus the share of it that earlier trades of the
- * receiving team already took (an earlier item traded on into this trade is credited with a share of everything the
- * team received, so those shares are removed here). The receiver gains and the sender loses the same counted value,
- * so a re-trade's return is never counted twice for a manager and the whole league still nets to zero.
- */
-export function countedValues(
-  items: readonly { itemId: number; transactionId: number; receiver: number | null }[],
-  nextOf: ReadonlyMap<number, { nextItemId: number; share: number }>,
-  values: ReadonlyMap<number, number>
-): Map<number, number> {
-  const byId = new Map(items.map((it) => [it.itemId, it]));
-  const taken = new Map<string, number>();
-  for (const [id, link] of nextOf) {
-    const from = byId.get(id);
-    const next = byId.get(link.nextItemId);
-    if (!from || !next || from.receiver === null) continue;
-    const key = `${next.transactionId}:${from.receiver}`;
-    taken.set(key, (taken.get(key) ?? 0) + link.share);
-  }
-  return new Map(
-    items.map((it) => [
-      it.itemId,
-      (values.get(it.itemId) ?? 0) *
-        (1 - Math.min(1, taken.get(`${it.transactionId}:${it.receiver}`) ?? 0)),
-    ])
-  );
-}
-
-/** Chained values (`value`) and the part of each received item that is new to its team's totals (`counted`). */
-export async function tradeAccounting(
-  input: ValuationInput
-): Promise<{ values: Map<number, number>; counted: Map<number, number> }> {
-  if (input.seasonIds.length === 0) return { values: new Map(), counted: new Map() };
-  const { items, chainItems } = await prepare({ ...input, chain: true });
-  const { values, links } = chainResolve(chainItems);
-  return { values, counted: countedValues(items, links, values) };
+  const { items, valueOf } = await prepare(input);
+  return new Map(items.map((it) => [it.itemId, valueOf(it)]));
 }
 
 export interface ItemExplanation {
@@ -480,60 +281,40 @@ export interface ItemExplanation {
   pickFranchiseId: number | null;
   sender: number | null;
   receiver: number | null;
-  /** Value to the receiving team before following the player through a later trade. */
-  direct: number;
-  /** Value including the return of a later trade (what the trade page and trade records use). */
   value: number;
-  /** The part of `value` that counts toward totals, for both sides (see countedValues). */
-  counted: number;
   player: PlayerDetail | null;
   pick: PickDetail | null;
-  /** The player was traded on by the team that received him: the later trade and his share of what came back. */
-  chain: (ChainLink & { transactionId: number; week: number }) | null;
 }
 
 /** Every trade item of the seasons, explained week by week (for the manager breakdown page). */
 export async function explainTrades(input: ValuationInput): Promise<ItemExplanation[]> {
   if (input.seasonIds.length === 0) return [];
-  const { ctx, items, chainItems } = await prepare({ ...input, chain: true });
-  const { values, links } = chainResolve(chainItems);
-  const byId = new Map(items.map((it) => [it.itemId, it]));
-  const directOf = new Map(chainItems.map((c) => [c.itemId, c.direct]));
-  const counted = countedValues(items, links, values);
-  return items.map((it) => {
-    const link = links.get(it.itemId);
-    const next = link ? byId.get(link.nextItemId) : undefined;
-    return {
-      itemId: it.itemId,
-      transactionId: it.transactionId,
-      week: it.week,
-      kind: it.kind,
-      playerId: it.playerId,
-      pickSeason: it.pickSeason,
-      pickRound: it.pickRound,
-      pickFranchiseId: it.pickFranchiseId,
-      sender: it.sender,
-      receiver: it.receiver,
-      direct: directOf.get(it.itemId) ?? 0,
-      value: values.get(it.itemId) ?? 0,
-      counted: counted.get(it.itemId) ?? 0,
-      player:
-        it.kind === "player" && it.receiver !== null && it.playerId !== null
-          ? ctx.playerDetail(it.receiver, it.playerId, it.week)
-          : null,
-      pick: it.kind === "pick" ? ctx.pickDetail(it) : null,
-      chain: link && next ? { ...link, transactionId: next.transactionId, week: next.week } : null,
-    };
-  });
+  const { items, playerDetail, pickDetail, valueOf } = await prepare(input);
+  return items.map((it) => ({
+    itemId: it.itemId,
+    transactionId: it.transactionId,
+    week: it.week,
+    kind: it.kind,
+    playerId: it.playerId,
+    pickSeason: it.pickSeason,
+    pickRound: it.pickRound,
+    pickFranchiseId: it.pickFranchiseId,
+    sender: it.sender,
+    receiver: it.receiver,
+    value: valueOf(it),
+    player:
+      it.kind === "player" && it.playerId !== null
+        ? playerDetail(it.leagueSeasonId, it.playerId, it.week)
+        : null,
+    pick: it.kind === "pick" ? pickDetail(it) : null,
+  }));
 }
 
 /** The values as an inline `iv(item_id, v)` CTE for a record query. */
-export function itemValuesCte(values: Map<number, number>, counted?: Map<number, number>): SQL {
-  if (values.size === 0)
-    return sql`iv(item_id, v, c) as (select null::int, null::float8, null::float8 where false)`;
-  const r3 = (n: number) => Math.round(n * 1000) / 1000;
+export function itemValuesCte(values: Map<number, number>): SQL {
+  if (values.size === 0) return sql`iv(item_id, v) as (select null::int, null::float8 where false)`;
   const rows = [...values].map(
-    ([id, v]) => sql`(${id}::int, ${r3(v)}::float8, ${r3(counted?.get(id) ?? v)}::float8)`
+    ([id, v]) => sql`(${id}::int, ${Math.round(v * 1000) / 1000}::float8)`
   );
-  return sql`iv(item_id, v, c) as (values ${sql.join(rows, sql`, `)})`;
+  return sql`iv(item_id, v) as (values ${sql.join(rows, sql`, `)})`;
 }

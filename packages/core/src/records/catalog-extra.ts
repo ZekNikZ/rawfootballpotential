@@ -669,11 +669,12 @@ const trades: RecordDef[] = [
       grain: "transaction",
       engine: "tradeValue",
       readsAllSeasons: true,
+      version: 4,
     }),
     "sidePoints",
     "desc",
     tradeEstCols,
-    "Estimated value one side got from a trade: how many points its players added to its best possible lineups for the rest of the season, plus half of the other points they scored for it (depth); a dynasty player kept into next season also counts, at half, draft picks as the player they became, plus its share of what it received when it traded a player on again."
+    "Estimated value one side got from a trade: the points its players scored from the trade to the end of that season wherever they were (what the team did with them afterward does not change it), a dynasty player's next season at half, and draft picks as the player they became."
   ),
   rec(
     "trade.lopsided.est",
@@ -682,11 +683,12 @@ const trades: RecordDef[] = [
       grain: "transaction",
       engine: "tradeValue",
       readsAllSeasons: true,
+      version: 4,
     }),
     "difference",
     "desc",
     tradeEstCols,
-    "The gap between the winning side's estimated trade value and the other side's (lineup points added, half credit for depth, picks, a dynasty player's next season at half, and the return from trading a player on again), for trades where each side received something."
+    "The gap between the winning side's estimated trade value and the other side's (rest-of-season points wherever the players were, picks, and a dynasty player's next season at half), for trades where each side received something."
   ),
 ];
 
@@ -965,7 +967,7 @@ const tradeValueCols = [
 const tradeValueBase = careerBase("Transactions", "careerTradeValue", {
   filters: ["seasons", "scope"],
   requires: req("transactions", "playerData"),
-  version: 3,
+  version: 4,
   readsAllSeasons: true,
 });
 const careerTradeValue: RecordDef[] = [
@@ -976,7 +978,7 @@ const careerTradeValue: RecordDef[] = [
     "net",
     "desc",
     tradeValueCols,
-    "Net points a manager's trades produced: how many points the players received added to their best possible lineups from the trade to the end of that season, plus half of the other points they scored (depth); a dynasty player kept into next season also counts, at half, plus draft picks as the player they became, plus the return when a player was traded on again (counted once across a manager's trades), minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
+    "Net points a manager's trades produced: the points the players received scored from the trade to the end of that season wherever they were (a flip or drop does not change it), a dynasty player's next season at half, and draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
   ),
   rec(
     "career.trade-value.avg",

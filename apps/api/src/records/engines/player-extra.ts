@@ -3,7 +3,7 @@ import type { SQL } from "@rfp/db";
 import { scopeCond, seasonCond, weeksCond, type RankedRow, type RunContext } from "../context";
 import { rankRows } from "../rank";
 import { pointsSince, stintEnd } from "./points-since";
-import { itemValuesCte, tradeAccounting, tradeValuations } from "./trade-valuation";
+import { itemValuesCte, tradeValuations } from "./trade-valuation";
 import { minGames } from "./season-base";
 import { playerFilters } from "./players";
 
@@ -160,15 +160,14 @@ export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
 export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
   const lopsided = ctx.def.id.startsWith("trade.lopsided");
-  // The estimate values lineup contribution, picks and the dynasty follow-up, and follows a traded player through
-  // the trades his new team made with him (see trade-valuation.ts).
+  // The estimate values every player by his rest-of-season production wherever he was, plus picks and the dynasty
+  // follow-up (see trade-valuation.ts).
   const chained = isEstimate(ctx.def.id)
     ? await tradeValuations({
         db: ctx.db,
         leagueId: ctx.leagueId,
         seasonIds: ctx.seasonIds,
         scope: q.scope,
-        chain: true,
       })
     : null;
   const inner = sql`
@@ -407,15 +406,14 @@ export async function careerTradeValueRecord(ctx: RunContext): Promise<RankedRow
   const { q } = ctx;
   const average = ctx.def.id === "career.trade-value.avg";
   const min = average ? minGames(ctx) : 1;
-  const { values, counted } = await tradeAccounting({
+  const values = await tradeValuations({
     db: ctx.db,
     leagueId: ctx.leagueId,
     seasonIds: ctx.seasonIds,
     scope: q.scope,
-    chain: true,
   });
   const inner = sql`
-    with ${itemValuesCte(values, counted)},
+    with ${itemValuesCte(values)},
     items as (
       select i.item_id, i.transaction_id, i.from_team_season_id as sender, i.to_team_season_id as receiver
       from rec_transaction_item i
@@ -424,24 +422,20 @@ export async function careerTradeValueRecord(ctx: RunContext): Promise<RankedRow
         and ${seasonCond(sql`i.league_season_id`, ctx.seasonIds)}
     ),
     vals as (
-      select it.transaction_id, it.sender, it.receiver, coalesce(iv.v, 0) as pts, coalesce(iv.c, 0) as counted
+      select it.transaction_id, it.sender, it.receiver, coalesce(iv.v, 0) as pts
       from items it left join iv on iv.item_id = it.item_id
     ),
     sides as (
-      select transaction_id, team_season_id, sum(gained) as gained, sum(counted_gained) as counted_gained,
-             sum(lost) as lost, sum(counted_lost) as counted_lost
+      select transaction_id, team_season_id, sum(gained) as gained, sum(lost) as lost
       from (
-        select transaction_id, receiver as team_season_id, pts as gained, counted as counted_gained, 0 as lost, 0 as counted_lost from vals
+        select transaction_id, receiver as team_season_id, pts as gained, 0 as lost from vals
         union all
-        select transaction_id, sender, 0, 0, pts, counted from vals
+        select transaction_id, sender, 0, pts from vals
       ) x
       group by transaction_id, team_season_id
     ),
     per as (
-      -- gained and net are the totals (a re-trade's return counted once); a trade is won or lost on the net shown on its card
-      select ts.franchise_id, s.counted_gained as gained, s.counted_lost as lost,
-             round((s.counted_gained - s.counted_lost)::numeric, 3) as net,
-             round((s.gained - s.lost)::numeric, 3) as card_net,
+      select ts.franchise_id, s.gained, s.lost, round((s.gained - s.lost)::numeric, 3) as net,
              (ls.status <> 'complete') as prog
       from sides s
       join team_season ts on ts.id = s.team_season_id
@@ -449,8 +443,8 @@ export async function careerTradeValueRecord(ctx: RunContext): Promise<RankedRow
     ),
     career as (
       select franchise_id, count(*)::int as trades,
-             count(*) filter (where card_net > 0)::int as wins, count(*) filter (where card_net < 0)::int as losses,
-             count(*) filter (where card_net = 0)::int as ties,
+             count(*) filter (where net > 0)::int as wins, count(*) filter (where net < 0)::int as losses,
+             count(*) filter (where net = 0)::int as ties,
              sum(gained) as gained, sum(lost) as lost, sum(net) as net, bool_or(prog) as in_progress
       from per group by franchise_id
     )

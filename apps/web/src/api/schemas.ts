@@ -517,18 +517,16 @@ export type Transactions = z.infer<typeof transactionsResponse>;
 const weekValueSchema = z.object({
   week: z.number(),
   points: z.number(),
-  slot: z.string(),
-  lineup: z.number(),
-  depth: z.number(),
+  /** Team season that had him that week; null = nobody (a free agent). */
+  holder: nullableNum,
 });
 const playerDetailSchema = z.object({
   value: z.number(),
-  note: z.enum(["not_rostered", "next_season_pending", "not_kept"]).nullable(),
+  note: z.enum(["next_season_pending"]).nullable(),
   segments: z.array(
     z.object({
       year: z.number(),
       weight: z.number(),
-      end: z.object({ reason: z.string(), week: z.number() }),
       weeks: z.array(weekValueSchema),
     })
   ),
@@ -541,7 +539,6 @@ const breakdownItem = z.object({
   pickRound: nullableNum,
   pickFranchiseId: nullableNum,
   counterpartyTeamSeasonId: nullableNum,
-  direct: z.number(),
   value: z.number(),
   player: playerDetailSchema.nullable(),
   pick: z
@@ -549,23 +546,6 @@ const breakdownItem = z.object({
       value: z.number(),
       averageOf: nullableNum,
       made: z.object({ playerId: z.number(), detail: playerDetailSchema.nullable() }).nullable(),
-    })
-    .nullable(),
-  chain: z
-    .object({
-      transactionId: z.number(),
-      week: z.number(),
-      share: z.number(),
-      returned: z.number(),
-      returnedItems: z.array(
-        z.object({
-          kind: z.string(),
-          playerId: nullableNum,
-          pickSeason: nullableNum,
-          pickRound: nullableNum,
-          value: z.number(),
-        })
-      ),
     })
     .nullable(),
 });
@@ -587,9 +567,6 @@ export const tradeBreakdownResponse = z.object({
       gained: z.number(),
       lost: z.number(),
       net: z.number(),
-      countedGained: z.number(),
-      countedLost: z.number(),
-      countedNet: z.number(),
       received: z.array(breakdownItem),
       sent: z.array(breakdownItem),
     })

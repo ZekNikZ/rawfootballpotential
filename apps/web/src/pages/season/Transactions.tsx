@@ -99,7 +99,7 @@ function List({ season }: { season: Season }) {
           {data.total} transaction{data.total === 1 ? "" : "s"}. Failed claims are listed but never
           counted in records.
           {season.data.playerData &&
-            " Estimated trade value is how many points a side's players added to its best possible lineups from the trade to the end of the season, plus half of the other points they scored for it (depth); a dynasty player kept into next season also counts, at half, draft picks as the player they became, plus what the team received when it traded one of them on again. The number beside each player or pick is his share of that value. FAAB is not valued."}
+            " Estimated trade value is the points each player scored from the trade to the end of the season wherever he was, so a later flip or drop does not change it; a dynasty player's next season counts at half, and a draft pick is worth the player it became. The number beside each player or pick is his share of that value. FAAB is not valued."}
         </Text>
       )}
     </Stack>

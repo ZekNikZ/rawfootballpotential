@@ -315,14 +315,13 @@ export async function transactionFeed(
     ...txs.map((t) => num(t.creator_team_season_id)),
     ...items.flatMap((i) => [num(i.from_team_season_id), num(i.to_team_season_id)]),
   ].filter((v): v is number => v !== null);
-  // Estimated value of every player and pick moved this season, following players through later trades.
+  // Estimated value of every player and pick moved this season (rest-of-season production).
   const values = items.some((i) => i.kind === "player" || i.kind === "pick")
     ? await tradeValuations({
         db,
         leagueId: await leagueOfSeason(db, seasonId),
         seasonIds: [seasonId],
         scope: "all",
-        chain: true,
       })
     : new Map<number, number>();
   /** Per team in a trade: points gained from the players it received, lost to the players it sent away. */
