@@ -1,9 +1,13 @@
 import { sql } from "@rfp/db";
 import type { SQL } from "@rfp/db";
 
-/** The week a player's stint on a team ended, for the stint containing `week` (null when he never made a roster). */
+/**
+ * The last week a player can still score for a team in the stint containing `week` (null when he never made a
+ * roster): the stint's last week, plus the week he was dropped or traded when he was still in that week's lineup
+ * snapshot.
+ */
 export const stintEnd = (team: SQL, player: SQL, week: SQL): SQL => sql`(
-  select t.to_week from player_tenure t
+  select t.to_week + (case when t.left_via in ('drop', 'trade', 'commissioner') then 1 else 0 end) from player_tenure t
   where t.team_season_id = ${team} and t.player_id = ${player} and t.from_week <= ${week} and t.to_week >= ${week}
   order by t.from_week desc limit 1)`;
 

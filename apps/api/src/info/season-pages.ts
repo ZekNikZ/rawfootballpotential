@@ -4,7 +4,7 @@ import { HttpError } from "../lib/http";
 import { bySlot } from "../lib/slots";
 import { inList, type RankedRow } from "../records/context";
 import { resolveRows, type Entities } from "../records/entities";
-import { tradeItemValues } from "../records/engines/trade-chain";
+import { tradeValuations } from "../records/engines/trade-valuation";
 
 /** Info pages (doc §3.7): unlike records they may read in-progress weeks, and are cached briefly. */
 
@@ -270,6 +270,15 @@ export async function teams(db: Db, seasonId: number, withRosters: boolean) {
   };
 }
 
+const leagueOfSeason = async (db: Db, seasonId: number): Promise<number> =>
+  Number(
+    (
+      await db.execute<{ league_id: number }>(
+        sql`select league_id from league_season where id = ${seasonId}`
+      )
+    ).rows[0]?.league_id
+  );
+
 /** The transaction feed, newest first. Failed claims are listed (marked) but are never counted in any record. */
 export async function transactionFeed(
   db: Db,
@@ -306,9 +315,15 @@ export async function transactionFeed(
     ...txs.map((t) => num(t.creator_team_season_id)),
     ...items.flatMap((i) => [num(i.from_team_season_id), num(i.to_team_season_id)]),
   ].filter((v): v is number => v !== null);
-  // Estimated value of every player moved this season, following him through later trades (bench at half).
-  const values = items.some((i) => i.kind === "player")
-    ? await tradeItemValues(db, [seasonId], 0.5)
+  // Estimated value of every player and pick moved this season, following players through later trades.
+  const values = items.some((i) => i.kind === "player" || i.kind === "pick")
+    ? await tradeValuations({
+        db,
+        leagueId: await leagueOfSeason(db, seasonId),
+        seasonIds: [seasonId],
+        scope: "all",
+        chain: true,
+      })
     : new Map<number, number>();
   /** Per team in a trade: points gained from the players it received, lost to the players it sent away. */
   const sidesOf = (txItems: Record<string, unknown>[]) => {

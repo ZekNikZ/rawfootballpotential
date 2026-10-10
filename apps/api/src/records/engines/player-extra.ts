@@ -3,13 +3,12 @@ import type { SQL } from "@rfp/db";
 import { scopeCond, seasonCond, weeksCond, type RankedRow, type RunContext } from "../context";
 import { rankRows } from "../rank";
 import { pointsSince, stintEnd } from "./points-since";
-import { itemValuesCte, tradeItemValues } from "./trade-chain";
+import { dropValues, itemValuesCte, tradeValuations } from "./trade-valuation";
 import { minGames } from "./season-base";
 import { playerFilters } from "./players";
 
-/** The "estimated value" variants of the trade and drop-regret records count bench / IR / taxi points at half. */
+/** The "estimated value" variants of the trade and drop-regret records (see trade-valuation.ts). */
 const isEstimate = (id: string): boolean => id.endsWith(".est");
-const benchWeightOf = (id: string): number => (isEstimate(id) ? 0.5 : 0);
 
 /** A player on a bye (his NFL team had no game) or not active that week. */
 const deadPlayer = sql`((pw.nfl_game_id is null and pw.nfl_team is not null and pw.points = 0)
@@ -121,9 +120,28 @@ export async function pickupRecord(ctx: RunContext): Promise<RankedRow[]> {
 /** Points a dropped player scored as a starter for other teams over the rest of that season. */
 export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
-  const bw = benchWeightOf(ctx.def.id);
+  const estimate = isEstimate(ctx.def.id)
+    ? await dropValues({
+        db: ctx.db,
+        leagueId: ctx.leagueId,
+        seasonIds: ctx.seasonIds,
+        scope: q.scope,
+      })
+    : null;
+  const emptyDv = sql`dv(team_season_id, player_id, to_week, v, teams) as (select null::int, null::int, null::int, null::float8, null::text where false)`;
+  const dv =
+    estimate && estimate.size > 0
+      ? sql`dv(team_season_id, player_id, to_week, v, teams) as (values ${sql.join(
+          [...estimate].map(([key, x]) => {
+            const [a, b, c] = key.split(":").map(Number);
+            return sql`(${a}::int, ${b}::int, ${c}::int, ${Math.round(x.value * 1000) / 1000}::float8, ${x.teams}::text)`;
+          }),
+          sql`, `
+        )})`
+      : emptyDv;
   const inner = sql`
-    with d as (
+    with ${dv},
+    d as (
       select t.team_season_id, t.player_id, t.to_week, ts.franchise_id, ts.league_season_id, ls.year as season
       from player_tenure t
       join team_season ts on ts.id = t.team_season_id
@@ -144,13 +162,17 @@ export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
     join player p on p.id = d.player_id
     join league_season ls on ls.id = d.league_season_id
     cross join lateral (
-      select sum(case when pw.slot_kind = 'starter' then pw.points else ${bw} * pw.points end) as pts,
-             string_agg(distinct ots.name, ', ') as teams
-      from rec_player_week pw join team_season ots on ots.id = pw.team_season_id
-      where pw.player_id = d.player_id and pw.league_season_id = d.league_season_id
-        and pw.week > d.to_week and pw.team_season_id <> d.team_season_id
-        and (pw.slot_kind = 'starter' or ${bw}::numeric > 0) and pw.counts and pw.points is not null
-        and ${scopeCond(sql`pw.game_type`, q.scope)}
+      ${
+        estimate
+          ? sql`select x.v as pts, x.teams from dv x
+                where x.team_season_id = d.team_season_id and x.player_id = d.player_id and x.to_week = d.to_week`
+          : sql`select sum(pw.points) as pts, string_agg(distinct ots.name, ', ') as teams
+                from rec_player_week pw join team_season ots on ots.id = pw.team_season_id
+                where pw.player_id = d.player_id and pw.league_season_id = d.league_season_id
+                  and pw.week > d.to_week and pw.team_season_id <> d.team_season_id
+                  and pw.slot_kind = 'starter' and pw.counts and pw.points is not null
+                  and ${scopeCond(sql`pw.game_type`, q.scope)}`
+      }
     ) x
     where x.pts is not null`;
   return rankRows(ctx, inner);
@@ -163,24 +185,34 @@ export async function dropRegretRecord(ctx: RunContext): Promise<RankedRow[]> {
 export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
   const lopsided = ctx.def.id.startsWith("trade.lopsided");
-  const bw = benchWeightOf(ctx.def.id);
-  // The estimate follows a traded player through the trades his new team made with him (see tradeItemValues).
+  // The estimate values lineup contribution, picks and the dynasty follow-up, and follows a traded player through
+  // the trades his new team made with him (see trade-valuation.ts).
   const chained = isEstimate(ctx.def.id)
-    ? await tradeItemValues(ctx.db, ctx.seasonIds, bw, scopeCond(sql`pw.game_type`, q.scope))
+    ? await tradeValuations({
+        db: ctx.db,
+        leagueId: ctx.leagueId,
+        seasonIds: ctx.seasonIds,
+        scope: q.scope,
+        chain: true,
+      })
     : null;
   const inner = sql`
     with ${chained ? itemValuesCte(chained) : sql`iv(item_id, v) as (select null::int, null::float8 where false)`},
     items as (
-      select i.item_id, i.transaction_id, i.league_season_id, i.season, i.week, i.to_team_season_id as side, i.player_id
+      select i.item_id, i.transaction_id, i.league_season_id, i.season, i.week, i.to_team_season_id as side, i.player_id,
+             i.pick_season, i.pick_round
       from rec_transaction_item i
-      where i.type = 'trade' and i.kind = 'player' and i.to_team_season_id is not null
+      where i.type = 'trade' and (i.kind = 'player' ${chained ? sql`or i.kind = 'pick'` : sql``})
+        and i.to_team_season_id is not null
         and ${seasonCond(sql`i.league_season_id`, ctx.seasonIds)}
     ),
     got as (
       select it.transaction_id, it.league_season_id, it.season, it.week, it.side,
-             sum(sp.pts) as pts, string_agg(p.full_name, ', ' order by sp.pts desc, p.full_name) as names
+             sum(sp.pts) as pts,
+             string_agg(coalesce(p.full_name, concat(it.pick_season, ' round ', it.pick_round, ' pick')), ', '
+                        order by sp.pts desc, coalesce(p.full_name, '')) as names
       from items it
-      join player p on p.id = it.player_id
+      left join player p on p.id = it.player_id
       cross join lateral (
         select ${
           chained
@@ -189,7 +221,7 @@ export async function tradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
                 sql`it.side`,
                 sql`it.player_id`,
                 sql`it.week`,
-                bw,
+                0,
                 scopeCond(sql`pw.game_type`, q.scope)
               )
         } as pts
@@ -385,30 +417,35 @@ export async function draftValueRecord(ctx: RunContext): Promise<RankedRow[]> {
 }
 
 /**
- * Overall trade value per franchise. For every player moved in a trade, his value is the points he scored for the
- * team that received him from the trade week to the end of that stint (so never past the season): a starter's
- * points count in full, a bench / IR / taxi player's at half. A side gains the value of the players it received and
- * loses the value of the players it sent away; its net is gained - lost. Draft picks and FAAB are not valued.
- * "Total" ranks the sum of the nets, "average" the net per trade (with a minimum number of trades).
+ * Overall trade value per franchise. Every player and draft pick moved in a trade is valued for the team that
+ * received it (trade-valuation.ts: what a player added to its best lineup, a pick as the player it became, dynasty
+ * players also next season). A side gains the value of what it received and loses the value of what it sent away;
+ * its net is gained - lost. A player traded on is not followed (the re-trade's return is credited in that trade).
+ * "Total" ranks the sum of the nets, "average" the net per trade (with a minimum number of trades). FAAB is not valued.
  */
 export async function careerTradeValueRecord(ctx: RunContext): Promise<RankedRow[]> {
   const { q } = ctx;
   const average = ctx.def.id === "career.trade-value.avg";
   const min = average ? minGames(ctx) : 1;
+  const values = await tradeValuations({
+    db: ctx.db,
+    leagueId: ctx.leagueId,
+    seasonIds: ctx.seasonIds,
+    scope: q.scope,
+    chain: false,
+  });
   const inner = sql`
-    with items as (
-      select i.transaction_id, i.week, i.player_id, i.from_team_season_id as sender, i.to_team_season_id as receiver
+    with ${itemValuesCte(values)},
+    items as (
+      select i.item_id, i.transaction_id, i.from_team_season_id as sender, i.to_team_season_id as receiver
       from rec_transaction_item i
-      where i.type = 'trade' and i.kind = 'player' and i.player_id is not null
+      where i.type = 'trade' and i.kind in ('player', 'pick')
         and i.from_team_season_id is not null and i.to_team_season_id is not null
         and ${seasonCond(sql`i.league_season_id`, ctx.seasonIds)}
     ),
     vals as (
-      select it.transaction_id, it.sender, it.receiver, v.pts as pts
-      from items it
-      cross join lateral (
-        select ${pointsSince(sql`it.receiver`, sql`it.player_id`, sql`it.week`, 0.5, scopeCond(sql`pw.game_type`, q.scope))} as pts
-      ) v
+      select it.transaction_id, it.sender, it.receiver, coalesce(iv.v, 0) as pts
+      from items it left join iv on iv.item_id = it.item_id
     ),
     sides as (
       select transaction_id, team_season_id, sum(gained) as gained, sum(lost) as lost

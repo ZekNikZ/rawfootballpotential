@@ -584,7 +584,7 @@ const pickups: RecordDef[] = [
   rec(
     "pickup.best",
     "Best waiver pickup",
-    pickupBase("Waivers & Trades"),
+    pickupBase("Waivers & Trades", { version: 2 }),
     "starterPoints",
     "desc",
     pickupCols,
@@ -593,7 +593,10 @@ const pickups: RecordDef[] = [
   rec(
     "pickup.value",
     "Best value pickup",
-    pickupBase("Waivers & Trades", { requires: req("transactions", "playerData", "faab") }),
+    pickupBase("Waivers & Trades", {
+      requires: req("transactions", "playerData", "faab"),
+      version: 2,
+    }),
     "pointsPerDollar",
     "desc",
     [...pickupCols, c("pointsPerDollar", "Points per $", "decimal")],
@@ -602,7 +605,10 @@ const pickups: RecordDef[] = [
   rec(
     "pickup.faab-per-point",
     "Most FAAB per point",
-    pickupBase("Waivers & Trades", { requires: req("transactions", "playerData", "faab") }),
+    pickupBase("Waivers & Trades", {
+      requires: req("transactions", "playerData", "faab"),
+      version: 2,
+    }),
     "dollarsPerPoint",
     "desc",
     [...pickupCols, c("dollarsPerPoint", "$ per point", "decimal")],
@@ -636,7 +642,7 @@ const pickups: RecordDef[] = [
       c("points", "Points for others since", "points"),
       c("startedFor", "Started for", "text"),
     ],
-    "Estimated value of a dropped player to other teams over the rest of that season: the points he scored for them, a starter's in full and a bench player's at half."
+    "Estimated value of a dropped player to other teams over the rest of that season: how many points he added to their best possible lineups (a bench player who would not have started adds nothing)."
   ),
 ];
 const tradeCols = [
@@ -654,7 +660,7 @@ const trades: RecordDef[] = [
   rec(
     "trade.best",
     "Best trade",
-    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
+    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue", version: 2 }),
     "sidePoints",
     "desc",
     tradeCols,
@@ -663,7 +669,7 @@ const trades: RecordDef[] = [
   rec(
     "trade.lopsided",
     "Most lopsided trade",
-    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
+    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue", version: 2 }),
     "difference",
     "desc",
     tradeCols,
@@ -672,20 +678,28 @@ const trades: RecordDef[] = [
   rec(
     "trade.best.est",
     "Best trade (estimated value)",
-    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
+    pickupBase("Waivers & Trades", {
+      grain: "transaction",
+      engine: "tradeValue",
+      readsAllSeasons: true,
+    }),
     "sidePoints",
     "desc",
     tradeEstCols,
-    "Estimated value one side got from a trade: the points its players scored for it over the rest of the season (starters in full, bench players at half), plus its share of what it received when it traded a player on again."
+    "Estimated value one side got from a trade: how many points its players added to its best possible lineups for the rest of the season (a dynasty player kept into next season also counts, at half), draft picks as the player they became, plus its share of what it received when it traded a player on again."
   ),
   rec(
     "trade.lopsided.est",
     "Most lopsided trade (estimated value)",
-    pickupBase("Waivers & Trades", { grain: "transaction", engine: "tradeValue" }),
+    pickupBase("Waivers & Trades", {
+      grain: "transaction",
+      engine: "tradeValue",
+      readsAllSeasons: true,
+    }),
     "difference",
     "desc",
     tradeEstCols,
-    "The gap between the winning side's estimated trade value and the other side's (starters in full, bench players at half, and the return from trading a player on again), for trades where each side received players."
+    "The gap between the winning side's estimated trade value and the other side's (lineup points added, picks, a dynasty player's next season at half, and the return from trading a player on again), for trades where each side received something."
   ),
 ];
 
@@ -964,6 +978,8 @@ const tradeValueCols = [
 const tradeValueBase = careerBase("Transactions", "careerTradeValue", {
   filters: ["seasons", "scope"],
   requires: req("transactions", "playerData"),
+  version: 2,
+  readsAllSeasons: true,
 });
 const careerTradeValue: RecordDef[] = [
   rec(
@@ -973,7 +989,7 @@ const careerTradeValue: RecordDef[] = [
     "net",
     "desc",
     tradeValueCols,
-    "Net points a manager's trades produced: the points the players received scored for them from the trade to the end of that season, minus the points the players sent away scored for their new teams. Bench players count at half. Draft picks and FAAB are not valued. A trade is won when its net is above zero."
+    "Net points a manager's trades produced: how many points the players received added to their best possible lineups from the trade to the end of that season (a dynasty player kept into next season also counts, at half), plus draft picks as the player they became, minus the same for what they sent away. FAAB is not valued. A trade is won when its net is above zero."
   ),
   rec(
     "career.trade-value.avg",
