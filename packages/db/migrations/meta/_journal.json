@@ -92,6 +92,13 @@
       "when": 1791668920428,
       "tag": "0012_rec_player_points_view",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791671351110,
+      "tag": "0013_changelog_2_1_0",
+      "breakpoints": true
     }
   ]
 }
