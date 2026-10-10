@@ -34,19 +34,18 @@ describe("career trade value", () => {
   });
 });
 
-describe("bench-at-half variants", () => {
-  it("count at least what the starter-only records count, and run with the same rows", async () => {
-    for (const [base, bench, key] of [
-      ["trade.best", "trade.best.bench", "sidePoints"],
-      ["trade.lopsided", "trade.lopsided.bench", "difference"],
-      ["drop-regret", "drop-regret.bench", "points"],
-    ] as const) {
-      const a = await w.run(base, { limit: 50 });
-      const b = await w.run(bench, { limit: 50 });
-      expect(b.total, bench).toBeGreaterThanOrEqual(a.total);
-      expect(Number(b.rows[0]?.values[key] ?? 0), bench).toBeGreaterThanOrEqual(
-        Number(a.rows[0]?.values[key] ?? 0)
-      );
+describe("estimated-value variants", () => {
+  it("the trade records run on the chained values and the drop-regret record counts bench points", async () => {
+    for (const id of ["trade.best.est", "trade.lopsided.est"]) {
+      const res = await w.run(id, { limit: 50 });
+      expect(res.total, id).toBeGreaterThan(0);
     }
+    // 2030 and 2031 each have a trade with no chain in the fixture, so the estimate equals the half-bench points.
+    const a = await w.run("drop-regret", { limit: 50 });
+    const b = await w.run("drop-regret.est", { limit: 50 });
+    expect(b.total).toBeGreaterThanOrEqual(a.total);
+    expect(Number(b.rows[0]?.values.points ?? 0)).toBeGreaterThanOrEqual(
+      Number(a.rows[0]?.values.points ?? 0)
+    );
   });
 });

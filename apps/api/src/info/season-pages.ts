@@ -4,7 +4,7 @@ import { HttpError } from "../lib/http";
 import { bySlot } from "../lib/slots";
 import { inList, type RankedRow } from "../records/context";
 import { resolveRows, type Entities } from "../records/entities";
-import { pointsSince } from "../records/engines/player-extra";
+import { tradeItemValues } from "../records/engines/trade-chain";
 
 /** Info pages (doc §3.7): unlike records they may read in-progress weeks, and are cached briefly. */
 
@@ -296,13 +296,9 @@ export async function transactionFeed(
   const items = txs.length
     ? (
         await db.execute<Record<string, unknown>>(sql`
-          select i.transaction_id, i.kind::text as kind, i.direction::text as direction, i.player_id, p.full_name as player, p.position,
-                 i.pick_season, i.pick_round, i.pick_original_franchise_id, i.amount, i.faab_bid, i.from_team_season_id, i.to_team_season_id,
-                 -- estimated trade value: points the player scored for his new team from the trade week to the end of that stint (bench at half)
-                 case when x.type = 'trade' and x.status = 'complete' and i.kind = 'player' and i.player_id is not null
-                           and i.from_team_season_id is not null and i.to_team_season_id is not null
-                      then ${pointsSince(sql`i.to_team_season_id`, sql`i.player_id`, sql`x.week`, 0.5)} end as trade_value
-          from transaction_item i join "transaction" x on x.id = i.transaction_id left join player p on p.id = i.player_id
+          select i.id as item_id, i.transaction_id, i.kind::text as kind, i.direction::text as direction, i.player_id, p.full_name as player, p.position,
+                 i.pick_season, i.pick_round, i.pick_original_franchise_id, i.amount, i.faab_bid, i.from_team_season_id, i.to_team_season_id
+          from transaction_item i left join player p on p.id = i.player_id
           where i.transaction_id in (${inList(txs.map((t) => Number(t.id)))}) order by i.id`)
       ).rows
     : [];
@@ -310,9 +306,18 @@ export async function transactionFeed(
     ...txs.map((t) => num(t.creator_team_season_id)),
     ...items.flatMap((i) => [num(i.from_team_season_id), num(i.to_team_season_id)]),
   ].filter((v): v is number => v !== null);
+  // Estimated value of every player moved this season, following him through later trades (bench at half).
+  const values = items.some((i) => i.kind === "player")
+    ? await tradeItemValues(db, [seasonId], 0.5)
+    : new Map<number, number>();
   /** Per team in a trade: points gained from the players it received, lost to the players it sent away. */
   const sidesOf = (txItems: Record<string, unknown>[]) => {
-    const valued = txItems.filter((i) => i.trade_value !== null && i.trade_value !== undefined);
+    const valued = txItems.filter(
+      (i) =>
+        values.has(Number(i.item_id)) &&
+        i.from_team_season_id !== null &&
+        i.to_team_season_id !== null
+    );
     if (valued.length === 0) return null;
     const sides = new Map<number, { gained: number; lost: number }>();
     const side = (id: number) => {
@@ -321,7 +326,7 @@ export async function transactionFeed(
       return cur;
     };
     for (const i of valued) {
-      const v = Number(i.trade_value);
+      const v = values.get(Number(i.item_id)) ?? 0;
       side(Number(i.to_team_season_id)).gained += v;
       side(Number(i.from_team_season_id)).lost += v;
     }

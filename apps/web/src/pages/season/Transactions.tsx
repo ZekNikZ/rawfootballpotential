@@ -256,7 +256,7 @@ function List({ season }: { season: Season }) {
           {data.total} transaction{data.total === 1 ? "" : "s"}. Failed claims are listed but never
           counted in records.
           {season.data.playerData &&
-            " Estimated trade value is the points each side's players scored for their new team from the trade to the end of the season (or until they were moved again): starters in full, bench players at half. Picks and FAAB are not valued."}
+            " Estimated trade value is the points each side's players scored for their new team from the trade to the end of the season (starters in full, bench players at half), plus what the team received when it traded one of them on again. Picks and FAAB are not valued."}
         </Text>
       )}
     </Stack>
