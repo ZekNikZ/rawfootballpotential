@@ -329,21 +329,37 @@ function Breakdown({ seasonId, team }: { seasonId: number; team: string }) {
   );
 }
 
+/**
+ * Picked by manager, not team: the choice lives in the URL (`?manager=`) and survives a change of season, so switching
+ * the year shows the same manager's team that year (or says they had none).
+ */
 function Page({ season }: { season: Season }) {
   const [search, setSearch] = useSearchParams();
   const teams = useQuery(teamsQuery(season.id, false));
+  const entities = teams.data?.entities;
+  const managerOf = (teamSeasonId: number) =>
+    entities?.teamSeasons[String(teamSeasonId)]?.managerId;
   const options = (teams.data?.teams ?? [])
-    .map((t) => {
-      const e = teams.data?.entities;
-      const m = e?.teamSeasons[String(t.team_season_id)]?.managerId;
-      const manager = m == null ? null : e?.managers[String(m)]?.name;
-      return {
-        value: String(t.team_season_id),
-        label: [manager, t.name].filter(Boolean).join(" · "),
-      };
+    .flatMap((t) => {
+      const m = managerOf(t.team_season_id);
+      if (m == null) return [];
+      const name = entities?.managers[String(m)]?.name;
+      return [
+        {
+          value: String(m),
+          label: [name, t.name].filter(Boolean).join(" · "),
+          teamSeasonId: t.team_season_id,
+        },
+      ];
     })
-    .sort((a, b) => a.label.localeCompare(b.label));
-  const team = search.get("team") ?? options[0]?.value ?? null;
+    .sort((x, y) => x.label.localeCompare(y.label));
+  // An older link names a team: use that team's manager.
+  const legacyTeam = search.get("team");
+  const legacyManager = legacyTeam && entities ? managerOf(Number(legacyTeam)) : null;
+  const manager = search.get("manager") ?? (legacyManager == null ? null : String(legacyManager));
+  const picked = options.find((o) => o.value === manager);
+  const value = manager ?? options[0]?.value ?? null;
+  const current = options.find((o) => o.value === value);
   return (
     <Stack>
       <Stack gap={2}>
@@ -351,14 +367,17 @@ function Page({ season }: { season: Season }) {
         <Select
           aria-label="Manager"
           allowDeselect={false}
+          searchable
           w={280}
-          data={options}
-          value={team}
+          data={options.map(({ value: v, label }) => ({ value: v, label }))}
+          value={picked ? manager : manager ? null : value}
+          placeholder={manager && !picked ? "Not in this season" : undefined}
           onChange={(v) =>
             setSearch(
               (prev) => {
                 const next = new URLSearchParams(prev);
-                if (v) next.set("team", v);
+                next.delete("team");
+                if (v) next.set("manager", v);
                 return next;
               },
               { replace: true, preventScrollReset: true }
@@ -366,7 +385,14 @@ function Page({ season }: { season: Season }) {
           }
         />
       </Stack>
-      {team && <Breakdown seasonId={season.id} team={team} />}
+      {manager && !picked && teams.data ? (
+        <EmptyState>
+          {entities?.managers[manager]?.name ?? "That manager"} did not have a team in {season.year}
+          . Pick another manager or season.
+        </EmptyState>
+      ) : (
+        current && <Breakdown seasonId={season.id} team={String(current.teamSeasonId)} />
+      )}
     </Stack>
   );
 }
