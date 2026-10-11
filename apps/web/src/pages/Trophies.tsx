@@ -1,9 +1,20 @@
-import { Anchor, Group, Pagination, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
+import {
+  Anchor,
+  Group,
+  Pagination,
+  SegmentedControl,
+  Skeleton,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { trophiesQuery } from "../api/queries";
 import type { Entities, Trophy, TrophyType } from "../api/schemas";
+import { Hall } from "../components/Hall";
 import { EmptyState, QueryError } from "../components/QueryState";
 import { SegmentedOrSelect } from "../components/records/filters";
 import { fmtDecimal, fmtInt, fmtPct } from "../lib/format";
@@ -353,7 +364,7 @@ function SeasonAwards({ trophies, ctx }: { trophies: Trophy[]; ctx: Ctx }) {
   );
 }
 
-export default function Trophies() {
+function TrophyCase() {
   const { league } = useLeague();
   const [search, setSearch] = useSearchParams();
   const q = useQuery(trophiesQuery(league.slug));
@@ -428,6 +439,42 @@ export default function Trophies() {
           <SeasonAwards trophies={shown} ctx={ctx} />
         </>
       )}
+    </Stack>
+  );
+}
+
+const VIEWS = [
+  { value: "trophies", label: "🏆 Trophies" },
+  { value: "fame", label: "⭐ Hall of Fame" },
+  { value: "shame", label: "🤡 Hall of Shame" },
+];
+
+/** The trophy case, with the Halls of Fame and Shame beside it (the view lives in the URL: `?view=fame`). */
+export default function Trophies() {
+  const [search, setSearch] = useSearchParams();
+  const raw = search.get("view");
+  const view = raw === "fame" || raw === "shame" ? raw : "trophies";
+  return (
+    <Stack gap="lg">
+      <SegmentedControl
+        aria-label="View"
+        value={view}
+        data={VIEWS}
+        onChange={(v) =>
+          setSearch(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              if (v === "trophies") next.delete("view");
+              else next.set("view", v);
+              next.delete("season");
+              return next;
+            },
+            { replace: true }
+          )
+        }
+        style={{ alignSelf: "flex-start", maxWidth: "100%" }}
+      />
+      {view === "trophies" ? <TrophyCase /> : <Hall side={view} />}
     </Stack>
   );
 }

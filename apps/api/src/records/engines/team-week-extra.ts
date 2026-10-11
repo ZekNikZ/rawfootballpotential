@@ -14,6 +14,8 @@ interface Spec {
   where?: SQL;
   /** Extra displayed values, merged over the base ones. */
   data?: SQL;
+  /** Needs the team's regular-season average (and at least the minimum number of regular-season games behind it). */
+  baseline?: boolean;
 }
 
 const rankText = sql`tw.week_rank || ' of ' || tw.n`;
@@ -81,6 +83,13 @@ const SPECS: Record<string, Spec> = {
     where: sql`tw.week_zscore is not null`,
     data: sql`jsonb_build_object('zscore', tw.week_zscore::float8)`,
   },
+  // How far a week sat above (boom) or below (bust) the team's own regular-season average.
+  "boombust.week": {
+    value: sql`(tw.points - tw.base_avg)`,
+    where: sql`tw.base_avg is not null`,
+    baseline: true,
+    data: sql`jsonb_build_object('vsAvg', (tw.points - tw.base_avg)::float8, 'avg', tw.base_avg::float8)`,
+  },
   // Most starters on a bye or inactive; ties broken by the points that cost.
   "asleep.week": {
     value: sql`(tw.asleep_starters + ${lost} / 1000.0)`,
@@ -121,6 +130,8 @@ export function teamWeekBase(ctx: RunContext): SQL {
     w as (
       select tw.*,
         count(*) over (partition by tw.league_season_id, tw.week) as n,
+        avg(tw.points) filter (where tw.game_type = 'regular') over (partition by tw.team_season_id) as base_avg,
+        count(*) filter (where tw.game_type = 'regular') over (partition by tw.team_season_id) as base_n,
         otw.points as opp_points,
         ots.franchise_id as opp_franchise_id,
         os.projected_points as opp_projected,
@@ -176,6 +187,7 @@ export async function extraTeamWeekRecord(ctx: RunContext): Promise<RankedRow[]>
       and ${weeksCond(sql`tw.week`, q.weeks)}
       and ${q.franchise ? sql`tw.franchise_id = ${q.franchise}` : sql`true`}
       and ${q.opponent ? sql`tw.opp_franchise_id = ${q.opponent}` : sql`true`}
-      and ${spec.where ?? sql`true`}`;
+      and ${spec.where ?? sql`true`}
+      and ${spec.baseline ? sql`tw.base_n >= ${ctx.q.minGames ?? ctx.def.qualifier?.minGames ?? 1}` : sql`true`}`;
   return rankRows(ctx, inner);
 }

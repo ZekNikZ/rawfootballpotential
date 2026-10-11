@@ -82,6 +82,9 @@ export function Heatmap() {
                       <HeatCell
                         key={b}
                         cell={a === b ? undefined : h.matrix[String(a)]?.[String(b)]}
+                        compare={
+                          b === "median" ? undefined : `/${league.slug}/compare?a=${a}&b=${b}`
+                        }
                       />
                     ))}
                   </Table.Tr>
@@ -91,7 +94,7 @@ export function Heatmap() {
           </Table.ScrollContainer>
           <Text size="sm" c="dimmed">
             Share of games the row's manager won against the column's manager (ties count half).
-            Data available from {h.availableFrom}.
+            Click a cell to compare the two managers. Data available from {h.availableFrom}.
           </Text>
         </>
       )}
@@ -100,7 +103,13 @@ export function Heatmap() {
   );
 }
 
-function HeatCell({ cell }: { cell: HeadToHead["matrix"][string][string] | undefined }) {
+function HeatCell({
+  cell,
+  compare,
+}: {
+  cell: HeadToHead["matrix"][string][string] | undefined;
+  compare: string | undefined;
+}) {
   if (!cell || cell.games === 0) return <Table.Td className={classes.empty}>—</Table.Td>;
   const share = (cell.w + cell.t / 2) / cell.games;
   const strength = Math.abs(share - 0.5) * 2;
@@ -112,7 +121,13 @@ function HeatCell({ cell }: { cell: HeadToHead["matrix"][string][string] | undef
       style={{ "--heat-strength": String(strength) }}
       title={`${record} in ${cell.games} games`}
     >
-      {fmtPct1(share)}
+      {compare ? (
+        <Anchor component={Link} to={compare} className={classes.cellLink}>
+          {fmtPct1(share)}
+        </Anchor>
+      ) : (
+        fmtPct1(share)
+      )}
     </Table.Td>
   );
 }

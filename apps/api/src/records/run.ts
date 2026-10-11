@@ -62,6 +62,12 @@ import {
   tradeValueRecord,
   careerTradeValueRecord,
 } from "./engines/player-extra";
+import {
+  boomBustCountRecord,
+  careerAllPlayRecord,
+  scoreVolatilityRecord,
+  strengthOfScheduleRecord,
+} from "./engines/consistency";
 import { careerPowerRecord } from "./engines/power";
 import { extraTeamWeekRecord } from "./engines/team-week-extra";
 import { resolveRows, type Entities, type ResolvedRow } from "./entities";
@@ -113,6 +119,10 @@ const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
   careerRuns: careerRunsRecord,
   careerPower: careerPowerRecord,
   rivalry: rivalryRecord,
+  strengthOfSchedule: strengthOfScheduleRecord,
+  scoreVolatility: scoreVolatilityRecord,
+  boomBustCount: boomBustCountRecord,
+  careerAllPlay: careerAllPlayRecord,
 };
 
 const REQUIREMENT_FLAG: Record<Requirement, keyof typeof leagueSeason.$inferSelect> = {

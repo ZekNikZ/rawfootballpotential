@@ -1,5 +1,7 @@
 import { Skeleton, Stack, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useLocation } from "react-router";
 import { catalogQuery } from "../../api/queries";
 import type { CatalogRecord } from "../../api/schemas";
 import { useLeague } from "../../lib/league-context";
@@ -24,6 +26,12 @@ export function CategoryPage({
 }) {
   const { league } = useLeague();
   const catalog = useQuery(catalogQuery(league.slug));
+  const { hash } = useLocation();
+  // A link to one record (the search bar) ends in #h-<section>: scroll to it once the sections are on the page.
+  useEffect(() => {
+    if (!hash || !catalog.data) return;
+    document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
+  }, [hash, catalog.data]);
 
   if (catalog.isPending)
     return (

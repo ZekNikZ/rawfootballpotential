@@ -660,3 +660,241 @@ export const topPerformersResponse = z.object({
   entities: entitiesSchema,
 });
 export type TopPerformers = z.infer<typeof topPerformersResponse>;
+
+// ---- highlights (record-breaking feed, season recap, halls, wrapped) ----
+
+export const highlightSchema = z.object({
+  recordId: z.string(),
+  label: z.string(),
+  rank: z.number(),
+  tied: z.boolean(),
+  season: nullableNum,
+  week: nullableNum,
+  value: z.number(),
+  valueType: z.string(),
+  team: z.string().nullable(),
+  manager: z.string().nullable(),
+  teamSeasonId: nullableNum,
+  franchiseId: nullableNum,
+  opponent: z.string().nullable(),
+  opponentFranchiseId: nullableNum,
+  player: z.string().nullable(),
+  position: z.string().nullable(),
+  points: nullableNum,
+  opponentPoints: nullableNum,
+});
+export type Highlight = z.infer<typeof highlightSchema>;
+
+export const recordsBrokenResponse = z.object({
+  season: z.number(),
+  week: nullableNum,
+  records: z.array(highlightSchema),
+});
+export type RecordsBroken = z.infer<typeof recordsBrokenResponse>;
+
+const teamRef = z.object({
+  teamSeasonId: z.number(),
+  franchiseId: z.number(),
+  team: z.string(),
+  manager: z.string().nullable(),
+  avatar: z.string().nullable(),
+});
+export type TeamRef = z.infer<typeof teamRef>;
+
+const mover = z.object({
+  team: teamRef,
+  from: z.number(),
+  to: z.number(),
+  teams: z.number(),
+});
+
+export const recapResponse = z.object({
+  seasonId: z.number(),
+  season: z.number(),
+  status: z.string(),
+  championship: z
+    .object({
+      winner: teamRef,
+      loser: teamRef.nullable(),
+      winnerPoints: z.number(),
+      loserPoints: z.number(),
+      week: z.number(),
+    })
+    .nullable(),
+  awards: z.array(highlightSchema),
+  mostImproved: mover.nullable(),
+  biggestFall: mover.nullable(),
+  recordsSet: z.array(highlightSchema),
+  totals: z.object({
+    games: z.number(),
+    averageScore: nullableNum,
+    totalPoints: nullableNum,
+    trades: z.number(),
+    claims: z.number(),
+  }),
+});
+export type Recap = z.infer<typeof recapResponse>;
+
+const hallEntry = z.object({
+  id: z.string(),
+  title: z.string(),
+  unit: z.string().nullable(),
+  by: z.enum(["manager", "team"]),
+  holders: z.array(highlightSchema),
+});
+export const hallResponse = z.object({
+  fame: z.array(hallEntry),
+  shame: z.array(hallEntry),
+});
+export type Hall = z.infer<typeof hallResponse>;
+export type HallEntry = z.infer<typeof hallEntry>;
+
+// ---- trade partners, comparison, search ----
+
+export const tradePartnersResponse = z.object({
+  franchises: z.array(z.number()),
+  matrix: z.record(
+    z.string(),
+    z.record(
+      z.string(),
+      z.object({ trades: z.number(), received: z.number(), sent: z.number(), net: z.number() })
+    )
+  ),
+  entities: entitiesSchema,
+  seasonsIncluded: z.array(z.number()),
+  availableFrom: nullableNum,
+});
+export type TradePartners = z.infer<typeof tradePartnersResponse>;
+
+const tradeAsset = z.object({
+  kind: z.enum(["player", "pick"]),
+  label: z.string(),
+  position: z.string().nullable(),
+  value: nullableNum,
+});
+export const compareResponse = z.object({
+  a: z.number(),
+  b: z.number(),
+  meetings: z.array(
+    z.object({
+      season: z.number(),
+      week: z.number(),
+      gameType: z.string(),
+      result: z.enum(["W", "L", "T"]),
+      aPoints: z.number(),
+      bPoints: z.number(),
+      spanWeeks: z.number(),
+    })
+  ),
+  trades: z.array(
+    z.object({
+      transactionId: z.number(),
+      season: z.number(),
+      week: z.number(),
+      aGets: z.array(tradeAsset),
+      bGets: z.array(tradeAsset),
+      net: nullableNum,
+    })
+  ),
+  entities: entitiesSchema,
+});
+export type Compare = z.infer<typeof compareResponse>;
+
+export const searchIndexResponse = z.object({
+  franchises: z.array(
+    z.object({
+      id: z.number(),
+      team: z.string().nullable(),
+      manager: z.string().nullable(),
+      teamNames: z.array(z.string()),
+      managers: z.array(z.string()),
+      firstSeason: z.number(),
+      lastSeason: z.number(),
+    })
+  ),
+});
+export type SearchIndex = z.infer<typeof searchIndexResponse>;
+
+// ---- wrapped ----
+
+const weekLine = z.object({
+  week: z.number(),
+  gameType: z.string(),
+  points: z.number(),
+  opponentPoints: nullableNum,
+  opponent: z.string().nullable(),
+  result: z.string().nullable(),
+  left: nullableNum,
+});
+const playerLine = z.object({
+  name: z.string(),
+  position: z.string().nullable(),
+  points: z.number(),
+});
+export const wrappedResponse = z.object({
+  franchiseId: z.number(),
+  season: z.number(),
+  seasons: z.array(z.number()),
+  inProgress: z.boolean(),
+  team: teamRef,
+  summary: z.object({
+    wins: z.number(),
+    losses: z.number(),
+    ties: z.number(),
+    pf: z.number(),
+    pa: z.number(),
+    seed: nullableNum,
+    finalPlace: nullableNum,
+    madePlayoffs: z.boolean().nullable(),
+    teams: z.number(),
+    previous: z.object({ season: z.number(), place: nullableNum, teams: z.number() }).nullable(),
+  }),
+  ranks: z.array(
+    z.object({
+      key: z.string(),
+      label: z.string(),
+      rank: z.number(),
+      of: z.number(),
+      value: z.number(),
+      valueType: z.string(),
+    })
+  ),
+  weeks: z.object({
+    games: z.number(),
+    average: nullableNum,
+    best: weekLine.nullable(),
+    worst: weekLine.nullable(),
+    biggestWin: weekLine.nullable(),
+    closestWin: weekLine.nullable(),
+    toughestLoss: weekLine.nullable(),
+    topScorerWeeks: z.number(),
+  }),
+  lineup: z.object({
+    averageIq: nullableNum,
+    perfectWeeks: z.number(),
+    pointsLeft: nullableNum,
+    costliest: weekLine.nullable(),
+  }),
+  players: z.object({
+    top: z.array(playerLine.extend({ starts: z.number() })),
+    bestGame: playerLine.extend({ week: z.number() }).nullable(),
+    benchRegret: playerLine.extend({ week: z.number() }).nullable(),
+  }),
+  moves: z.object({
+    trades: z.number(),
+    claims: z.number(),
+    faabSpent: z.number(),
+    highlights: z.array(highlightSchema),
+  }),
+  opponents: z.array(
+    z.object({
+      team: teamRef,
+      wins: z.number(),
+      losses: z.number(),
+      ties: z.number(),
+      pointsFor: z.number(),
+      pointsAgainst: z.number(),
+    })
+  ),
+});
+export type Wrapped = z.infer<typeof wrappedResponse>;

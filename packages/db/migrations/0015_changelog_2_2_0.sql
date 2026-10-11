@@ -1,0 +1,5 @@
+-- Version history 2.2.0: records, compare, recaps, halls, wrapped, search. Idempotent.
+INSERT INTO "site_config" ("key", "value") VALUES ('changelog', $cl$[{"date":"2026-10-11T03:57:46.908Z","title":"Compare, recaps, halls and search","version":"2.2.0","description":"**Records**\n- Strength of schedule, score volatility, boom and bust weeks, and career all-play and luck.\n- Trade partners: a matrix on the managers page, by number of trades or net value won.\n\n**New pages**\n- Compare two managers head to head, from the heatmap or a manager page.\n- Season recaps replace the home page of finished seasons.\n- Hall of Fame and Hall of Shame, as tabs on the Trophies page.\n- Manager Wrapped: a season story for every team.\n- A search bar for records, teams, managers and pages (press / or Ctrl+K).\n\n**Home**\n- When a league record is set or tied in the latest week, a records-broken panel replaces Power Rankings."}]$cl$::jsonb)
+ON CONFLICT ("key") DO UPDATE
+  SET "value" = EXCLUDED."value" || "site_config"."value", "updated_at" = now()
+  WHERE NOT ("site_config"."value" @> '[{"version": "2.2.0"}]'::jsonb);

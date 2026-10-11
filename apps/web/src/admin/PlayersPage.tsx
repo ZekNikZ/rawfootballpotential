@@ -44,7 +44,6 @@ function MapModal({ row }: { row: Row }) {
           <Select
             label="Which player is this?"
             placeholder="Search by name"
-            searchable
             searchValue={search}
             onSearchChange={setSearch}
             filter={({ options }) => options}

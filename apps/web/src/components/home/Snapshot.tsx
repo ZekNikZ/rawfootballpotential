@@ -18,6 +18,7 @@ import {
   matchupsQuery,
   recentTransactionsQuery,
   recordQuery,
+  recordsBrokenQuery,
   standingsQuery,
   superlativesQuery,
   topPerformersQuery,
@@ -25,6 +26,7 @@ import {
 import type { Entities, Matchups, Standings, Superlatives, Transactions } from "../../api/schemas";
 import { fmtDecimal, fmtInt, ordinal, seasonLabel } from "../../lib/format";
 import { useLeague } from "../../lib/league-context";
+import { HighlightTile } from "../Highlights";
 import { PositionBadge } from "../PositionBadge";
 import { EmptyState, QueryError } from "../QueryState";
 import { TeamAvatar } from "../TeamAvatar";
@@ -44,7 +46,7 @@ function managerOf(entities: Entities, teamSeasonId: number | null) {
   return ts?.managerId == null ? null : (entities.managers[String(ts.managerId)]?.name ?? null);
 }
 
-function Panel({
+export function Panel({
   title,
   aside,
   children,
@@ -64,7 +66,7 @@ function Panel({
   );
 }
 
-function PanelState({
+export function PanelState({
   query,
   empty,
 }: {
@@ -475,6 +477,44 @@ function PowerRankingsPanel({ seasonId }: { seasonId: number }) {
   );
 }
 
+/** Records set or tied in the latest finished week; when the week set none, the power rankings take the slot. */
+function RecordsBrokenPanel({ seasonId }: { seasonId: number }) {
+  const { league } = useLeague();
+  const q = useQuery(recordsBrokenQuery(seasonId));
+  if (q.isPending)
+    return (
+      <Panel title="Records">
+        <PanelState query={q} />
+      </Panel>
+    );
+  const d = q.data;
+  if (!d || d.records.length === 0) return <PowerRankingsPanel seasonId={seasonId} />;
+  return (
+    <Panel
+      title="Records broken"
+      aside={
+        <Group gap="xs" wrap="nowrap">
+          <Text c="dimmed" fz="sm">
+            Week {d.week}
+          </Text>
+          <Anchor component={Link} to={`/${league.slug}/records/overall`} fz="sm">
+            All records
+          </Anchor>
+        </Group>
+      }
+    >
+      <Text size="sm" c="dimmed" mb="xs">
+        New league records (or ties) set in the latest finished week.
+      </Text>
+      <SimpleGrid cols={{ base: 1, xs: 2 }} spacing="sm">
+        {d.records.map((h) => (
+          <HighlightTile key={`${h.recordId}-${h.label}-${h.teamSeasonId}-${h.player}`} h={h} />
+        ))}
+      </SimpleGrid>
+    </Panel>
+  );
+}
+
 export function InSeasonSnapshot({ seasonId }: { seasonId: number }) {
   return (
     <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
@@ -483,7 +523,7 @@ export function InSeasonSnapshot({ seasonId }: { seasonId: number }) {
       <SuperlativesPanel seasonId={seasonId} />
       <TopPerformersPanel seasonId={seasonId} />
       <TransactionsPanel seasonId={seasonId} />
-      <PowerRankingsPanel seasonId={seasonId} />
+      <RecordsBrokenPanel seasonId={seasonId} />
     </SimpleGrid>
   );
 }
