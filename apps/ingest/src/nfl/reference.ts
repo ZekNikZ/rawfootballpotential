@@ -367,11 +367,15 @@ async function loadCrosswalk(db: Db, rows: Row[]): Promise<number> {
 /**
  * Fill player_week.nfl_team / nfl_game_id / nfl_status (and the position snapshot) for one season from the
  * weekly rosters + schedule. Team defenses use their team code. A known team with no game = bye.
+ * The Sleeper sync rewrites a week's player_week rows (clearing these columns), so it re-runs this after each sync;
+ * `incompleteOnly` limits that to weeks still being played.
  */
 export async function fillPlayerWeeks(
   db: Db,
-  season: number
+  season: number,
+  opts: { incompleteOnly?: boolean } = {}
 ): Promise<{ filled: number; missing: number }> {
+  const incompleteOnly = opts.incompleteOnly ?? false;
   // Position snapshot: nflverse's position that week; keep the dump's eligibility only when it agrees,
   // and keep the slot a starter actually filled as evidence.
   const result = await db.execute<{ filled: string; missing: string }>(sql`
@@ -385,6 +389,9 @@ export async function fillPlayerWeeks(
       join team_week tw on tw.id = pw.team_week_id
       join league_season ls on ls.id = tw.league_season_id and ls.year = ${season}
       join player p on p.id = pw.player_id
+      where not ${incompleteOnly}::boolean or exists (
+        select 1 from league_season_week lsw
+        where lsw.league_season_id = tw.league_season_id and lsw.week = tw.week and lsw.status <> 'complete')
     ), resolved as (
       select t.*,
              case when t.dump_pos = 'DEF' then null::text else coalesce(npw.nfl_team, near.nfl_team) end as roster_team,
