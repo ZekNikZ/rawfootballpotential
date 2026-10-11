@@ -236,7 +236,6 @@ function CreateForm() {
             <Select
               label="Trade"
               w={460}
-              searchable
               data={(txs.data?.transactions ?? []).map((t) => ({
                 value: String(t.id),
                 label: `Week ${t.week} · ${t.executedAt ? shortDate(t.executedAt) : "?"} · ${t.summary.slice(0, 80)}${t.status === "failed" ? " (not counted)" : ""}`,

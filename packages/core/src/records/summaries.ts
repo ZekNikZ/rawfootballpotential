@@ -178,6 +178,17 @@ export const RECORD_SUMMARIES: Readonly<Record<string, string>> = {
   "career.diff.max": "Best single-game margin",
   "career.diff.stddev": "Most volatile game-to-game margins",
 
+  // Luck & Schedule, Consistency, Boom & Bust
+  "season.sos": "Toughest and easiest schedules by opponents' scoring",
+  "season.score.stddev": "Steadiest and most volatile weekly scoring",
+  "boombust.week": "Weeks furthest above or below a team's own average",
+  "career.allplay": "Win % if you played everyone every week",
+  "career.luck": "Actual wins minus all-play expected wins",
+  "career.sos": "Career opponent strength by scoring",
+  "career.score.stddev": "Career weekly score swings",
+  "career.boom": "Weeks a manager scored a standard deviation high",
+  "career.bust": "Weeks a manager scored a standard deviation low",
+
   // Power Rankings
   "career.power": "Elo-style rating from every game played",
 };

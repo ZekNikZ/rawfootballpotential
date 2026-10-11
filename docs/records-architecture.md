@@ -777,6 +777,18 @@ Ownership follows the franchise (current manager). The in-progress season is inc
 - Record count: 118 records in the catalog after the folds (24 removed ids; the counts quoted above, 139 and 144, are from before).
 - Cache: `RESPONSE_VERSION` is 2 (titles and the response params changed for every record).
 
+#### 3.11.5 Consistency, schedule and feature pages (records-and-pages-2)
+
+New records (all from existing data; no derive change):
+
+- **Strength of schedule** (`season.sos`, `career.sos`): the average points per game of a team's opponents, each opponent counted without its games against this team (leave-one-out), minus the league's average points per game that season. Positive = a harder schedule. Also shows opponents' win %. Season records need 8+ games.
+- **Score volatility** (`season.score.stddev`, `career.score.stddev`): sample standard deviation of weekly scores. The career figure pools the within-season deviations, so a team that changed level between seasons is not penalised.
+- **Boom & bust** (`boombust.week` per week, `career.boom`, `career.bust` counts): a boom week is a score at least one season standard deviation above that team's regular-season mean; a bust is at least one below. Needs 8+ games and a non-zero deviation.
+- **Career all-play and luck** (`career.allplay`, `career.luck`): sums of the season values (luck = actual wins minus all-play win % times games). Season all-play and luck already existed.
+- **Trade partners**: a matrix on the managers page (`/api/leagues/:league/trade-partners`), the number of trades per pair or the net estimated value won (the Trade Value figure). Cells link to the comparison page.
+
+New pages and feeds (built on the record engines, so they match the Records pages): Compare Managers (`/compare?a=&b=`); season recap (the home page of a completed season); a "records broken" panel that replaces Power Rankings in the home snapshot when a record was set or tied (rank 1 over all history) in the latest completed week; Hall of Fame / Hall of Shame as tabs on the Trophies page (`?view=fame|shame`); Manager Wrapped (per franchise and season, `/franchises/:id/wrapped`); the global search (pages, teams and managers including old names, records; `/` or Ctrl+K).
+
 #### 3.11.4 ESPN scraper and importer as built (M9)
 
 **Scraper** (`apps/scraper`, run on the owner's desktop). `pnpm scrape:espn --year 2021` tries the league without a login; for a private league it opens the installed Google Chrome (headed, persistent profile `.espn-profile`, or `--profile <dir>` to use another ESPN account) and waits until the `espn_s2` and `SWID` cookies exist, i.e. until you have logged in by hand. Nothing about the credentials is read or stored. League ids are in `src/leagues.ts` (redraft 2020 `79321063`, 2021 `50111898`). Requests are one at a time with a 1.2 s pause and backoff on 429 / 5xx; an existing bundle is never overwritten without `--force`; a failure saves a `.partial` bundle.

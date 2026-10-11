@@ -20,7 +20,14 @@ import { z } from "zod";
 import type { Config } from "./config";
 import { blogPosts } from "./info/blog";
 import { franchiseEntities, headToHead, placementHistory, trophyCase } from "./info/league-data";
+import { managerCompare } from "./info/compare";
+import { hallOfFame } from "./info/hall";
+import { recordsBroken } from "./info/highlights";
 import { franchiseProfile, franchiseRoster } from "./info/profile";
+import { seasonRecap } from "./info/recap";
+import { searchIndex } from "./info/search";
+import { tradePartners } from "./info/trade-partners";
+import { franchiseWrapped } from "./info/wrapped";
 import {
   drafts,
   futurePicks,
@@ -238,6 +245,51 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
     }
   );
 
+  app.get<{ Params: { league: string }; Querystring: Record<string, string> }>(
+    "/api/leagues/:league/trade-partners",
+    async (req, reply) => {
+      const lg = await leagueBySlug(db, req.params.league);
+      const q = recordQuerySchema.pick({ seasons: true }).parse(req.query);
+      return sendCacheable(req, reply, await tradePartners(db, lg.id, q), 60);
+    }
+  );
+
+  app.get<{ Params: { league: string }; Querystring: Record<string, string> }>(
+    "/api/leagues/:league/compare",
+    async (req, reply) => {
+      const lg = await leagueBySlug(db, req.params.league);
+      const q = z.object({ a: idParam, b: idParam }).parse(req.query);
+      return sendCacheable(req, reply, await managerCompare(db, lg.id, q.a, q.b), 60);
+    }
+  );
+
+  app.get<{ Params: { league: string } }>("/api/leagues/:league/hall", async (req, reply) => {
+    const lg = await leagueBySlug(db, req.params.league);
+    return sendCacheable(req, reply, await hallOfFame(db, lg.id), 60);
+  });
+
+  app.get<{ Params: { league: string } }>(
+    "/api/leagues/:league/search-index",
+    async (req, reply) => {
+      const lg = await leagueBySlug(db, req.params.league);
+      return sendCacheable(req, reply, await searchIndex(db, lg.id), 300);
+    }
+  );
+
+  app.get<{ Params: { league: string; id: string }; Querystring: Record<string, string> }>(
+    "/api/leagues/:league/franchises/:id/wrapped",
+    async (req, reply) => {
+      const lg = await leagueBySlug(db, req.params.league);
+      const year = z.coerce.number().int().min(2000).max(2100).parse(req.query.season);
+      return sendCacheable(
+        req,
+        reply,
+        await franchiseWrapped(db, lg.id, idParam.parse(req.params.id), year),
+        60
+      );
+    }
+  );
+
   app.get<{ Params: { league: string } }>("/api/leagues/:league/placements", async (req, reply) => {
     const lg = await leagueBySlug(db, req.params.league);
     return sendCacheable(req, reply, await placementHistory(db, lg.id), 60);
@@ -288,7 +340,8 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
     const lg = await leagueBySlug(db, req.params.league);
     const ids = (
       await db.execute<{ id: number }>(
-        sql`select id from franchise where league_id = ${lg.id} order by id`
+        sql`select id from franchise f where f.league_id = ${lg.id}
+          and exists (select 1 from team_season ts where ts.franchise_id = f.id) order by id`
       )
     ).rows.map((r) => r.id);
     return sendCacheable(
@@ -357,6 +410,27 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
         req,
         reply,
         await superlatives(db, season.id, week),
+        maxAgeFor(season.status)
+      );
+    }
+  );
+
+  app.get<{ Params: { seasonId: string } }>("/api/seasons/:seasonId/recap", async (req, reply) => {
+    const { season } = await seasonById(db, idParam.parse(req.params.seasonId));
+    return sendCacheable(req, reply, await seasonRecap(db, season.id), maxAgeFor(season.status));
+  });
+
+  app.get<{ Params: { seasonId: string }; Querystring: Record<string, string> }>(
+    "/api/seasons/:seasonId/records-broken",
+    async (req, reply) => {
+      const { season, league: lg } = await seasonById(db, idParam.parse(req.params.seasonId));
+      const { week } = weekQuery.parse(req.query);
+      const target = week ?? season.lastCompletedWeek ?? null;
+      const records = target === null ? [] : await recordsBroken(db, lg.id, season.year, target, 1);
+      return sendCacheable(
+        req,
+        reply,
+        { season: season.year, week: target, records },
         maxAgeFor(season.status)
       );
     }

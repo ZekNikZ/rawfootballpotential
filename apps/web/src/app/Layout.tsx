@@ -29,6 +29,7 @@ import {
 import { leaguesQuery, siteQuery } from "../api/queries";
 import type { League } from "../api/schemas";
 import { ColorSchemeToggle } from "../components/ColorSchemeToggle";
+import { GlobalSearch } from "../components/GlobalSearch";
 import { Logo } from "../components/Logo";
 
 import { LeagueContext } from "../lib/league-context";
@@ -239,6 +240,9 @@ export function Layout() {
                 </Link>
               </Group>
               <Group gap="xs" wrap="nowrap">
+                <Box visibleFrom="sm" w={{ sm: 220, md: 300 }}>
+                  <GlobalSearch league={league} season={latestSeason.year} />
+                </Box>
                 <ActionIcon
                   variant="default"
                   size="lg"
@@ -255,6 +259,9 @@ export function Layout() {
 
           <AppShell.Navbar p="sm">
             <ScrollArea type="never">
+              <Box hiddenFrom="sm" mb="xs">
+                <GlobalSearch league={league} season={latestSeason.year} onNavigate={closeNav} />
+              </Box>
               <SegmentedControl
                 fullWidth
                 value={league.slug}

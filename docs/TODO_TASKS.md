@@ -64,6 +64,8 @@ things are done; delete finished items. "Owner" = Matthew; "Claude" = a Claude C
 - [ ] Optional: a Version History entry announcing sortable tables and the new section names (`changelog-entry` skill).
 - [ ] The "Players" tab (moving player-related Overall records into their own page) was dropped for now; the section renames cover it.
 
+- [ ] Wrapped is per franchise and season only; a league-wide "wrapped" and shareable images are not built.
+
 ## Product ideas that were deliberately not built
 
 - [x] **Power rating** built as `career.power` and revised on 2026-10-07 (half margin, zero-sum medians in all seasons, 1.5x playoff wins and toilet-bowl losses, consistency and placement adjustments, 25% blend with average weighted placement, dynamic 1500 / 250-per-sd scale; see `docs/records-architecture.md` section 3.11.3). Tried and dropped because they barely moved anything: new managers starting at the league average, a first-season boost. Candidate follow-ups: a Version History entry announcing the power rating and the point-differential records; a regular-season-only variant; a "±" or minimum-games note for one-season managers; an all-play Elo.

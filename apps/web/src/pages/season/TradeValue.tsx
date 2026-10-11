@@ -384,7 +384,6 @@ function Page({ season }: { season: Season }) {
         <Select
           aria-label="Manager"
           allowDeselect={false}
-          searchable
           w={280}
           data={options.map(({ value: v, label }) => ({ value: v, label }))}
           value={picked ? manager : manager ? null : value}

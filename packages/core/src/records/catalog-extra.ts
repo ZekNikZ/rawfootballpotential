@@ -1184,6 +1184,192 @@ const careerDifferentials: RecordDef[] = [
   ),
 ];
 
+// ---- Schedule strength, consistency, boom & bust, career all-play ---------------------------------------------
+const sosCols = [
+  TEAM,
+  SEASON,
+  c("record", "Record", "text"),
+  c("sos", "Schedule strength", "decimal"),
+  c("oppAvg", "Opp. avg score", "points"),
+  c("leagueAvg", "League avg", "points"),
+  c("oppWinPct", "Opp. win %", "pct"),
+  c("games", "Games", "int"),
+];
+const volatilityCols = [
+  TEAM,
+  SEASON,
+  c("stddev", "Std dev", "points"),
+  c("avg", "Average", "points"),
+  c("cv", "Variation", "pct"),
+  c("high", "High", "points"),
+  c("low", "Low", "points"),
+  c("games", "Games", "int"),
+];
+const seasonConsistency: RecordDef[] = [
+  rec(
+    "season.sos",
+    "Strength of schedule",
+    seasonBase("Luck & Schedule", "strengthOfSchedule", {
+      active: "flag",
+      qualifier: { minGames: 8 },
+      preset: { scope: "regular" },
+      filters: ["seasons", "franchise", "onePer", "minGames"],
+    }),
+    "sos",
+    "desc",
+    sosCols,
+    "How strong a team's opponents were, as the opponents' average score minus the league's average score (points per game). Each opponent is rated on the rest of its season, leaving out the game against this team. Ranked toughest schedule first; sort the other way for the easiest."
+  ),
+  rec(
+    "season.score.stddev",
+    "Weekly score consistency",
+    seasonBase("Consistency", "scoreVolatility", {
+      active: "flag",
+      qualifier: { minGames: 8 },
+      preset: { scope: "regular" },
+      filters: ["seasons", "franchise", "onePer", "minGames"],
+    }),
+    "stddev",
+    "desc",
+    volatilityCols,
+    "The standard deviation of a team's weekly scores over a season (regular season, head-to-head games). Ranked most volatile first; sort the other way for the steadiest. Variation is the deviation as a share of the average score."
+  ),
+];
+
+const boomBustWeek: RecordDef[] = [
+  rec(
+    "boombust.week",
+    "Boom & bust weeks",
+    gameBase("Boom & Bust", {
+      filters: [...GAME_FILTERS, "minGames"],
+      qualifier: { minGames: 8 },
+    }),
+    "vsAvg",
+    "desc",
+    [
+      TEAM,
+      WEEK,
+      OPPONENT,
+      SCORE,
+      c("vsAvg", "Vs. own average", "points"),
+      c("avg", "Season average", "points"),
+    ],
+    "A week's score minus the team's own regular-season average that year. Ranked biggest boom first; sort the other way for the biggest bust. Teams need 8 regular-season games."
+  ),
+];
+
+const careerLuckCols = [
+  MANAGER,
+  c("record", "Record", "text"),
+  c("allPlay", "All-play", "text"),
+  c("allPlayPct", "All-play %", "pct"),
+  c("luck", "Luck (wins)", "decimal"),
+  c("games", "Games", "int"),
+];
+const careerScheduleSos: RecordDef[] = [
+  rec(
+    "career.allplay",
+    "Career all-play record",
+    careerBase("Luck & Schedule", "careerAllPlay", {
+      filters: ["seasons"],
+      preset: { scope: "regular" },
+    }),
+    "allPlayPct",
+    "desc",
+    careerLuckCols,
+    "Win % if every manager had played every other manager every week of the regular season, over a whole career."
+  ),
+  rec(
+    "career.luck",
+    "Career luck",
+    careerBase("Luck & Schedule", "careerAllPlay", {
+      filters: ["seasons"],
+      preset: { scope: "regular" },
+    }),
+    "luck",
+    "desc",
+    careerLuckCols,
+    "Actual regular-season wins minus the wins the all-play record predicts, added up season by season. Ranked luckiest first; sort the other way for the unluckiest."
+  ),
+  rec(
+    "career.sos",
+    "Career strength of schedule",
+    careerBase("Luck & Schedule", "strengthOfSchedule", {
+      filters: ["seasons", "minGames"],
+      qualifier: { minGames: 8 },
+      preset: { scope: "regular" },
+    }),
+    "sos",
+    "desc",
+    [
+      MANAGER,
+      c("sos", "Schedule strength", "decimal"),
+      c("oppAvg", "Opp. avg score", "points"),
+      c("oppWinPct", "Opp. win %", "pct"),
+      c("games", "Games", "int"),
+    ],
+    "The average strength of the opponents a manager has faced: opponents' average score minus the league's average score that season (points per game), over every regular-season game (seasons with fewer than 8 games played so far are left out). Ranked toughest first; sort the other way for the easiest."
+  ),
+];
+
+const boomBustCols = [
+  MANAGER,
+  c("boom", "Boom weeks", "int"),
+  c("bust", "Bust weeks", "int"),
+  c("weeks", "Weeks", "int"),
+  c("boomPct", "Boom %", "pct"),
+  c("bustPct", "Bust %", "pct"),
+];
+const careerConsistency: RecordDef[] = [
+  rec(
+    "career.score.stddev",
+    "Weekly score volatility",
+    careerBase("Consistency", "scoreVolatility", {
+      filters: ["seasons"],
+      preset: { scope: "regular" },
+    }),
+    "stddev",
+    "desc",
+    [
+      MANAGER,
+      c("stddev", "Std dev", "points"),
+      c("avg", "Average", "points"),
+      c("cv", "Variation", "pct"),
+      c("high", "High", "points"),
+      c("low", "Low", "points"),
+      c("games", "Games", "int"),
+      c("seasons", "Seasons", "int"),
+    ],
+    "How much a manager's weekly scores swing, pooled over a career: each season's deviation is measured around that season's own average, so scoring more in a higher-scoring year does not count as volatile. Ranked most volatile first; sort the other way for the steadiest."
+  ),
+  rec(
+    "career.boom",
+    "Most boom weeks",
+    careerBase("Consistency", "boomBustCount", {
+      filters: ["seasons", "minGames"],
+      qualifier: { minGames: 8 },
+      preset: { scope: "regular" },
+    }),
+    "boom",
+    "desc",
+    boomBustCols,
+    "Weeks a manager scored at least one standard deviation above their own season average (regular season, seasons of 8+ games)."
+  ),
+  rec(
+    "career.bust",
+    "Most bust weeks",
+    careerBase("Consistency", "boomBustCount", {
+      filters: ["seasons", "minGames"],
+      qualifier: { minGames: 8 },
+      preset: { scope: "regular" },
+    }),
+    "bust",
+    "desc",
+    boomBustCols,
+    "Weeks a manager scored at least one standard deviation below their own season average (regular season, seasons of 8+ games)."
+  ),
+];
+
 // ---- Power rankings ---------------------------------------------------------------------------------------------
 const powerCols = [
   MANAGER,
@@ -1233,5 +1419,9 @@ export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...careerWeekly,
   ...careerRuns,
   ...careerDifferentials,
+  ...seasonConsistency,
+  ...boomBustWeek,
+  ...careerScheduleSos,
+  ...careerConsistency,
   ...powerRankings,
 ];

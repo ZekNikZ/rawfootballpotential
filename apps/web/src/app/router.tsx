@@ -59,6 +59,16 @@ const leagueRoutes: RouteObject[] = [
     handle: { title: "Franchise" },
     ...lazyPage(() => import("../pages/FranchiseProfile")),
   },
+  {
+    path: "franchises/:franchise/wrapped",
+    handle: { title: "Wrapped" },
+    ...lazyPage(() => import("../pages/Wrapped")),
+  },
+  {
+    path: "compare",
+    handle: { title: "Compare Managers" },
+    ...lazyPage(() => import("../pages/Compare")),
+  },
   // `/:league/standings` (no season) means the latest season.
   ...["standings", "matchups", "teams", "teams/rosters", "transactions", "draft"].map((page) => ({
     path: page,

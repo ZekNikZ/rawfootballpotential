@@ -2,6 +2,13 @@ import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { getJson, type Params } from "./client";
 import {
   blogResponse,
+  compareResponse,
+  hallResponse,
+  recapResponse,
+  recordsBrokenResponse,
+  searchIndexResponse,
+  tradePartnersResponse,
+  wrappedResponse,
   catalogResponse,
   franchiseProfileResponse,
   franchiseRosterResponse,
@@ -207,6 +214,76 @@ export const topPerformersQuery = (seasonId: number, limit = 10) =>
         `/seasons/${seasonId}/top-performers`,
         topPerformersResponse,
         { limit: String(limit) },
+        signal
+      ),
+    staleTime: 60_000,
+  });
+
+export const tradePartnersQuery = (league: string, params: Params) =>
+  queryOptions({
+    queryKey: ["trade-partners", league, params],
+    queryFn: ({ signal }) =>
+      getJson(`/leagues/${league}/trade-partners`, tradePartnersResponse, params, signal),
+    placeholderData: keepPreviousData,
+    staleTime: MINUTE,
+  });
+
+export const compareQuery = (league: string, a: number, b: number) =>
+  queryOptions({
+    queryKey: ["compare", league, a, b],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/leagues/${league}/compare`,
+        compareResponse,
+        { a: String(a), b: String(b) },
+        signal
+      ),
+    staleTime: MINUTE,
+  });
+
+export const hallQuery = (league: string) =>
+  queryOptions({
+    queryKey: ["hall", league],
+    queryFn: ({ signal }) => getJson(`/leagues/${league}/hall`, hallResponse, {}, signal),
+    staleTime: MINUTE,
+  });
+
+export const searchIndexQuery = (league: string) =>
+  queryOptions({
+    queryKey: ["search-index", league],
+    queryFn: ({ signal }) =>
+      getJson(`/leagues/${league}/search-index`, searchIndexResponse, {}, signal),
+    staleTime: 5 * MINUTE,
+  });
+
+export const wrappedQuery = (league: string, franchise: number, season: number) =>
+  queryOptions({
+    queryKey: ["wrapped", league, franchise, season],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/leagues/${league}/franchises/${franchise}/wrapped`,
+        wrappedResponse,
+        { season: String(season) },
+        signal
+      ),
+    staleTime: MINUTE,
+  });
+
+export const recapQuery = (seasonId: number) =>
+  queryOptions({
+    queryKey: ["recap", seasonId],
+    queryFn: ({ signal }) => getJson(`/seasons/${seasonId}/recap`, recapResponse, {}, signal),
+    staleTime: MINUTE,
+  });
+
+export const recordsBrokenQuery = (seasonId: number, week?: number) =>
+  queryOptions({
+    queryKey: ["records-broken", seasonId, week ?? "latest"],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/seasons/${seasonId}/records-broken`,
+        recordsBrokenResponse,
+        week === undefined ? {} : { week },
         signal
       ),
     staleTime: 60_000,

@@ -1,6 +1,7 @@
 import type { Icon } from "@phosphor-icons/react";
 import {
   ArrowsLeftRight,
+  Sword,
   CalendarDot,
   CalendarDots,
   Columns,
@@ -109,7 +110,7 @@ export const NAV: NavItem[] = [
     children: [
       {
         key: "trophies",
-        label: "Trophies",
+        label: "Trophies & Halls",
         icon: Trophy,
         to: (l) => `/${l.slug}/records`,
         end: true,
@@ -137,6 +138,12 @@ export const NAV: NavItem[] = [
         label: "Power Rankings",
         icon: Lightning,
         to: (l) => `/${l.slug}/records/power-rankings`,
+      },
+      {
+        key: "compare",
+        label: "Compare Managers",
+        icon: Sword,
+        to: (l) => `/${l.slug}/compare`,
       },
     ],
   },

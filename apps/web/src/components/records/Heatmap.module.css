@@ -3,6 +3,7 @@
 .table {
   --heat-loss: light-dark(var(--mantine-color-red-4), var(--mantine-color-red-9));
   --heat-win: light-dark(var(--mantine-color-green-4), var(--mantine-color-green-9));
+  --heat-count: light-dark(var(--mantine-color-blue-4), var(--mantine-color-blue-9));
   font-variant-numeric: tabular-nums;
   text-align: center;
 
@@ -26,6 +27,10 @@
 
   &[data-side="loss"] {
     --heat-color: var(--heat-loss);
+  }
+
+  &[data-side="count"] {
+    --heat-color: var(--heat-count);
   }
 }
 
@@ -54,4 +59,13 @@
   background-color: var(--mantine-color-body);
   text-align: left;
   white-space: nowrap;
+}
+
+.cellLink {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }

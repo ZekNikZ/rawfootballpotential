@@ -2,6 +2,7 @@ import {
   Anchor,
   Avatar,
   Badge,
+  Button,
   Group,
   Paper,
   SimpleGrid,
@@ -57,6 +58,7 @@ function trophyDetail(t: Trophy, lastPlace: ReadonlyMap<number, number>): string
 
 export default function FranchiseProfile() {
   const { league } = useLeague();
+  const path = useLeaguePath();
   const id = Number(useParams().franchise);
   const profile = useQuery({ ...franchiseQuery(league.slug, id), enabled: Number.isInteger(id) });
   const catalog = useQuery(catalogQuery(league.slug));
@@ -113,6 +115,24 @@ export default function FranchiseProfile() {
           <Text c="dimmed">
             {manager ?? "Unknown manager"} · since {data.seasons[0]?.season}
           </Text>
+          <Group gap="xs" mt={4}>
+            <Button
+              component={Link}
+              to={path(`/franchises/${id}/wrapped`)}
+              variant="light"
+              size="compact-sm"
+            >
+              Wrapped
+            </Button>
+            <Button
+              component={Link}
+              to={path(`/compare?a=${id}`)}
+              variant="default"
+              size="compact-sm"
+            >
+              Compare
+            </Button>
+          </Group>
         </Stack>
       </Group>
       <Summary data={data} />
