@@ -36,9 +36,15 @@ const NOTE: Record<string, string> = {
     "Next season has not been played yet; it will add to his value (at half) once it is.",
 };
 
-/** Who had him that week: "Team" or "Free agent". */
-const holderName = (entities: Entities, holder: number | null) =>
-  holder === null ? "Free agent" : (entities.teamSeasons[String(holder)]?.name ?? "A team");
+/** Who had him that week: "Manager · Team" or "Free agent". */
+const holderName = (entities: Entities, holder: number | null) => {
+  if (holder === null) return "Free agent";
+  const team = entities.teamSeasons[String(holder)];
+  if (!team) return "A team";
+  const manager =
+    team.managerId === null ? undefined : entities.managers[String(team.managerId)]?.name;
+  return manager ? `${manager} · ${team.name}` : team.name;
+};
 
 function Segments({ detail, entities }: { detail: Detail; entities: Entities }) {
   return (

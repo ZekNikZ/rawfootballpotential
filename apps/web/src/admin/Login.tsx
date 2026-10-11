@@ -5,6 +5,7 @@ import { loginInput } from "@rfp/core/admin";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { markAdminSeen } from "../lib/admin-seen";
 import { zodValidate } from "./api";
 
 export default function Login() {
@@ -31,6 +32,7 @@ export default function Login() {
       });
       if (res.status === 429) throw new Error("Too many attempts. Wait a minute and try again.");
       if (!res.ok) throw new Error("That email and password don't match an active account.");
+      markAdminSeen();
       await qc.invalidateQueries({ queryKey: ["admin"] });
       const next = params.get("next");
       navigate(next?.startsWith("/admin") ? next : "/admin", { replace: true });
