@@ -179,7 +179,7 @@ function MatchupsPanel({ seasonId }: { seasonId: number }) {
       {!d && <PanelState query={q} />}
       {d && d.games.length === 0 && <EmptyState>No games scheduled.</EmptyState>}
       {d && d.games.length > 0 && (
-        <Stack gap="xs">
+        <div className={classes.matchups}>
           {d.games.map((g) => (
             <Paper key={g.matchupId} withBorder p="xs" radius="sm">
               <Stack gap={6}>
@@ -216,7 +216,7 @@ function MatchupsPanel({ seasonId }: { seasonId: number }) {
               </Stack>
             </Paper>
           ))}
-        </Stack>
+        </div>
       )}
     </Panel>
   );
