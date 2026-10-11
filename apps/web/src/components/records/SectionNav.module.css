@@ -2,6 +2,11 @@
   /* Where sticky table headers stick: below the app header and this bar. */
   --table-sticky-top: calc(var(--app-shell-header-offset, 60px) + var(--section-nav-height));
   --section-nav-height: 46px;
+
+  /* No bar is rendered for a single section, so table headers stick right under the app header. */
+  &[data-no-bar] {
+    --section-nav-height: 0px;
+  }
 }
 
 .bar {

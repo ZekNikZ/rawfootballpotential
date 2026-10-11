@@ -74,7 +74,7 @@ export function SectionNav({ children }: { children: React.ReactNode }) {
   }, [active]);
 
   return (
-    <div ref={rootRef} className={classes.root}>
+    <div ref={rootRef} className={classes.root} data-no-bar={headings.length > 1 ? undefined : ""}>
       {headings.length > 1 && (
         <nav className={classes.bar} aria-label="Sections on this page">
           <div ref={scrollerRef} className={classes.scroller}>
