@@ -400,6 +400,8 @@ const matchupTeam = z.object({
   teamSeasonId: z.number(),
   points: z.number(),
   projected: nullableNum,
+  /** Chance this team wins, 0-1; null for finished games and two-week games. */
+  winProbability: z.number().nullable().default(null),
   result: z.string().nullable(),
   isFinal: z.boolean(),
   pointsOverridden: z.boolean(),

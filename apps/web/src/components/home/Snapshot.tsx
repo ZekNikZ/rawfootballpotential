@@ -149,6 +149,18 @@ function StandingsPanel({ seasonId }: { seasonId: number }) {
   );
 }
 
+/** Whether a team is ahead right now (a finished game uses its result); a tie leaves both unbolded. */
+function isLeading(g: Matchups["games"][number], t: Matchups["games"][number]["teams"][number]) {
+  if (g.teams.every((x) => x.isFinal)) return t.result === "W";
+  return g.teams.every((x) => x === t || t.points > x.points);
+}
+
+/** Whole percent; 0% and 100% only when nothing is left to play. */
+function fmtWinProbability(p: number) {
+  if (p >= 1 || p <= 0) return `${p * 100}%`;
+  return `${Math.min(99, Math.max(1, Math.round(p * 100)))}%`;
+}
+
 function MatchupsPanel({ seasonId }: { seasonId: number }) {
   const q = useQuery({ ...matchupsQuery(seasonId), refetchInterval: 60_000 });
   const d: Matchups | undefined = q.data;
@@ -171,23 +183,36 @@ function MatchupsPanel({ seasonId }: { seasonId: number }) {
           {d.games.map((g) => (
             <Paper key={g.matchupId} withBorder p="xs" radius="sm">
               <Stack gap={6}>
-                {g.teams.map((t) => (
-                  <Group key={t.teamSeasonId} justify="space-between" wrap="nowrap" gap="xs">
-                    <Group gap={8} wrap="nowrap" miw={0}>
-                      <TeamAvatar src={t.avatar} name={teamName(d.entities, t.teamSeasonId)} />
-                      <Text
-                        truncate
-                        fw={t.result === "W" ? 700 : undefined}
-                        c={t.result === "L" ? "dimmed" : undefined}
-                      >
-                        {teamName(d.entities, t.teamSeasonId)}
-                      </Text>
+                {g.teams.map((t) => {
+                  const lead = isLeading(g, t);
+                  return (
+                    <Group key={t.teamSeasonId} justify="space-between" wrap="nowrap" gap="xs">
+                      <Group gap={8} wrap="nowrap" miw={0}>
+                        <TeamAvatar src={t.avatar} name={teamName(d.entities, t.teamSeasonId)} />
+                        <Stack gap={0} miw={0}>
+                          <Text truncate fw={lead ? 700 : undefined}>
+                            {teamName(d.entities, t.teamSeasonId)}
+                          </Text>
+                          {t.winProbability !== null && (
+                            <Text size="xs" c="dimmed" className={classes.num}>
+                              {fmtWinProbability(t.winProbability)} to win
+                            </Text>
+                          )}
+                        </Stack>
+                      </Group>
+                      <Stack gap={0} align="flex-end" style={{ flexShrink: 0 }}>
+                        <Text className={classes.num} fw={lead ? 700 : undefined}>
+                          {fmtDecimal(t.points)}
+                        </Text>
+                        {t.projected !== null && (
+                          <Text size="xs" c="dimmed" className={classes.num}>
+                            proj {fmtDecimal(t.projected)}
+                          </Text>
+                        )}
+                      </Stack>
                     </Group>
-                    <Text className={classes.num} fw={t.result === "W" ? 700 : undefined}>
-                      {fmtDecimal(t.points)}
-                    </Text>
-                  </Group>
-                ))}
+                  );
+                })}
               </Stack>
             </Paper>
           ))}
