@@ -1,3 +1,4 @@
+import { gameFractionLeft, winProbability, type LiveStarter } from "@rfp/core";
 import { sql } from "@rfp/db";
 import type { Db } from "@rfp/db";
 import { HttpError } from "../lib/http";
@@ -151,11 +152,53 @@ export async function matchups(
     }
   }
 
-  const team = (t: Record<string, unknown>) => ({
+  // Win probability: needs each starter's NFL game status and kickoff; only for single-week games still being played.
+  const now = new Date();
+  const starters = new Map<number, LiveStarter[]>();
+  if (teamWeeks.length && weekStatus !== "complete") {
+    const sr = await db.execute<{
+      team_week_id: number;
+      position: string | null;
+      projected: number | null;
+      status: "scheduled" | "in_progress" | "final" | null;
+      kickoff: Date | string | null;
+    }>(sql`
+      select pw.team_week_id, pw.position, pw.projected_points::float8 as projected, g.status::text as status, g.kickoff
+      from player_week pw
+      join team_week tw on tw.id = pw.team_week_id
+      join league_season ls on ls.id = tw.league_season_id
+      join player p on p.id = pw.player_id
+      -- A live week has no nflverse roster row yet (player_week.nfl_team / nfl_game_id are empty until it is final):
+      -- fall back to the player's current team (a team defense is keyed by its code) and that team's game this week.
+      left join lateral (
+        select coalesce((select a.nfl_team from nfl_team_alias a where a.alias = t.code and a.season_from is null limit 1), t.code) as team
+        from (select coalesce(pw.nfl_team, case when p.position = 'DEF' then p.sleeper_id else p.nfl_team end) as code) t
+      ) team on true
+      left join nfl_team_week ntw on ntw.season = ls.year and ntw.week = tw.week and ntw.nfl_team = team.team
+      left join nfl_game g on g.id = coalesce(pw.nfl_game_id, ntw.nfl_game_id)
+      where pw.slot_kind = 'starter' and pw.team_week_id in (${inList(teamWeeks.map((t) => Number(t.team_week_id)))})`);
+    for (const r of sr.rows) {
+      const list = starters.get(r.team_week_id) ?? [];
+      list.push({
+        position: r.position,
+        projected: r.projected,
+        fractionLeft: gameFractionLeft(r.status, r.kickoff ? new Date(r.kickoff) : null, now),
+      });
+      starters.set(r.team_week_id, list);
+    }
+  }
+  const winProbabilityOf = (side: Record<string, unknown>, other: Record<string, unknown>) =>
+    winProbability(
+      { points: Number(side.points), starters: starters.get(Number(side.team_week_id)) ?? [] },
+      { points: Number(other.points), starters: starters.get(Number(other.team_week_id)) ?? [] }
+    );
+
+  const team = (t: Record<string, unknown>, winProb: number | null = null) => ({
     teamSeasonId: Number(t.team_season_id),
     avatar: (t.avatar as string | null) ?? null,
     points: Number(t.points),
     projected: num(t.projected),
+    winProbability: winProb,
     result: t.result as string | null,
     isFinal: Boolean(t.is_final),
     pointsOverridden: Boolean(t.points_overridden),
@@ -198,7 +241,15 @@ export async function matchups(
     isChampionship: Boolean(sides[0]?.is_championship),
     spanWeeks: Number(sides[0]?.span_weeks ?? 1),
     counts: Boolean(sides[0]?.counts),
-    teams: sides.map(team),
+    teams: sides.map((t) => {
+      const other = sides.find((o) => o !== t);
+      const live =
+        sides.length === 2 &&
+        other !== undefined &&
+        Number(sides[0]?.span_weeks ?? 1) === 1 &&
+        !sides.every((x) => Boolean(x.is_final));
+      return team(t, live && other ? winProbabilityOf(t, other) : null);
+    }),
   }));
   return {
     season: summary,
@@ -206,7 +257,7 @@ export async function matchups(
     weekStatus: weekStatus ?? "upcoming",
     games,
     /** Teams with no game this week (byes, eliminated): their score is shown but does not count. */
-    idle: idle.map(team),
+    idle: idle.map((t) => team(t)),
     entities: await entitiesFor(
       db,
       teamWeeks.map((t) => Number(t.team_season_id))

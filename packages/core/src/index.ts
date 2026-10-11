@@ -15,3 +15,4 @@ export * from "./records";
 export * from "./admin";
 export * from "./asleep";
 export * from "./elo";
+export * from "./win-probability";
