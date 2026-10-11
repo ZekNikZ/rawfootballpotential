@@ -12,7 +12,7 @@ import {
   Text,
 } from "@mantine/core";
 import { useDisclosure, useDocumentTitle } from "@mantine/hooks";
-import { TextAlignLeft } from "@phosphor-icons/react";
+import { ShieldCheck, TextAlignLeft } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
@@ -32,6 +32,7 @@ import { ColorSchemeToggle } from "../components/ColorSchemeToggle";
 import { Logo } from "../components/Logo";
 
 import { LeagueContext } from "../lib/league-context";
+import { adminSeen } from "../lib/admin-seen";
 import { seasonLabel } from "../lib/format";
 import { PageTitleProvider, usePageTitleOverride } from "../lib/page-title";
 import { NAV, type NavItem } from "./nav";
@@ -295,6 +296,15 @@ export function Layout() {
                     closeNav();
                   }}
                 />
+                {adminSeen() && (
+                  <NavLink
+                    label="Admin"
+                    component={Link}
+                    to="/admin"
+                    leftSection={<ShieldCheck size={20} />}
+                    onClick={closeNav}
+                  />
+                )}
                 <Text size="xs" c="dimmed" mt="md" px="sm">
                   Emoji: Twemoji, © Twitter, Inc. and other contributors, CC-BY 4.0
                 </Text>

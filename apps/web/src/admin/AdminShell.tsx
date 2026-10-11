@@ -30,10 +30,12 @@ import {
   UsersThree,
 } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Link, Navigate, Outlet, ScrollRestoration, useLocation } from "react-router";
 import { ApiError } from "../api/client";
 import { ColorSchemeToggle } from "../components/ColorSchemeToggle";
 import { QueryError } from "../components/QueryState";
+import { markAdminSeen } from "../lib/admin-seen";
 import { adminQuery } from "./api";
 import { meSchema, type Me } from "./schemas";
 import { MeContext } from "./me";
@@ -59,6 +61,10 @@ export default function AdminShell() {
   const qc = useQueryClient();
   const { pathname } = useLocation();
   const [opened, { toggle, close }] = useDisclosure();
+  const signedIn = me.isSuccess;
+  useEffect(() => {
+    if (signedIn) markAdminSeen();
+  }, [signedIn]);
 
   if (me.isPending)
     return (
