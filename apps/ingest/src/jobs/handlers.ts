@@ -4,7 +4,7 @@ import { DERIVE_VERSION, deriveSeason } from "../derive/derive";
 import { log } from "../lib/log";
 import { hours } from "../lib/raw-store";
 import { importEspnSeason } from "../espn/normalize";
-import { syncNflReference } from "../nfl/reference";
+import { fillPlayerWeeks, syncNflReference } from "../nfl/reference";
 import { pruneRecordCache } from "./prune";
 import { listSeasons, runSeasonPipeline, type SeasonRef } from "../pipeline";
 import type { SleeperClient } from "../sleeper/client";
@@ -119,8 +119,11 @@ export function createHandlers(
     live: (payload) =>
       tracked(db, "live", payload, async () => {
         const seasons = await activeSeasons(db, payload, ["in_season", "post_season"]);
-        for (const s of seasons)
+        for (const s of seasons) {
           await runSeasonPipeline(db, client, s, { mode: "live", derive: false });
+          // The sync just rewrote this week's player_week rows; put the NFL team / game / status back.
+          await fillPlayerWeeks(db, s.year, { incompleteOnly: true });
+        }
         return { seasons: seasons.length };
       }),
 
@@ -138,6 +141,7 @@ export function createHandlers(
         // derive here or the home page superlatives stay empty until the next finalize.
         for (const s of seasons) {
           await runSeasonPipeline(db, client, s, { mode: "daily", derive: false });
+          await fillPlayerWeeks(db, s.year, { incompleteOnly: true });
           await deriveSeason(db, s.id);
           await changed(s.id);
         }
