@@ -12,6 +12,7 @@ import {
   Stack,
   Table,
   Text,
+  Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -31,6 +32,7 @@ import { EmptyState, QueryError } from "../../components/QueryState";
 import { TeamLabel } from "../../components/TeamLabel";
 import classes from "./Matchups.module.css";
 import { fmtDecimal, irMissingNote } from "../../lib/format";
+import { WeekMedian } from "../../components/WeekMedian";
 import { useLeague } from "../../lib/league-context";
 import { SeasonShell } from "./SeasonShell";
 
@@ -152,10 +154,12 @@ function Side({
   team,
   entities,
   right,
+  beatMedian,
 }: {
   team: MatchupTeam;
   entities: Entities;
   right: boolean;
+  beatMedian: boolean;
 }) {
   const ts = entities.teamSeasons[String(team.teamSeasonId)];
   const manager =
@@ -182,6 +186,13 @@ function Side({
     <Stack gap={0} miw={0} flex={1} ta={right ? "right" : "left"}>
       <Text fw={won ? 700 : 600} c={dim} truncate>
         {ts?.name ?? "Unknown team"}
+        {beatMedian && (
+          <Tooltip label="Beat the median">
+            <Text span aria-label="Beat the median" role="img" ml={6} style={{ cursor: "default" }}>
+              ✅
+            </Text>
+          </Tooltip>
+        )}
       </Text>
       <Text size="xs" c="dimmed" truncate>
         {manager ?? " "}
@@ -217,7 +228,18 @@ function Side({
   );
 }
 
-function GameCard({ game, entities }: { game: Game; entities: Entities }) {
+function GameCard({
+  game,
+  entities,
+  median,
+}: {
+  game: Game;
+  entities: Entities;
+  median: MatchupsData["median"];
+}) {
+  // Above the week median (a score equal to it is a tie, not a win); only games that count have a median game.
+  const beat = (t: MatchupTeam) =>
+    game.counts && median?.actual != null && t.points > median.actual;
   const [open, { toggle }] = useDisclosure(false);
   const badges = gameBadges(game);
   const tie = game.teams.length === 2 && game.teams[0]?.result === "T";
@@ -246,8 +268,12 @@ function GameCard({ game, entities }: { game: Game; entities: Entities }) {
             </Group>
           )}
           <div className={classes.versus}>
-            {home && <Side team={home} entities={entities} right={false} />}
-            {away ? <Side team={away} entities={entities} right /> : <div />}
+            {home && <Side team={home} entities={entities} right={false} beatMedian={beat(home)} />}
+            {away ? (
+              <Side team={away} entities={entities} right beatMedian={beat(away)} />
+            ) : (
+              <div />
+            )}
           </div>
         </Stack>
         <CaretDown size={16} className={classes.caret} data-open={open ? "" : undefined} />
@@ -348,12 +374,13 @@ function Body({ season }: { season: Season }) {
               : "upcoming"}
         </Badge>
       </Group>
+      <WeekMedian median={data.median} />
       {data.games.length === 0 ? (
         <EmptyState>No games this week.</EmptyState>
       ) : (
         <Stack gap="sm">
           {data.games.map((g) => (
-            <GameCard key={g.matchupId} game={g} entities={data.entities} />
+            <GameCard key={g.matchupId} game={g} entities={data.entities} median={data.median} />
           ))}
         </Stack>
       )}
