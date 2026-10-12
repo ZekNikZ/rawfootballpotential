@@ -1,4 +1,4 @@
-import { gameFractionLeft, winProbability, type LiveStarter } from "@rfp/core";
+import { gameFractionLeft, median, winProbability, type LiveStarter } from "@rfp/core";
 import { sql } from "@rfp/db";
 import type { Db } from "@rfp/db";
 import { HttpError } from "../lib/http";
@@ -251,10 +251,23 @@ export async function matchups(
       return team(t, live && other ? winProbabilityOf(t, other) : null);
     }),
   }));
+  // The week's median (doc section 2): over the teams whose score counts, regular season only, when the season has
+  // median games. Actual = scores so far; projected = each team's projected starter total.
+  const counted = teamWeeks.filter((t) => Boolean(t.counts));
+  const weekMedian =
+    summary.median_enabled && games[0]?.gameType === "regular" && counted.length > 0
+      ? {
+          actual: median(counted.map((t) => Number(t.points))),
+          projected: median(
+            counted.flatMap((t) => (t.projected === null ? [] : [Number(t.projected)]))
+          ),
+        }
+      : null;
   return {
     season: summary,
     week: chosen,
     weekStatus: weekStatus ?? "upcoming",
+    median: weekMedian,
     games,
     /** Teams with no game this week (byes, eliminated): their score is shown but does not count. */
     idle: idle.map((t) => team(t)),

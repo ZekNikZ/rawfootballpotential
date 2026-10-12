@@ -30,6 +30,7 @@ import { HighlightTile } from "../Highlights";
 import { PositionBadge } from "../PositionBadge";
 import { EmptyState, QueryError } from "../QueryState";
 import { TeamAvatar } from "../TeamAvatar";
+import { WeekMedian } from "../WeekMedian";
 import classes from "./Snapshot.module.css";
 
 const record = (r: { wins: number; losses: number; ties: number }) =>
@@ -179,44 +180,47 @@ function MatchupsPanel({ seasonId }: { seasonId: number }) {
       {!d && <PanelState query={q} />}
       {d && d.games.length === 0 && <EmptyState>No games scheduled.</EmptyState>}
       {d && d.games.length > 0 && (
-        <div className={classes.matchups}>
-          {d.games.map((g) => (
-            <Paper key={g.matchupId} withBorder p="xs" radius="sm">
-              <Stack gap={6}>
-                {g.teams.map((t) => {
-                  const lead = isLeading(g, t);
-                  return (
-                    <Group key={t.teamSeasonId} justify="space-between" wrap="nowrap" gap="xs">
-                      <Group gap={8} wrap="nowrap" miw={0}>
-                        <TeamAvatar src={t.avatar} name={teamName(d.entities, t.teamSeasonId)} />
-                        <Stack gap={0} miw={0}>
-                          <Text truncate fw={lead ? 700 : undefined}>
-                            {teamName(d.entities, t.teamSeasonId)}
+        <Stack gap="xs">
+          <WeekMedian median={d.median} />
+          <div className={classes.matchups}>
+            {d.games.map((g) => (
+              <Paper key={g.matchupId} withBorder p="xs" radius="sm">
+                <Stack gap={6}>
+                  {g.teams.map((t) => {
+                    const lead = isLeading(g, t);
+                    return (
+                      <Group key={t.teamSeasonId} justify="space-between" wrap="nowrap" gap="xs">
+                        <Group gap={8} wrap="nowrap" miw={0}>
+                          <TeamAvatar src={t.avatar} name={teamName(d.entities, t.teamSeasonId)} />
+                          <Stack gap={0} miw={0}>
+                            <Text truncate fw={lead ? 700 : undefined}>
+                              {teamName(d.entities, t.teamSeasonId)}
+                            </Text>
+                            {t.winProbability !== null && (
+                              <Text size="xs" c="dimmed" className={classes.num}>
+                                {fmtWinProbability(t.winProbability)} to win
+                              </Text>
+                            )}
+                          </Stack>
+                        </Group>
+                        <Stack gap={0} align="flex-end" style={{ flexShrink: 0 }}>
+                          <Text className={classes.num} fw={lead ? 700 : undefined}>
+                            {fmtDecimal(t.points)}
                           </Text>
-                          {t.winProbability !== null && (
+                          {t.projected !== null && (
                             <Text size="xs" c="dimmed" className={classes.num}>
-                              {fmtWinProbability(t.winProbability)} to win
+                              proj {fmtDecimal(t.projected)}
                             </Text>
                           )}
                         </Stack>
                       </Group>
-                      <Stack gap={0} align="flex-end" style={{ flexShrink: 0 }}>
-                        <Text className={classes.num} fw={lead ? 700 : undefined}>
-                          {fmtDecimal(t.points)}
-                        </Text>
-                        {t.projected !== null && (
-                          <Text size="xs" c="dimmed" className={classes.num}>
-                            proj {fmtDecimal(t.projected)}
-                          </Text>
-                        )}
-                      </Stack>
-                    </Group>
-                  );
-                })}
-              </Stack>
-            </Paper>
-          ))}
-        </div>
+                    );
+                  })}
+                </Stack>
+              </Paper>
+            ))}
+          </div>
+        </Stack>
       )}
     </Panel>
   );

@@ -313,6 +313,20 @@ describe("season info pages (may include live data)", () => {
     expect(team.lineup.length).toBe(4);
   });
 
+  it("matchups: the week median (actual and projected) is the true median of counted scores, regular season only", async () => {
+    const wk1 = (await get(`/api/seasons/${sid()}/matchups?week=1`)).body;
+    const scores = wk1.games
+      .flatMap((g: Json) => g.teams.map((t: Json) => t.points as number))
+      .sort((a: number, b: number) => a - b);
+    const mid = scores.length / 2;
+    const expected =
+      scores.length % 2 ? scores[(scores.length - 1) / 2] : (scores[mid - 1] + scores[mid]) / 2;
+    expect(wk1.median.actual).toBeCloseTo(expected, 6);
+    expect(wk1.median).toHaveProperty("projected");
+    // playoff weeks have no median game
+    expect((await get(`/api/seasons/${sid()}/matchups?week=4`)).body.median).toBeNull();
+  });
+
   it("teams, transactions (failed claims are shown but marked), draft and picks", async () => {
     const t = (await get(`/api/seasons/${sid()}/teams`)).body;
     expect(t.teams.length).toBe(6);

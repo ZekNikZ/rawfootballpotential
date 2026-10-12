@@ -416,6 +416,11 @@ export const matchupsResponse = z.object({
   season: seasonSummary,
   week: z.number(),
   weekStatus: z.string(),
+  /** The week's median score (actual so far, projected); null when the season has no median games or it is not a regular week. */
+  median: z
+    .object({ actual: z.number().nullable(), projected: z.number().nullable() })
+    .nullable()
+    .default(null),
   games: z.array(
     z.object({
       matchupId: z.number(),
