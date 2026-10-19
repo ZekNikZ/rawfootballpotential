@@ -8,9 +8,11 @@ import {
   seasonPatch,
   siteInput,
 } from "@rfp/core/admin";
+import { exportConfigBundle } from "@rfp/ingest";
 import type { FastifyInstance } from "fastify";
 import { HttpError } from "../lib/http";
 import { audit, parseBody, type AdminDeps } from "./context";
+import { requireOwner } from "./user-routes";
 import { idParam, uniqueViolation } from "./util";
 
 export function registerConfigRoutes(app: FastifyInstance, deps: AdminDeps) {
@@ -47,6 +49,24 @@ export function registerConfigRoutes(app: FastifyInstance, deps: AdminDeps) {
     await writeConfig("changelog", input);
     await audit(db, req.admin!, "changelog.update", "site_config", "changelog", before, input);
     return input;
+  });
+
+  // ---- configuration export: everything set by hand, to bootstrap another environment (pnpm ingest import-config) ----
+  app.get("/config-export", async (req, reply) => {
+    requireOwner(req);
+    const bundle = await exportConfigBundle(db);
+    await audit(db, req.admin!, "config.export", "config", null, null, {
+      leagues: bundle.leagues.length,
+      managers: bundle.managers.length,
+      corrections: bundle.overrides.length,
+      recordSettings: bundle.recordConfig.length,
+    });
+    reply.header("Cache-Control", "no-store");
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="rfp-config-${bundle.exportedAt.slice(0, 10)}.json"`
+    );
+    return bundle;
   });
 
   // ---- leagues ----

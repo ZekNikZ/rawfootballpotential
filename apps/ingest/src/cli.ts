@@ -1,11 +1,15 @@
+import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { createDb } from "@rfp/db";
+import { configBundle } from "@rfp/core/admin";
 import { loadEnv } from "./lib/env";
 import { log } from "./lib/log";
 import { RawStore, hours } from "./lib/raw-store";
 import { deriveSeason } from "./derive/derive";
 import { listSeasons, runSeasonPipeline } from "./pipeline";
+import { exportConfigBundle, importConfigBundle } from "./config-bundle";
 import { SleeperClient } from "./sleeper/client";
+import { bootstrapSleeperSeason } from "./sleeper/sync";
 import { syncPlayers } from "./sleeper/players";
 import { syncAllPlayerPoints } from "./sleeper/points";
 import { seasonRollover } from "./sleeper/rollover";
@@ -27,6 +31,10 @@ commands
   job <name> [--season ...]     run a scheduled job now (live|daily|finalize|nfl-reference|season-rollover|recompute)
   espn <bundle> [--season slug-year]  archive a scraped ESPN bundle, normalize it, derive, print the import report
   report                        sanity report per season
+  export-config [file]          write the admin-managed configuration as JSON (default rfp-config.json)
+  import-config <file> [--dry-run]  load a configuration file: leagues, people, settings, corrections. Creates
+                                missing Sleeper seasons (calls Sleeper), so run it on a fresh database before
+                                'all', and again after it to apply what needs synced data
 `;
 
 async function main() {
@@ -39,6 +47,7 @@ async function main() {
       seasons: { type: "string" },
       mode: { type: "string", default: "full" },
       force: { type: "boolean", default: false },
+      "dry-run": { type: "boolean", default: false },
     },
   });
   if (!command || command === "help") {
@@ -118,6 +127,40 @@ async function main() {
         const file = rest[0];
         if (!file) throw new Error("usage: pnpm ingest espn <bundle.json.gz>");
         console.log(JSON.stringify(await importEspnFile(db, file), null, 2));
+        break;
+      }
+      case "export-config": {
+        const file = rest[0] ?? "rfp-config.json";
+        const bundle = await exportConfigBundle(db);
+        await writeFile(file, JSON.stringify(bundle, null, 2) + "\n");
+        console.log(
+          JSON.stringify({
+            file,
+            leagues: bundle.leagues.length,
+            managers: bundle.managers.length,
+            corrections: bundle.overrides.length,
+            recordSettings: bundle.recordConfig.length,
+          })
+        );
+        break;
+      }
+      case "import-config": {
+        const file = rest[0];
+        if (!file) throw new Error("usage: pnpm ingest import-config <file> [--dry-run]");
+        const parsed = configBundle.safeParse(JSON.parse(await readFile(file, "utf8")));
+        if (!parsed.success) {
+          const issue = parsed.error.issues[0];
+          throw new Error(
+            `not a configuration file: ${issue?.path.join(".") || "(file)"}: ${issue?.message}`
+          );
+        }
+        const report = await importConfigBundle(db, parsed.data, {
+          dryRun: values["dry-run"],
+          bootstrapSeason: (leagueId, externalId) =>
+            bootstrapSleeperSeason(db, client, { leagueId, externalId }),
+          log: (message) => console.log(message),
+        });
+        console.log(JSON.stringify(report, null, 2));
         break;
       }
       case "report":

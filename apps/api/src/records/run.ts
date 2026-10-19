@@ -69,6 +69,7 @@ import {
   strengthOfScheduleRecord,
 } from "./engines/consistency";
 import { careerPowerRecord } from "./engines/power";
+import { leagueSeasonScoringRecord, leagueWeekScoringRecord } from "./engines/league-scoring";
 import { extraTeamWeekRecord } from "./engines/team-week-extra";
 import { resolveRows, type Entities, type ResolvedRow } from "./entities";
 import { minGames } from "./engines/season-base";
@@ -123,6 +124,8 @@ const ENGINES: Record<string, (ctx: RunContext) => Promise<RankedRow[]>> = {
   scoreVolatility: scoreVolatilityRecord,
   boomBustCount: boomBustCountRecord,
   careerAllPlay: careerAllPlayRecord,
+  leagueSeasonScoring: leagueSeasonScoringRecord,
+  leagueWeekScoring: leagueWeekScoringRecord,
 };
 
 const REQUIREMENT_FLAG: Record<Requirement, keyof typeof leagueSeason.$inferSelect> = {

@@ -99,6 +99,7 @@ cutover together with `legacy/`; it exists in git history (commit `70b61ed` and 
 on a fresh, migrated database is the Sleeper and ESPN data:
 
 ```sh
+pnpm ingest import-config rfp-config.json              # leagues, Sleeper seasons, people, settings (Admin -> Site & changelog -> Download configuration)
 pnpm ingest all                                      # players, Sleeper seasons, NFL reference, derive
 pnpm ingest espn apps/scraper/bundles/redraft-2021.json.gz
 pnpm ingest espn apps/scraper/bundles/redraft-2020.json.gz

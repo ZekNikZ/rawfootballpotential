@@ -3,7 +3,9 @@ import { useForm } from "@mantine/form";
 import { Plus, Trash } from "@phosphor-icons/react";
 import { changelogInput, siteInput, type ChangelogEntry } from "@rfp/core/admin";
 import { useQuery } from "@tanstack/react-query";
+import { ApiError } from "../api/client";
 import { adminQuery, adminRequest, useAdminMutation, zodValidate } from "./api";
+import { useMe } from "./me";
 import { okSchema, siteSchema } from "./schemas";
 import { Loaded, PageHeader, Panel } from "./ui";
 import { z } from "zod";
@@ -98,7 +100,54 @@ function ChangelogEditor({ initial }: { initial: ChangelogEntry[] }) {
   );
 }
 
+/** Fetches the configuration file and hands it to the browser as a download; the server allows owners only. */
+async function downloadConfig(): Promise<string> {
+  const res = await fetch("/api/admin/config-export", { credentials: "same-origin" });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const data = (await res.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // no JSON body
+    }
+    throw new ApiError(res.status, message);
+  }
+  const name =
+    /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ??
+    "rfp-config.json";
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return name;
+}
+
+function ConfigExport() {
+  const download = useAdminMutation(downloadConfig, { success: (name) => `Downloaded ${name}` });
+  return (
+    <Stack gap="xs" align="flex-start">
+      <Text size="sm" c="dimmed">
+        Everything set by hand in this admin, as one file: leagues and seasons, trophy thresholds,
+        record settings, site text and version history, managers and their accounts, franchise
+        names, corrections and player links. It holds no admin accounts, passwords or ingested
+        scores. To rebuild another environment, run{" "}
+        <code>pnpm ingest import-config &lt;file&gt;</code> on a fresh database, then{" "}
+        <code>pnpm ingest all</code>, then the import again.
+      </Text>
+      <Button variant="default" loading={download.isPending} onClick={() => download.mutate()}>
+        Download configuration
+      </Button>
+    </Stack>
+  );
+}
+
 export default function SitePage() {
+  const me = useMe();
   const q = useQuery(adminQuery(["site"], "/site", siteSchema));
   return (
     <>
@@ -112,6 +161,11 @@ export default function SitePage() {
             <Panel title="Version history">
               <ChangelogEditor key={JSON.stringify(d.changelog)} initial={d.changelog} />
             </Panel>
+            {me.role === "owner" && (
+              <Panel title="Export configuration">
+                <ConfigExport />
+              </Panel>
+            )}
           </>
         )}
       </Loaded>

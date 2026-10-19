@@ -4,6 +4,8 @@
 export const GRAINS = [
   "team_week",
   "team_season",
+  "league_week",
+  "league_season",
   "franchise_career",
   "player_week",
   "player_season",
