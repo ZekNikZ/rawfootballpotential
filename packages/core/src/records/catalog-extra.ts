@@ -1397,6 +1397,109 @@ const powerRankings: RecordDef[] = [
   ),
 ];
 
+// ---- League-wide scoring ----------------------------------------------------------------------------------------
+// Every team's points added together for a season or a week, in three measures that use the single-game records'
+// definitions (Actual score, Bench score, Teamwide score), as a total and as an average per team-game.
+const LEAGUE_MEASURES = [
+  {
+    key: "counted",
+    title: "scored",
+    requires: req(),
+    what: "the points that counted toward each team's matchup score (the Actual score of every team-game)",
+  },
+  {
+    key: "bench",
+    title: "bench",
+    requires: req("playerData"),
+    what: "every team's bench score: points scored by bench and injured-reserve players, the same as the Bench score record. Seasons without player data are left out",
+  },
+  {
+    key: "teamwide",
+    title: "teamwide",
+    requires: req("playerData"),
+    what: "every team's teamwide score: everything every rostered player scored (starters, bench, injured reserve and taxi), the same as the Teamwide score record. Seasons without player data are left out",
+  },
+] as const;
+const LEAGUE_FILTERS_SEASON: FilterKey[] = ["seasons", "scope"];
+const LEAGUE_FILTERS_WEEK: FilterKey[] = ["seasons", "scope", "weeks"];
+const leagueRules =
+  "Counts head-to-head team-games in the chosen scope (regular season by default); byes, games outside the brackets and the two-week 2020 ESPN playoff games are not counted. The average is the total divided by the number of team-games, so it stays comparable across league sizes and season lengths. Sort the other way for the lowest.";
+
+const leagueScoring: RecordDef[] = LEAGUE_MEASURES.flatMap((m) => {
+  const seasonBase = (active: RecordDef["active"], engine = "leagueSeasonScoring"): Base => ({
+    category: "single-season",
+    section: "League Scoring",
+    grain: "league_season",
+    engine,
+    filters: LEAGUE_FILTERS_SEASON,
+    defaults: { scope: "regular" },
+    requires: m.requires,
+    active,
+  });
+  const weekBase: Base = {
+    category: "overall",
+    section: "League Scoring",
+    grain: "league_week",
+    engine: "leagueWeekScoring",
+    filters: LEAGUE_FILTERS_WEEK,
+    defaults: { scope: "regular" },
+    requires: m.requires,
+    active: "include",
+  };
+  const seasonCols = [
+    SEASON,
+    c("total", "Total points", "points"),
+    c("avg", "Average per team-game", "points"),
+    c("games", "Team-games", "int"),
+    c("teams", "Teams", "int"),
+    c("weeks", "Weeks", "int"),
+  ];
+  const weekCols = [
+    WEEK,
+    c("total", "Total points", "points"),
+    c("avg", "Average per team-game", "points"),
+    c("games", "Team-games", "int"),
+  ];
+  return [
+    rec(
+      `league.season.${m.key}.total`,
+      `League ${m.title} points (season total)`,
+      seasonBase("complete_only"),
+      "total",
+      "desc",
+      seasonCols,
+      `The sum of ${m.what}, over a whole season. A season still in progress is left out, since it is not a full year. ${leagueRules}`
+    ),
+    rec(
+      `league.season.${m.key}.avg`,
+      `League ${m.title} points per team-game (season)`,
+      seasonBase("flag"),
+      "avg",
+      "desc",
+      seasonCols,
+      `The average per team-game of ${m.what}, over a whole season. A season still in progress is included and flagged. ${leagueRules}`
+    ),
+    rec(
+      `league.week.${m.key}.total`,
+      `League ${m.title} points (total)`,
+      weekBase,
+      "total",
+      "desc",
+      weekCols,
+      `The sum of ${m.what}, for one week of the league. ${leagueRules}`
+    ),
+    rec(
+      `league.week.${m.key}.avg`,
+      `League ${m.title} points (average)`,
+      weekBase,
+      "avg",
+      "desc",
+      weekCols,
+      `The average per team-game of ${m.what}, for one week of the league. ${leagueRules}`
+    ),
+  ];
+});
+
 export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...luckAndRegret,
   ...projections,
@@ -1424,4 +1527,5 @@ export const EXTRA_RECORDS: readonly RecordDef[] = [
   ...careerScheduleSos,
   ...careerConsistency,
   ...powerRankings,
+  ...leagueScoring,
 ];

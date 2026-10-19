@@ -31,10 +31,12 @@ pnpm lint && pnpm typecheck && pnpm format:check && pnpm test && pnpm db:check  
 pnpm db:generate                       # new migration after a schema change (then pnpm db:migrate)
 pnpm --filter @rfp/api show-record <record-id>   # print a record's rows from the dev DB
 pnpm --filter @rfp/api sweep-records             # run every record x common params; must finish with no failures
-pnpm ingest <command>                  # derive | sync | nfl-reference | espn <bundle> | all ...
+pnpm ingest <command>                  # derive | sync | nfl-reference | espn <bundle> | all | export-config | import-config <file> ...
 pnpm admin:create-owner                # first admin account
 pnpm --filter @rfp/web smoke                     # browser smoke (needs the stack running)
 ```
+
+New machine: `docs/maintenance.md` section 4 ("Bootstrapping a new machine"; Admin -> Site & changelog downloads the configuration file that `import-config` loads).
 
 Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root has `DATABASE_URL` and
 `TEST_DATABASE_URL`. API tests run against a real database.

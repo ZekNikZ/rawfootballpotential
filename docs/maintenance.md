@@ -60,6 +60,11 @@ them), reverse migrations (they are additive on purpose), or change the reverse 
 - **Dev database**: docker container `rfp-db-1`, host port 5433, credentials in the git-ignored root `.env`
   (`DATABASE_URL`, `TEST_DATABASE_URL`). API tests use a real database. Never print `.env`.
 - **gh**: `gh auth login` is needed once per machine; PRs are normally merged by the owner, or by Claude when asked.
+- **Bootstrapping a new machine** (empty database): `docker compose up -d db` (host port 5433), put `POSTGRES_*`, `DATABASE_URL` and `TEST_DATABASE_URL` in the git-ignored `.env`, create the test database, `pnpm install`, `pnpm db:migrate`. Node 24 is required (`.nvmrc`). Then load the hand-made configuration and the data:
+  1. In production, Admin -> Site & changelog -> **Download configuration** (owner only; audited as `config.export`) saves `rfp-config-<date>.json`: leagues and seasons (with the Sleeper league ids), thresholds, record settings, site text and Version History, managers and their Sleeper / ESPN accounts, franchise names and groupings, corrections and manual player links. No admin accounts, sessions, invites or ingested data. `pnpm ingest export-config [file]` writes the same file from any database.
+  2. `pnpm ingest import-config <file> [--dry-run]` on the fresh database creates the leagues, **creates every Sleeper season from its league id** (calls Sleeper, cached) and applies the settings and people. Run it **before** the first sync: the sync then adopts the imported managers instead of creating placeholder "Manager N" ones. Without a file, create the league rows and first season by hand, as in `docs/cutover.md`.
+  3. `pnpm ingest all`, then `pnpm ingest points`, then `pnpm ingest import-config <file>` again: the second run applies what needs synced seasons (franchise groupings, corrections, player links). It is idempotent; its report lists anything it could not apply yet. ESPN seasons are not created by it: import their bundles (`pnpm ingest espn <bundle>`) and run it once more.
+  4. `pnpm admin:create-owner` for a local admin login. The file never carries accounts.
 - **Prettier** normalizes everything; run `npx prettier --write <files>` before committing, `pnpm format:check` is in CI.
 - **Sleeper**: never loop over its API without caching; `players/nfl` at most once a day (the worker enforces it).
 

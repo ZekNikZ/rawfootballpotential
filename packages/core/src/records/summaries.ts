@@ -191,4 +191,18 @@ export const RECORD_SUMMARIES: Readonly<Record<string, string>> = {
 
   // Power Rankings
   "career.power": "Elo-style rating from every game played",
+
+  // League Scoring
+  "league.season.counted.total": "Points every team scored in a season, added up",
+  "league.season.counted.avg": "Average team score in a season",
+  "league.week.counted.total": "Points every team scored in a week, added up",
+  "league.week.counted.avg": "Average team score in a week",
+  "league.season.bench.total": "Bench points across the league in a season",
+  "league.season.bench.avg": "Average bench points per team-game in a season",
+  "league.week.bench.total": "Bench points across the league in a week",
+  "league.week.bench.avg": "Average bench points per team-game in a week",
+  "league.season.teamwide.total": "Whole-roster points across the league in a season",
+  "league.season.teamwide.avg": "Average whole-roster points per team-game in a season",
+  "league.week.teamwide.total": "Whole-roster points across the league in a week",
+  "league.week.teamwide.avg": "Average whole-roster points per team-game in a week",
 };

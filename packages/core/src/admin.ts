@@ -206,3 +206,126 @@ export const espnBundle = z.object({
     .min(1),
 });
 export type EspnBundle = z.infer<typeof espnBundle>;
+
+// ---- configuration export / import ----
+// Everything an admin sets by hand, in a file that does not depend on database ids (leagues are keyed by slug, seasons
+// by year, people by their Sleeper / ESPN identities, players by their source ids), so it can be loaded into another
+// database. Accounts, sessions, invites, audit history and ingested data are never part of it.
+export const CONFIG_BUNDLE_FORMAT = "rfp-config";
+export const CONFIG_BUNDLE_VERSION = 1;
+
+const leagueSourceName = z.enum(["sleeper", "espn"]);
+const iso = z.iso.datetime({ offset: true });
+
+export const configBundle = z.object({
+  format: z.literal(CONFIG_BUNDLE_FORMAT),
+  version: z.literal(CONFIG_BUNDLE_VERSION),
+  exportedAt: iso,
+  /** site_config rows: `site` (name), `changelog` (Version History), ... */
+  site: z.array(z.object({ key: z.string().min(1), value: z.unknown() })),
+  leagues: z.array(
+    z.object({
+      slug: z.string().min(1),
+      name: z.string().min(1),
+      type: z.enum(["redraft", "dynasty"]),
+      color: z.string().min(1),
+      displayOrder: z.number().int(),
+      enabled: z.boolean(),
+      seasons: z.array(
+        z.object({
+          year: z.number().int(),
+          source: leagueSourceName,
+          /** Sleeper / ESPN league id: lets an import create the season from the source. */
+          externalId: z.string().min(1),
+          enabled: z.boolean(),
+          scoringOverrides: z.array(scoringOverride),
+          /** Data flags an admin set by hand (and locked against ingest). */
+          lockedFlags: z.partialRecord(z.enum(DATA_FLAGS), z.boolean()),
+        })
+      ),
+      /** `year` null = the league default. */
+      thresholds: z.array(
+        z.object({ year: z.number().int().nullable(), key: z.string().min(1), value: z.number() })
+      ),
+      /** Franchise names, and which team seasons (year + the source's roster / team id) belong together. */
+      franchises: z.array(
+        z.object({
+          name: z.string().nullable(),
+          teamSeasons: z.array(z.object({ year: z.number().int(), roster: z.string().min(1) })),
+        })
+      ),
+    })
+  ),
+  /** `league` null = the global setting. */
+  recordConfig: z.array(
+    z.object({
+      league: z.string().nullable(),
+      recordId: z.string().min(1),
+      visible: z.boolean(),
+      sortOrder: z.number().int(),
+      featured: z.boolean(),
+    })
+  ),
+  managers: z.array(
+    z.object({
+      name: z.string().min(1),
+      avatar: z.string().nullable(),
+      identities: z.array(
+        z.object({ source: leagueSourceName, externalUserId: z.string().min(1) })
+      ),
+    })
+  ),
+  /** Corrections. `target` replaces the `ls:<id>:` prefix of the stored key with the league and year. */
+  overrides: z.array(
+    z.object({
+      entity: z.string().min(1),
+      target: z
+        .object({ league: z.string().min(1), year: z.number().int(), rest: z.string() })
+        .nullable(),
+      /** The stored entity id as is, for a correction that is not tied to a league season. */
+      entityId: z.string().nullable(),
+      field: z.string().min(1),
+      value: z.unknown(),
+      reason: z.string(),
+      active: z.boolean(),
+      createdAt: iso,
+    })
+  ),
+  /** Manual player links and the decisions made in the unmatched-player queue, keyed by the players' source ids. */
+  playerLinks: z.array(
+    z.object({
+      sleeperId: z.string().nullable(),
+      espnId: z.string().nullable(),
+      gsisId: z.string().nullable(),
+      yahooId: z.string().nullable(),
+      pfrId: z.string().nullable(),
+      name: z.string().nullable(),
+      /** The player the ids point at, by a source id (null = linked to no player). */
+      player: z
+        .object({
+          sleeperId: z.string().nullable(),
+          espnId: z.string().nullable(),
+          gsisId: z.string().nullable(),
+        })
+        .nullable(),
+    })
+  ),
+  unmatchedPlayers: z.array(
+    z.object({
+      source: leagueSourceName,
+      externalId: z.string().min(1),
+      name: z.string().nullable(),
+      position: z.string().nullable(),
+      nflTeam: z.string().nullable(),
+      status: z.enum(["open", "mapped", "ignored"]),
+      resolvedPlayer: z
+        .object({
+          sleeperId: z.string().nullable(),
+          espnId: z.string().nullable(),
+          gsisId: z.string().nullable(),
+        })
+        .nullable(),
+    })
+  ),
+});
+export type ConfigBundle = z.infer<typeof configBundle>;
