@@ -113,6 +113,18 @@ describe("manager comparison", () => {
 });
 
 describe("record-breaking feed", () => {
+  it("includes league-wide weeks at either end, with no team on the card", async () => {
+    // Regular-season averages: 2031 wk2 (530 / 6 = 88.333) is the lowest week; 2030 wk3 and 2031 wk1 tie for the highest (100.833).
+    const low = (
+      await get(`/api/seasons/${season.get(2031)}/records-broken?week=2`)
+    ).body.records.find((r: Json) => r.label === "Lowest-scoring league week");
+    expect(low).toMatchObject({ rank: 1, value: 88.333, season: 2031, week: 2, team: null });
+    const high = (
+      await get(`/api/seasons/${season.get(2030)}/records-broken?week=3`)
+    ).body.records.find((r: Json) => r.label === "Highest-scoring league week");
+    expect(high).toMatchObject({ rank: 1, value: 100.833, tied: true, team: null });
+  });
+
   it("lists the records a week set, judged against the whole history", async () => {
     // Team 3's 140 in 2030 week 3 is the highest score in the history (2031's best is 130).
     const { body } = await get(`/api/seasons/${season.get(2030)}/records-broken?week=3`);
@@ -129,6 +141,9 @@ describe("record-breaking feed", () => {
     ).body.records.find((r: Json) => r.label === "Lowest team score");
     expect(low).toMatchObject({ rank: 1, value: 60, tied: true, team: "Team 6" });
     const quiet = await get(`/api/seasons/${season.get(2031)}/records-broken?week=1`);
+    expect(quiet.body.records.find((r: Json) => r.label === "Lowest-scoring league week")).toBe(
+      undefined
+    );
     expect(quiet.body.records.find((r: Json) => r.label === "Highest team score")).toBeUndefined();
   });
 });
