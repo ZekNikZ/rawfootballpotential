@@ -131,7 +131,7 @@ function LineupTable({ team, entities }: { team: MatchupTeam; entities: Entities
                     <Table.Td data-numeric="">
                       {l.points === null ? "–" : fmtDecimal(l.points)}
                     </Table.Td>
-                    <Table.Td data-numeric="" c="dimmed">
+                    <Table.Td data-numeric="" c={projectionColor(l.projected, l.originalProjected)}>
                       {l.projected === null ? "–" : fmtDecimal(l.projected)}
                     </Table.Td>
                   </Table.Tr>
@@ -148,6 +148,14 @@ function LineupTable({ team, entities }: { team: MatchupTeam; entities: Entities
       )}
     </Stack>
   );
+}
+
+/** Live projection vs the original: green/red when it moved by more than a point, dimmed otherwise. */
+function projectionColor(live: number | null, original: number | null): string {
+  if (live === null || original === null) return "dimmed";
+  if (live - original > 1) return "green";
+  if (original - live > 1) return "red";
+  return "dimmed";
 }
 
 function Side({

@@ -390,7 +390,10 @@ export const lineupEntry = z.object({
   slot: z.string(),
   slotKind: z.string(),
   points: nullableNum,
+  /** Live matchups: points so far + the rest of the original projection; otherwise the original projection. */
   projected: nullableNum,
+  /** The original (pre-week) projection, for comparing against `projected`. */
+  originalProjected: nullableNum.default(null),
   nflStatus: z.string().nullable(),
   onBye: z.boolean(),
 });
