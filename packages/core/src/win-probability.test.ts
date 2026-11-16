@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   forecastTeam,
   gameFractionLeft,
+  liveProjection,
   normalCdf,
   winProbability,
   type LiveStarter,
@@ -21,6 +22,16 @@ describe("normalCdf", () => {
     expect(normalCdf(0)).toBeCloseTo(0.5, 6);
     expect(normalCdf(1)).toBeCloseTo(0.841345, 5);
     expect(normalCdf(-1.96)).toBeCloseTo(0.024998, 5);
+  });
+});
+
+describe("liveProjection", () => {
+  it("uses actual points for finished games, full projection before kickoff, and a blend in between", () => {
+    expect(liveProjection(14.2, 10, 0)).toBe(14.2);
+    expect(liveProjection(null, 10, 1)).toBe(10);
+    expect(liveProjection(6, 12, 0.5)).toBe(12);
+    expect(liveProjection(0, null, 0)).toBe(0);
+    expect(liveProjection(null, null, 0.5)).toBeNull();
   });
 });
 

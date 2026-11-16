@@ -1,4 +1,10 @@
-import { gameFractionLeft, median, winProbability, type LiveStarter } from "@rfp/core";
+import {
+  gameFractionLeft,
+  liveProjection,
+  median,
+  winProbability,
+  type LiveStarter,
+} from "@rfp/core";
 import { sql } from "@rfp/db";
 import type { Db } from "@rfp/db";
 import { HttpError } from "../lib/http";
@@ -155,15 +161,22 @@ export async function matchups(
   // Win probability: needs each starter's NFL game status and kickoff; only for single-week games still being played.
   const now = new Date();
   const starters = new Map<number, LiveStarter[]>();
+  // Live projections (every lineup player, not only starters): points so far + projection x fraction of the game left.
+  const liveByPlayer = new Map<string, number | null>();
+  const liveTeamProjected = new Map<number, number | null>();
   if (teamWeeks.length && weekStatus !== "complete") {
     const sr = await db.execute<{
       team_week_id: number;
+      player_id: number;
+      slot_kind: string;
+      points: number | null;
       position: string | null;
       projected: number | null;
       status: "scheduled" | "in_progress" | "final" | null;
       kickoff: Date | string | null;
     }>(sql`
-      select pw.team_week_id, pw.position, pw.projected_points::float8 as projected, g.status::text as status, g.kickoff
+      select pw.team_week_id, pw.player_id, pw.slot_kind::text as slot_kind, pw.points::float8 as points,
+             pw.position, pw.projected_points::float8 as projected, g.status::text as status, g.kickoff
       from player_week pw
       join team_week tw on tw.id = pw.team_week_id
       join league_season ls on ls.id = tw.league_season_id
@@ -176,17 +189,30 @@ export async function matchups(
       ) team on true
       left join nfl_team_week ntw on ntw.season = ls.year and ntw.week = tw.week and ntw.nfl_team = team.team
       left join nfl_game g on g.id = coalesce(pw.nfl_game_id, ntw.nfl_game_id)
-      where pw.slot_kind = 'starter' and pw.team_week_id in (${inList(teamWeeks.map((t) => Number(t.team_week_id)))})`);
+      where pw.team_week_id in (${inList(teamWeeks.map((t) => Number(t.team_week_id)))})`);
+    // Only single-week games of an in-progress week whose team is not final get live projections.
+    const liveTeamWeeks = new Set(
+      weekStatus === "in_progress"
+        ? teamWeeks
+            .filter((t) => !t.is_final && Number(t.span_weeks ?? 1) === 1)
+            .map((t) => Number(t.team_week_id))
+        : []
+    );
     for (const r of sr.rows) {
+      const fractionLeft = gameFractionLeft(r.status, r.kickoff ? new Date(r.kickoff) : null, now);
+      const isLive = liveTeamWeeks.has(r.team_week_id);
+      const live = isLive ? liveProjection(r.points, r.projected, fractionLeft) : null;
+      if (isLive) liveByPlayer.set(`${r.team_week_id}:${r.player_id}`, live);
+      if (r.slot_kind !== "starter") continue;
       const list = starters.get(r.team_week_id) ?? [];
-      list.push({
-        position: r.position,
-        projected: r.projected,
-        fractionLeft: gameFractionLeft(r.status, r.kickoff ? new Date(r.kickoff) : null, now),
-      });
+      list.push({ position: r.position, projected: r.projected, fractionLeft });
       starters.set(r.team_week_id, list);
+      if (isLive && live !== null)
+        liveTeamProjected.set(r.team_week_id, (liveTeamProjected.get(r.team_week_id) ?? 0) + live);
     }
   }
+  const teamProjected = (t: Record<string, unknown>) =>
+    liveTeamProjected.get(Number(t.team_week_id)) ?? num(t.projected);
   const winProbabilityOf = (side: Record<string, unknown>, other: Record<string, unknown>) =>
     winProbability(
       { points: Number(side.points), starters: starters.get(Number(side.team_week_id)) ?? [] },
@@ -197,7 +223,7 @@ export async function matchups(
     teamSeasonId: Number(t.team_season_id),
     avatar: (t.avatar as string | null) ?? null,
     points: Number(t.points),
-    projected: num(t.projected),
+    projected: teamProjected(t),
     winProbability: winProb,
     result: t.result as string | null,
     isFinal: Boolean(t.is_final),
@@ -218,7 +244,8 @@ export async function matchups(
             slot: l.slot,
             slotKind: l.slot_kind,
             points: num(l.points),
-            projected: num(l.projected),
+            projected: liveByPlayer.get(`${l.team_week_id}:${l.player_id}`) ?? num(l.projected),
+            originalProjected: num(l.projected),
             nflStatus: l.nfl_status,
             onBye: l.bye,
           }))
@@ -259,7 +286,10 @@ export async function matchups(
       ? {
           actual: median(counted.map((t) => Number(t.points))),
           projected: median(
-            counted.flatMap((t) => (t.projected === null ? [] : [Number(t.projected)]))
+            counted.flatMap((t) => {
+              const p = teamProjected(t);
+              return p === null ? [] : [p];
+            })
           ),
         }
       : null;

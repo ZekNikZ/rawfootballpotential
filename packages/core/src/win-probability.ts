@@ -63,6 +63,20 @@ export function gameFractionLeft(
   return Math.min(1, Math.max(MIN_LEFT_LIVE, 1 - elapsed / GAME_HOURS));
 }
 
+/**
+ * Projected final points for one player in a live week: points so far + original projection x fraction of the NFL
+ * game left (= projection / game length x time remaining). A finished game (or a bye) contributes what the player
+ * scored; a game not yet started contributes the full projection. Null only when there is neither.
+ */
+export function liveProjection(
+  points: number | null,
+  projected: number | null,
+  fractionLeft: number
+): number | null {
+  if (points === null && projected === null) return null;
+  return (points ?? 0) + (fractionLeft > 0 ? (projected ?? 0) * fractionLeft : 0);
+}
+
 export type TeamForecast = {
   /** Points scored so far. */
   points: number;
