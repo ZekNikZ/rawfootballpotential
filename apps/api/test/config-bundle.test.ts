@@ -1,5 +1,4 @@
 import {
-  auditLog,
   franchise,
   league,
   leagueSeason,
@@ -36,8 +35,6 @@ import { createAdminWorld, type AdminWorld } from "./admin-helpers";
 // id would point at the wrong season.
 
 let w: AdminWorld;
-let ownerCookie: string;
-let adminCookie: string;
 let target: { db: Db; close: () => Promise<void> };
 let targetFixture: SeededFixture;
 
@@ -47,8 +44,6 @@ beforeAll(async () => {
   w = await createAdminWorld();
   await w.addUser("owner@example.com", "owner");
   await w.addUser("admin@example.com", "admin");
-  ownerCookie = await w.login("owner@example.com");
-  adminCookie = await w.login("admin@example.com");
 
   // Configuration set by hand in the source database.
   const db = w.world.db;
@@ -204,28 +199,18 @@ describe("the export", () => {
   });
 });
 
-describe("GET /api/admin/config-export", () => {
-  it("needs a session and the owner role, downloads as a file, and is audited", async () => {
-    expect((await w.call("GET", "/api/admin/config-export")).status).toBe(401);
-    expect((await w.call("GET", "/api/admin/config-export", { cookie: adminCookie })).status).toBe(
-      403
-    );
-    const before = await w.world.db
-      .select()
-      .from(auditLog)
-      .where(eq(auditLog.action, "config.export"));
-    const res = await w.call("GET", "/api/admin/config-export", { cookie: ownerCookie });
+describe("GET /api/config-export", () => {
+  it("is public, downloads as a file, is not cached, and no longer exists under /api/admin", async () => {
+    const res = await w.call("GET", "/api/config-export");
     expect(res.status).toBe(200);
     expect(String(res.headers["content-disposition"])).toMatch(
       /^attachment; filename="rfp-config-\d{4}-\d{2}-\d{2}\.json"$/
     );
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(configBundle.safeParse(res.json).success).toBe(true);
-    const after = await w.world.db
-      .select()
-      .from(auditLog)
-      .where(eq(auditLog.action, "config.export"));
-    expect(after.length).toBe(before.length + 1);
+    for (const secret of ["owner@example.com", "admin@example.com", "password", "session", "token"])
+      expect(JSON.stringify(res.json).toLowerCase(), secret).not.toContain(secret);
+    expect((await w.call("GET", "/api/admin/config-export")).status).toBe(404);
   });
 });
 

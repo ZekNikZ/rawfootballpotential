@@ -100,9 +100,9 @@ function ChangelogEditor({ initial }: { initial: ChangelogEntry[] }) {
   );
 }
 
-/** Fetches the configuration file and hands it to the browser as a download; the server allows owners only. */
+/** Fetches the (public) configuration file and hands it to the browser as a download. */
 async function downloadConfig(): Promise<string> {
-  const res = await fetch("/api/admin/config-export", { credentials: "same-origin" });
+  const res = await fetch("/api/config-export");
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {

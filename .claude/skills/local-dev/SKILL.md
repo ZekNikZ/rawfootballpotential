@@ -58,7 +58,7 @@ pnpm db:migrate        # prints "migrations applied"
 The database starts empty. `import-config` creates leagues and **creates each Sleeper season from its league id** (one
 cached Sleeper round trip each). Two ways to get the file:
 
-- **Full configuration** (people, settings, corrections too): Admin → Site & changelog → Download configuration on the live site
+- **Full configuration** (people, settings, corrections too): `curl -o rfp-config.json https://rawfootballpotential.com/api/config-export` (public, read-only; also Admin → Site & changelog → Download)
   (the owner has it). ESPN seasons in it are skipped by the importer; fine locally.
 - **Minimal**: copy `.claude/skills/local-dev/local-config.template.json` into the scratchpad, replace `SLEEPER_LEAGUE_ID` with a
   real Sleeper league id (ask the owner; never guess ids) and `year`/`slug`/`type` to match. Add more `seasons` entries for
