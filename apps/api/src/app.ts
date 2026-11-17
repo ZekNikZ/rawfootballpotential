@@ -41,7 +41,9 @@ import {
 import { tradeBreakdown } from "./info/trade-breakdown";
 import { HttpError, sendCacheable } from "./lib/http";
 import { leagueBySlug, seasonById } from "./lib/leagues";
+import { exportConfigBundle } from "@rfp/ingest";
 import { registerAdmin } from "./admin";
+import { RateLimiter } from "./auth/rate-limit";
 import type { AdminDeps } from "./admin/context";
 import { RecordError, runRecord } from "./records/run";
 
@@ -121,6 +123,21 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
       lastDaily: await lastOk("daily"),
       lastFinalize: await lastOk("finalize"),
     };
+  });
+
+  // ---- configuration export: public and read-only (no accounts, sessions or secrets are in it), to bootstrap a
+  // local environment with `pnpm ingest import-config`. Rate limited per client IP. ----
+  const configExportLimiter = new RateLimiter(10, 60_000);
+  app.get("/api/config-export", async (req, reply) => {
+    if (!configExportLimiter.take(req.ip))
+      throw new HttpError(429, "Too many requests, wait a minute");
+    const bundle = await exportConfigBundle(db);
+    reply.header("Cache-Control", "no-store");
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="rfp-config-${bundle.exportedAt.slice(0, 10)}.json"`
+    );
+    return bundle;
   });
 
   // ---- site, leagues ----

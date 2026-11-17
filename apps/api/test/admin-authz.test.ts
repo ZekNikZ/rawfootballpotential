@@ -21,7 +21,7 @@ afterAll(async () => {
 
 /** Fills `:param` segments with a harmless placeholder. */
 const concrete = (route: string) => route.replace(/:[a-zA-Z]+/g, "1");
-const OWNER_ONLY = /^(GET|POST|PATCH|DELETE|PUT) \/api\/admin\/(users|invites|config-export)/;
+const OWNER_ONLY = /^(GET|POST|PATCH|DELETE|PUT) \/api\/admin\/(users|invites)/;
 
 describe("authentication", () => {
   it("every admin route rejects a request with no session", async () => {

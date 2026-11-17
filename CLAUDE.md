@@ -36,7 +36,7 @@ pnpm admin:create-owner                # first admin account
 pnpm --filter @rfp/web smoke                     # browser smoke (needs the stack running)
 ```
 
-New machine: `docs/maintenance.md` section 4 ("Bootstrapping a new machine"; Admin -> Site & changelog downloads the configuration file that `import-config` loads).
+New machine: `docs/maintenance.md` section 4 ("Bootstrapping a new machine"; the configuration file `import-config` loads is public at `GET /api/config-export`, or Admin -> Site & changelog -> Download).
 
 Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root has `DATABASE_URL` and
 `TEST_DATABASE_URL`. API tests run against a real database.
@@ -93,6 +93,7 @@ Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root
 - `deploy-and-operate`: how a change reaches production, server layout, backups, rollback, one-off commands.
 - `post-deploy-verify`: verify the live site after a deploy; known failure modes (preload errors, empty responses).
 - `data-problems`: a number looks wrong, a job is stuck, a player is unmatched, a new season or ESPN bundle arrives.
+- `local-dev`: run a local web + API + Postgres seeded from the live site (`/api/config-export`) and the public sources, to try a change in the browser.
 
 ## Agents (in `.claude/agents/`)
 

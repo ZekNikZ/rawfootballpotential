@@ -1,0 +1,33 @@
+{
+  "format": "rfp-config",
+  "version": 1,
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "site": [],
+  "leagues": [
+    {
+      "slug": "redraft",
+      "name": "Redraft",
+      "type": "redraft",
+      "color": "blue",
+      "displayOrder": 0,
+      "enabled": true,
+      "seasons": [
+        {
+          "year": 2025,
+          "source": "sleeper",
+          "externalId": "SLEEPER_LEAGUE_ID",
+          "enabled": true,
+          "scoringOverrides": [],
+          "lockedFlags": {}
+        }
+      ],
+      "thresholds": [],
+      "franchises": []
+    }
+  ],
+  "recordConfig": [],
+  "managers": [],
+  "overrides": [],
+  "playerLinks": [],
+  "unmatchedPlayers": []
+}
