@@ -40,3 +40,20 @@ export const irMissingNote = (n: number) =>
   n === 1
     ? "1 player on the bench was on IR, but data is missing for which player that was."
     : `${n} players on the bench were on IR, but data is missing for which players those were.`;
+
+/**
+ * Playoff chance for the standings: whole percent, but "100%" and "0%" are reserved for certainty (clinched or
+ * eliminated), so a merely very likely team reads ">99%" and a long shot "<1%".
+ */
+export function fmtPlayoffOdds(o: {
+  probability: number;
+  clinched: boolean;
+  eliminated: boolean;
+}): string {
+  if (o.clinched) return "100%";
+  if (o.eliminated) return "0%";
+  const pct = Math.round(o.probability * 100);
+  if (pct >= 100 || o.probability > 0.995) return ">99%";
+  if (pct < 1) return "<1%";
+  return `${pct}%`;
+}

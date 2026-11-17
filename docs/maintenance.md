@@ -25,6 +25,7 @@ nflverse ────┘   (every response cached)           (league, season, te
   (every response, `apps/api/src/records/run.ts`). The record-cache key hashes all four.
 - **Version History** (the modal on the home page) is data, not code: `site_config.changelog` (JSON array), edited in
   Admin -> Site & changelog, or added by a migration (see the `changelog-entry` skill). The modal opens once per new newest version.
+- **Playoff odds** (Standings column): computed live from the schedule and projections, nothing stored; no version to bump. Definition in `docs/records-architecture.md` ("Playoff odds").
 
 ## 2. Which version to bump when
 

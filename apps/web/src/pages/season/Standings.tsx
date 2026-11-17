@@ -7,6 +7,7 @@ import {
   Stack,
   Table,
   Text,
+  Tooltip,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
@@ -16,11 +17,47 @@ import { EmptyState, QueryError } from "../../components/QueryState";
 import { TeamAvatar } from "../../components/TeamAvatar";
 import { TeamLabel } from "../../components/TeamLabel";
 import classes from "../../components/DataTable.module.css";
-import { fmtDecimal, ordinal } from "../../lib/format";
+import { fmtDecimal, fmtPlayoffOdds, ordinal } from "../../lib/format";
 import { SeasonShell } from "./SeasonShell";
 
 const record = (r: { wins: number; losses: number; ties: number }) =>
   `${r.wins}-${r.losses}${r.ties ? `-${r.ties}` : ""}`;
+
+/** A chance while the regular season is on (clinched / eliminated when certain), what happened once it is over. */
+function PlayoffsCell({
+  odds,
+  made,
+}: {
+  odds: NonNullable<StandingsData["playoffOdds"]>[string] | undefined;
+  made: boolean | null;
+}) {
+  if (odds) {
+    return (
+      <Text
+        span
+        fw={odds.clinched ? 700 : undefined}
+        c={odds.clinched ? "green" : odds.eliminated ? "dimmed" : undefined}
+      >
+        {odds.clinched && "✓ "}
+        {odds.eliminated && "✗ "}
+        {fmtPlayoffOdds(odds)}
+      </Text>
+    );
+  }
+  if (made === null) return <>–</>;
+  return made ? (
+    <Text span c="green" fw={600}>
+      ✓ Made
+    </Text>
+  ) : (
+    <Text span c="dimmed">
+      ✗ Missed
+    </Text>
+  );
+}
+
+const ODDS_HELP =
+  "Chance of making the playoffs, from simulating the rest of the season: each team's projected scores, the remaining schedule, and the tiebreakers (record, then points for). 100% means clinched and 0% means eliminated: certain either way.";
 
 function StandingsTable({
   rows,
@@ -34,6 +71,10 @@ function StandingsTable({
   showCutoff: boolean;
 }) {
   const complete = season.status === "complete";
+  const odds = data.playoffOdds;
+  // Once the regular season is over the column shows what happened instead of a chance.
+  const settled = complete || data.season.last_completed_week >= data.season.regular_season_weeks;
+  const showPlayoffs = odds !== null || settled;
   return (
     <Table.ScrollContainer minWidth={560} type="native">
       <Table withTableBorder className={classes.table}>
@@ -47,6 +88,17 @@ function StandingsTable({
             <Table.Th data-numeric="">PF</Table.Th>
             <Table.Th data-numeric="">PA</Table.Th>
             <Table.Th data-numeric="">GB</Table.Th>
+            {showPlayoffs && (
+              <Table.Th data-numeric="">
+                <Tooltip
+                  multiline
+                  w={300}
+                  label={odds !== null ? ODDS_HELP : "Whether the team made the playoffs."}
+                >
+                  <span>Playoffs</span>
+                </Tooltip>
+              </Table.Th>
+            )}
             <Table.Th>{complete ? "Finish" : "Status"}</Table.Th>
           </Table.Tr>
         </Table.Thead>
@@ -75,6 +127,14 @@ function StandingsTable({
               <Table.Td data-numeric="">
                 {r.games_back ? fmtDecimal(r.games_back).replace(/\.00$/, "") : "–"}
               </Table.Td>
+              {showPlayoffs && (
+                <Table.Td data-numeric="">
+                  <PlayoffsCell
+                    odds={odds?.[String(r.team_season_id)]}
+                    made={settled ? r.made_playoffs : null}
+                  />
+                </Table.Td>
+              )}
               <Table.Td>
                 {complete && r.final_place !== null ? (
                   <Text span fw={r.final_place <= 3 ? 700 : undefined}>
@@ -187,6 +247,8 @@ function Body({ season }: { season: Season }) {
       <Text size="sm" c="dimmed">
         {season.medianEnabled && "Each week also counts a win or loss against the league median. "}
         The line marks the last playoff spot ({season.playoffTeams} teams).
+        {data.playoffOdds !== null &&
+          " Playoff odds simulate the rest of the schedule from projected scores; a team is only shown at 100% or 0% when that is certain."}
       </Text>
     </Stack>
   );

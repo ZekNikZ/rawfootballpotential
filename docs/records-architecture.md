@@ -826,6 +826,30 @@ Output: `apps/scraper/bundles/<league>-<year>.json.gz` (validated with the serve
 
 **Results on the real bundles.** 2021: 12 teams, 84 regular + 8 playoff + 9 toilet-bowl games, 204 team-weeks, 3,316 lineup entries, 415 transactions (81 not executed), 192 draft picks. All 301 players matched (no queue), no score mismatches, the brackets reproduce both the legacy placements and ESPN's ranks, and no lineup anomalies. 2021 now has lineup, projection, transaction and draft records and pages. 2020: 9 teams, 52 regular + 4 playoff + 4 toilet-bowl games (two-week playoffs), 153 team-weeks, 1,900 lineup entries (the one-week weeks), 339 transactions (62 not executed), 144 draft picks; all 240 players matched, no mismatches.
 
+#### Playoff odds (standings page)
+
+The Standings page shows a **Playoffs** column while the regular season is on (latest week only); once the regular
+season is over it shows the actual outcome (Made / Missed). Code: `packages/core/src/playoff-odds.ts`,
+`apps/api/src/info/playoff-odds.ts` (cached 30 s).
+
+- **Probability:** seeded Monte Carlo (20,000 simulations, fixed seed per season and week, so the number is stable between
+  requests). Each remaining week every team's score is normal around its projected total; the head-to-head result and the
+  weekly median result (when the league has a median) come from the same simulated scores. Standings use the site rule:
+  record (tie = half), then PF, then id.
+- **Projected totals:** the live projection for the week in progress (section above), finished games as scored; for weeks
+  not yet played, the best projected lineup the team's current roster could field that week (optimal lineup over the
+  players' projections, IR excluded, so bye-week starters do not drag it down). More than two weeks ahead the projection
+  is averaged with the team's points per game so far. Spread: sqrt of the sum of position variances (`starterScoreSd`),
+  shrinking with the share of the live lineup still to play.
+- **100% / 0% are certainties, not rounding:** a separate exact check (not the simulation) decides *clinched* (the team
+  makes it even if it loses every remaining game) and *eliminated* (misses it even if it wins every one). Teams that would
+  merely tie on wins count against the team in the clinch check (the tiebreaker, PF, is not assumed). With a median the
+  adversary's median wins are bounded exactly (each team gets at most one per week). The free-game enumeration is capped
+  (18 games); beyond that the check falls back to sound bounds, so a clinch/elimination may be declared a little late
+  (never early). An odd team count with a median disables the median certainty.
+- **Assumption (flag to the owner):** exact ties in future scores are treated as impossible.
+- Not shown when the stored schedule is missing for a remaining week.
+
 ## 4. Record catalog
 
 Legend:

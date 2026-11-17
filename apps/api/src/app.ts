@@ -32,7 +32,6 @@ import {
   drafts,
   futurePicks,
   matchups,
-  standings,
   superlatives,
   teams,
   topPerformers,
@@ -41,6 +40,7 @@ import {
 import { tradeBreakdown } from "./info/trade-breakdown";
 import { HttpError, sendCacheable } from "./lib/http";
 import { leagueBySlug, seasonById } from "./lib/leagues";
+import { standingsWithOdds } from "./info/playoff-odds";
 import { exportConfigBundle } from "@rfp/ingest";
 import { registerAdmin } from "./admin";
 import { RateLimiter } from "./auth/rate-limit";
@@ -383,7 +383,7 @@ export function buildApp({ db, config = {}, logger = false, admin }: AppOptions)
       return sendCacheable(
         req,
         reply,
-        await standings(db, season.id, week),
+        await standingsWithOdds(db, season.id, week),
         maxAgeFor(season.status)
       );
     }
