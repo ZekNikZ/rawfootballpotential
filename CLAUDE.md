@@ -93,6 +93,7 @@ Dev DB: Postgres in docker (`rfp-db-1`, host port 5433); `.env` at the repo root
 - `deploy-and-operate`: how a change reaches production, server layout, backups, rollback, one-off commands.
 - `post-deploy-verify`: verify the live site after a deploy; known failure modes (preload errors, empty responses).
 - `data-problems`: a number looks wrong, a job is stuck, a player is unmatched, a new season or ESPN bundle arrives.
+- `local-dev`: run a local web + API + Postgres filled from Sleeper only, to try a change in the browser (and why live projections need nfl-reference).
 
 ## Agents (in `.claude/agents/`)
 
