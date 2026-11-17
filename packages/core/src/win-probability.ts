@@ -30,6 +30,16 @@ const POSITION_SD: Record<string, number> = {
 };
 const DEFAULT_SD = 8;
 
+/** Sd of a team's whole-week score from its starters' positions (players independent), for a week not yet started. */
+export function starterScoreSd(positions: readonly (string | null)[]): number {
+  let variance = 0;
+  for (const p of positions) {
+    const sd = POSITION_SD[p ?? ""] ?? DEFAULT_SD;
+    variance += sd * sd;
+  }
+  return Math.sqrt(variance);
+}
+
 /** A game lasts about this long from kickoff to final whistle. */
 const GAME_HOURS = 3.25;
 /** An in-progress game never reads as finished (overtime, delays): at least this much stays. */

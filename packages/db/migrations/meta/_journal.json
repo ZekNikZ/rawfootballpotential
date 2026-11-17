@@ -127,6 +127,13 @@
       "when": 1794852607321,
       "tag": "0017_changelog_2_4_0",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794939000000,
+      "tag": "0018_changelog_2_5_0",
+      "breakpoints": true
     }
   ]
 }

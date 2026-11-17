@@ -378,6 +378,14 @@ export const standingsResponse = z.object({
       avatar: z.string().nullable(),
     })
   ),
+  /** Playoff odds by team season id; null for finished seasons, an earlier week, or when the schedule is unknown. */
+  playoffOdds: z
+    .record(
+      z.string(),
+      z.object({ probability: z.number(), clinched: z.boolean(), eliminated: z.boolean() })
+    )
+    .nullable()
+    .default(null),
   entities: entitiesSchema,
 });
 export type Standings = z.infer<typeof standingsResponse>;

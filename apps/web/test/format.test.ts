@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { fmtDecimal, fmtMoney, fmtPct, fmtPct1, ordinal, seasonLabel } from "../src/lib/format";
+import {
+  fmtDecimal,
+  fmtMoney,
+  fmtPct,
+  fmtPct1,
+  fmtPlayoffOdds,
+  ordinal,
+  seasonLabel,
+} from "../src/lib/format";
 import { slugify } from "../src/components/records/section-state";
 import { numberText } from "../src/components/records/cells";
 
@@ -10,6 +18,18 @@ describe("formatting", () => {
     expect(fmtPct(0.6015625)).toBe("60.16%");
     expect(fmtPct1(0.5)).toBe("50.0%");
     expect(fmtMoney(305)).toBe("$305");
+  });
+  it("playoff odds reserve 100% and 0% for certainty", () => {
+    const o = (probability: number, clinched = false, eliminated = false) =>
+      fmtPlayoffOdds({ probability, clinched, eliminated });
+    expect(o(1, true)).toBe("100%");
+    expect(o(0, false, true)).toBe("0%");
+    expect(o(0.9997)).toBe(">99%");
+    expect(o(0.996)).toBe(">99%");
+    expect(o(0.0004)).toBe("<1%");
+    expect(o(0.0049)).toBe("<1%");
+    expect(o(0.421)).toBe("42%");
+    expect(o(0.99)).toBe("99%");
   });
   it("ordinals", () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual([
