@@ -23,7 +23,8 @@ import { FOREVER, RawStore, hours, type FreshnessPolicy } from "../lib/raw-store
 const GAMES_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv";
 const ROSTER_URL = (season: number) =>
   `https://github.com/nflverse/nflverse-data/releases/download/weekly_rosters/roster_weekly_${season}.csv`;
-const CROSSWALK_URL = "https://github.com/dynastyprocess/data/raw/master/files/db_playerids.csv";
+const CROSSWALK_URL =
+  "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv";
 
 /** Abbreviations other sources use -> nflverse's (the canonical set, 32 teams). */
 export const TEAM_ALIASES: Record<string, string> = {

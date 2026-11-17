@@ -1,37 +1,46 @@
 ---
 name: local-dev
-description: Set up and run a local RFP front end and back end (Postgres, API, Vite web app) that fetches ONLY Sleeper data, to test a change in the browser before it ships. Use when asked to run the site locally, try a change against real matchups, or check live-week behavior without touching production, ESPN or nflverse.
+description: Set up and run a local RFP front end and back end (Postgres, API, Vite web app) seeded from the live site's configuration and the public data sources, to test a change in the browser before it ships. Use when asked to run the site locally, try a change against real matchups, or check live-week behavior without touching production.
 ---
 
-# Local front end + back end (Sleeper data only)
+# Local front end + back end
 
-Goal: a private copy of the site on `http://localhost:5173` backed by a local Postgres filled from Sleeper, so a change
-(a page, a matchup calculation, a record) can be seen working. Nothing here touches production.
+A private copy of the site on `http://localhost:5173`, backed by a local Postgres. The seed comes from the live site
+(`GET /api/config-export`: leagues, Sleeper league ids, managers, settings, corrections) and the ingest then pulls the
+rest from the public sources. Nothing here writes to production.
 
-## What may call out (and what must not)
+## What is and is not seeded
 
-| Call                                                                                        | Host                               | Allowed?                                                                                                                                        |
-| ------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sleeper league, rosters, matchups, projections, stats, player dump                          | `api.sleeper.app`                  | **yes**, the point of this skill                                                                                                                |
-| Team avatars the browser shows                                                              | `sleepercdn.com`                   | yes (browser only)                                                                                                                              |
-| `pnpm ingest nfl-reference`, and `pnpm ingest all` / `job nfl-reference` (which include it) | nflverse / GitHub                  | **no** by default, see "Live weeks"                                                                                                             |
-| `pnpm ingest espn <bundle>`, `apps/scraper`                                                 | ESPN                               | **no** (ESPN seasons are not needed locally)                                                                                                    |
-| the ingest **worker** (`pnpm --filter @rfp/ingest dev`)                                     | schedules jobs incl. nfl-reference | **no**: run single CLI commands instead                                                                                                         |
-| `/api/blog` (home page blog card)                                                           | a Wix RSS feed                     | the one non-Sleeper call the API makes; it returns 502 when unreachable and the page copes. Leave it, or set `BLOG_FEED_URL` to something local |
+- **Sleeper seasons**: everything (league, rosters, matchups, projections, stats, player dump) from `api.sleeper.app`.
+- **NFL reference** (`nfl-reference`, part of `ingest all`): game schedule, weekly rosters and the ID crosswalk from nflverse /
+  dynastyprocess on GitHub. Needed for live weeks: live win probability and live projected points read each starter's NFL
+  game status and kickoff from it; without it every starter looks finished.
+- **ESPN seasons (2020, 2021)**: NOT available. They exist only in the owner's scraped bundles (S3); the live site cannot
+  hand them out, and the config file does not create them. Local data is the Sleeper seasons only, so records that span ESPN
+  years differ from production. Do not scrape.
+- Blog card (`/api/blog`): a Wix RSS feed; 502 when unreachable and the page copes.
 
-Keep to the Sleeper rules in `CLAUDE.md`: well under 1000 calls/min, `players/nfl` at most once a day, every response is
-cached in `raw_payload` (the client does this; do not bypass it, and do not use `--force` casually).
+Hosts needed (cloud sessions: the environment's network allowlist): `api.sleeper.app`, `rawfootballpotential.com`, `github.com`,
+`raw.githubusercontent.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com` (propose them with
+`update_environment` if a call is refused with a proxy 403; never use wildcards). `github.com/<other repo>` URLs are blocked in a
+cloud session (the importer uses `raw.githubusercontent.com` for the crosswalk for that reason).
+
+Keep to the Sleeper rules in `CLAUDE.md` (well under 1000 calls/min, `players/nfl` at most once a day, every response cached in
+`raw_payload`; do not bypass the client or use `--force` casually).
 
 ## 1. Prerequisites
 
-- Node 24 (`.nvmrc`) and pnpm 11. Node 22 also ran everything here with only an "Unsupported engine" warning.
-- A Postgres (the project runs 18; 16 was verified). Either:
-  - Docker: put `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST_PORT=5433` in `.env`, then
-    `docker compose up -d db` (only the `db` service; never `up` the whole stack). Port 5433 on 127.0.0.1.
-  - No Docker (verified in the cloud container, root shell): `service postgresql start`, then
+- Node 24 (`.nvmrc`) and pnpm 11 (Node 22 also ran everything verified here, with an "Unsupported engine" warning).
+- A Postgres (production runs 18; 16 was verified):
+  - Docker: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST_PORT=5433` in `.env`, then
+    `docker compose up -d db` (only the `db` service). Port 5433 on 127.0.0.1.
+  - No Docker (cloud container, root): `service postgresql start`, then
     `su postgres -c "psql -c \"create user rfp with password '<local-only-password>' superuser\" -c 'create database rfp owner rfp'"`.
     Port 5432.
 - `pnpm install` once.
+- **Cloud sessions (outbound HTTPS goes through a proxy):** Node's built-in `fetch` ignores it (`ENOTFOUND`, "fetch failed"). Prefix every
+  command that calls out (`pnpm ingest ...`) with `NODE_USE_ENV_PROXY=1` (Node >= 22.21; `NODE_EXTRA_CA_CERTS` is already set).
+  Verified: `NODE_USE_ENV_PROXY=1 pnpm ingest players` loaded 12,229 players; `pnpm ingest nfl-reference --seasons 2026` loaded 272 games.
 
 ## 2. `.env` (repo root, git-ignored, never committed or printed)
 
@@ -45,7 +54,7 @@ LOG_LEVEL=info
 # BETTER_AUTH_SECRET=...  only for the admin UI: `openssl rand -base64 32`
 ```
 
-Check `git check-ignore .env` prints `.env` before writing anything into it. All apps find it by walking up from their cwd.
+Check `git check-ignore .env` prints `.env` before writing it. Every app finds it by walking up from its cwd.
 
 ## 3. Schema
 
@@ -53,49 +62,37 @@ Check `git check-ignore .env` prints `.env` before writing anything into it. All
 pnpm db:migrate        # prints "migrations applied"
 ```
 
-## 4. Leagues and seasons (Sleeper only)
-
-The database starts empty. `import-config` creates leagues and **creates each Sleeper season from its league id** (one
-cached Sleeper round trip each). Two ways to get the file:
-
-- **Full configuration** (people, settings, corrections too): `curl -o rfp-config.json https://rawfootballpotential.com/api/config-export` (public, read-only; also Admin → Site & changelog → Download)
-  (the owner has it). ESPN seasons in it are skipped by the importer; fine locally.
-- **Minimal**: copy `.claude/skills/local-dev/local-config.template.json` into the scratchpad, replace `SLEEPER_LEAGUE_ID` with a
-  real Sleeper league id (ask the owner; never guess ids) and `year`/`slug`/`type` to match. Add more `seasons` entries for
-  older years if wanted (each needs its own league id; `rollover` only finds _newer_ seasons).
+## 4. Seed: configuration from the live site, then the data
 
 ```sh
-pnpm ingest import-config "$PWD/<file>" --dry-run   # must say: would create league ... season(s)
-pnpm ingest import-config "$PWD/<file>"
+curl -sS -o "$PWD/rfp-config.json" https://rawfootballpotential.com/api/config-export   # public, read-only, 10/min per IP
+pnpm ingest import-config "$PWD/rfp-config.json" --dry-run   # expect: would create league(s) ... season(s)
+pnpm ingest import-config "$PWD/rfp-config.json"             # creates the leagues and every Sleeper season (cached Sleeper calls)
+pnpm ingest all                                              # players, sync every season, season rollover, nfl-reference, derive
+pnpm ingest points                                           # per-player weekly points for every season (~190 Sleeper calls, cached)
+pnpm ingest import-config "$PWD/rfp-config.json"             # second pass: franchise groupings, corrections, player links (idempotent)
 ```
 
-Use an **absolute path**: `pnpm ingest` runs inside `apps/ingest`, so a relative path is not found. (The template passes
-the dry-run in this repo.)
+- Use **absolute paths** for file arguments: `pnpm ingest` runs inside `apps/ingest`, so a relative path is not found.
+- Never commit `rfp-config.json` (check `git status`; keep it in the scratchpad or add it to `.git/info/exclude`).
+- The config endpoint exists once the release containing it has deployed (it returned 404 before). If it 404s, ask the owner for the
+  file from Admin → Site & changelog → Download configuration, or use the template below.
+- Template when only a league id is known: copy `.claude/skills/local-dev/local-config.template.json`, replace `SLEEPER_LEAGUE_ID`,
+  `year`, `slug`, `type`, and run the same `import-config`. Never guess league ids.
+- A quick look needs less: skip `points`, and `pnpm ingest sync --season <slug-year>` for one season instead of `all`.
 
-## 5. Fetch the data (Sleeper only, one command at a time)
-
-```sh
-pnpm ingest players                      # Sleeper player dump (cached 20 h)
-pnpm ingest sync --season redraft        # a league slug, or slug-year (redraft-2025), or all
-pnpm ingest points --season redraft      # optional: per-player weekly points for every season (~190 calls); skip for a quick look
-pnpm ingest derive --season redraft      # recompute derived tables and records data
-```
-
-Do **not** use `pnpm ingest all` (it adds nfl-reference). Run the second `import-config` pass from `docs/maintenance.md`
-section 4 only if using the full configuration file.
-
-## 6. Run it
+## 5. Run it
 
 Two terminals (or background jobs):
 
 ```sh
-pnpm --filter @rfp/api dev     # Fastify on :8000 (tsx watch), logs requests
+pnpm --filter @rfp/api dev     # Fastify on :8000 (tsx watch)
 pnpm --filter @rfp/web dev     # Vite on :5173; proxies /api to :8000 like production
 ```
 
 Open `http://localhost:5173`. Verified on an empty migrated database: `curl localhost:8000/healthz` →
-`{"ok":true,"db":true,...}`, and `curl localhost:5173/api/site` returns the same JSON as the API (proxy works).
-The API picks up code changes itself (watch); Vite hot-reloads the web app. Restart the API after a `.env` change.
+`{"ok":true,"db":true,...}` and `curl localhost:5173/api/site` returns the API's JSON (proxy works). The API reloads on code changes;
+restart it after a `.env` change. Do not run the ingest worker (`pnpm --filter @rfp/ingest dev`): it schedules jobs; use the CLI.
 
 Admin pages (optional): set `BETTER_AUTH_SECRET`, restart the API, `pnpm admin:create-owner --email <you>` (password prompt or
 `ADMIN_PASSWORD`; never print it).
@@ -103,28 +100,22 @@ Admin pages (optional): set `BETTER_AUTH_SECRET`, restart the API, `pnpm admin:c
 Useful checks: `pnpm --filter @rfp/api show-record <record-id>`, `pnpm --filter @rfp/api sweep-records`,
 `pnpm --filter @rfp/web smoke` (needs the stack running).
 
-## Live weeks (the matchup page and home tiles)
+## Live weeks (matchup page, home tiles)
 
-Refresh the current week's scores and projections from Sleeper (this is exactly what the scheduled `live` job does):
+Refresh the current week from Sleeper (what the scheduled `live` job does), then reload the page (it refetches every 30 s while the
+week is in progress):
 
 ```sh
-pnpm ingest sync --season redraft --mode live
+pnpm ingest sync --season <slug> --mode live
 ```
 
-The page refetches every 30 s when the week is in progress; the data only changes when you re-run the sync.
-
-**Known limit:** live win probability and live projected points need each starter's NFL game (status and kickoff). In a live
-week that comes from the `nfl_game` / `nfl_team_week` tables, filled by `nfl-reference`, which is not a Sleeper source.
-Without it those games have no status and every player is treated as finished (their actual points). So to see in-progress
-projections, you need this one extra, nflverse call, which is **outside** the Sleeper-only rule: ask the owner before running
-`pnpm ingest nfl-reference --seasons <year>`, then re-run `sync --mode live`. Otherwise unit tests
-(`packages/core/src/win-probability.test.ts`) and the API tests with fixture leagues are the way to check the math.
+Scores change only when you re-run the sync. The NFL game table (`nfl-reference`, already part of `ingest all`) must have the
+current season: if live projections look like plain actual points, run `pnpm ingest nfl-reference --seasons <year>` then sync again.
 
 ## Cleanup / gotchas
 
-- Stop the servers when done (they are not deployed anywhere). Dropping the local database loses nothing: the next
-  `sync` refills it from the cached `raw_payload` (while the DB lives) or from Sleeper.
-- Never point `DATABASE_URL` at anything but a local database. Production is only changed by merging to `main`.
-- A Sleeper sync of a finished season is frozen/cached; for an active week, re-sync after games to see change.
-- Not verified in this container (Sleeper is blocked by its network proxy: 403): the Sleeper fetch steps themselves.
-  Everything else above (Postgres, migrate, config dry-run, API, web, proxy) was run.
+- Stop the servers when done. Dropping the local database loses nothing: re-seed with section 4.
+- Never point `DATABASE_URL` at anything but a local database. Production changes only by merging to `main`.
+- A finished season is frozen/cached; only the active week changes between syncs.
+- The unit tests (`packages/core/src/win-probability.test.ts`) and the API fixture tests cover the live-projection math without any
+  network.
